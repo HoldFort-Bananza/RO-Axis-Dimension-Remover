@@ -7,40 +7,23 @@ using Tekla.Structures.Drawing;
 namespace RoAxisDimensionRemover
 {
     /// <summary>
-    /// Cała logika, zero wiedzy o UI. Kasuje nadmiarowe wymiary "do osi" na
-    /// profilach RO, wykryte empirycznie na [35270] - patrz wiki.
+    /// Cała logika, zero wiedzy o UI. Kasuje nadmiarowy wymiar prosty "do
+    /// osi" na profilach RO: w widoku przekroju/detalu miejsca łączenia
+    /// Tekla czasem auto-generuje wymiar zaczepiony o teoretyczną OŚ profilu
+    /// (współrzędna promienia ≈ 0) zamiast o jego widoczną powierzchnię -
+    /// typowo przy skosie/ucięciu pod kątem. Jeśli takich wymiarów jest w
+    /// jednym złączu więcej niż jeden, zostaje tylko ten o największej
+    /// wyświetlanej wartości (patrz `Dimension.Value`, PUŁAPKA niżej) - reszta
+    /// to duplikaty.
     ///
-    /// Reguła (NIE zgadywana - zmierzona na [35270], poprawiona po pierwszym
-    /// fałszywym trafieniu - patrz Ślepe uliczki w wiki):
-    /// w widoku przekroju/detalu miejsca łączenia RO auto-wymiarowanie Tekli
-    /// czasem zaczepia wymiar o teoretyczną OŚ profilu (współrzędna promienia
-    /// = 0) zamiast o jego widoczną powierzchnię (±promień). Jeśli w jednym
-    /// widoku jest więcej niż jeden taki wymiar "do osi", jest to duplikat -
-    /// zostaje ten o WIĘKSZEJ wyświetlanej wartości, mniejszy jest kasowany.
-    /// Widok z JEDNYM takim wymiarem (typowo: całkowita długość profilu,
-    /// koniec ucięty pod kątem) nie jest ruszany - to nie duplikat, tylko
-    /// jedyny sposób opisania długości przy skosie.
+    /// Reguła NIE jest zgadywana - każda stała ma pochodzenie w komentarzu
+    /// obok niej. Pełna historia (4 wersje, w tym dwie, które realnie
+    /// skasowały dobre wymiary na żywym modelu) i odrzucone podejścia są w
+    /// `CLAUDE.md` w tym repo - przeczytaj przed zmianą tej klasy.
     ///
-    /// PUŁAPKA: "współrzędna = 0" sama w sobie NIC nie znaczy - dla wymiaru
-    /// leżącego płasko w widoku jedna ze współrzędnych (typowo Z) jest 0 dla
-    /// OBU końców, bo widok jest dwuwymiarowy, nie dlatego że to oś. Sprawdzać
-    /// trzeba tylko współrzędną, która MIĘDZY końcami się RÓŻNI - inaczej
-    /// program łapie prawidłowy wymiar "z boku rury" jako fałszywy duplikat i
-    /// kasuje go razem z właściwym celem (zdarzyło się na [35270], v0.1).
-    ///
-    /// PUŁAPKA 2: "krótszy" nie znaczy mniejszy surowy dystans 3D między
-    /// StartPoint/EndPoint - to osobna liczba od wyświetlanej wartości
-    /// (wartość to rzut na kierunek wymiaru, nie odległość euklidesowa).
-    /// Trzeba porównywać wyświetlaną wartość (Dimension.Value), nie geometrię.
-    ///
-    /// PUŁAPKA 3 (poważna - realnie skasowała dobre wymiary na [3.5013]):
-    /// grupowanie po CAŁYM widoku jest błędne, gdy w jednym widoku jest
-    /// więcej niż jedno złącze RO (np. kilka narożników balustrady na
-    /// wspólnym rysunku ogólnym). Program zostawiał wtedy tylko JEDEN
-    /// wymiar z całego widoku, kasując wymiary należące do zupełnie innych,
-    /// niepowiązanych złączy. Trzeba grupować po BLISKOŚCI GEOMETRYCZNEJ
-    /// (to samo złącze), nie po przynależności do widoku - patrz
-    /// GroupByProximity.
+    /// PUŁAPKA: `Dimension.Value` to rzut na kierunek wymiaru, nie odległość
+    /// euklidesowa między `StartPoint`/`EndPoint` - "krótszy" trzeba oceniać
+    /// po wyświetlanej wartości, nie po surowej geometrii.
     /// </summary>
     public class RoAxisDimensionService
     {
@@ -51,8 +34,10 @@ namespace RoAxisDimensionRemover
 
         // Próg, powyżej którego współrzędna MIĘDZY końcami wymiaru uznajemy
         // za "różną" (czyli tę oś w ogóle bierzemy pod uwagę przy szukaniu
-        // zera). Bez tego wymiar płaski w widoku (Z=0 dla obu końców) łapałby
-        // się jako "na osi" - patrz pułapka w komentarzu klasy.
+        // zera). Bez tego wymiar płaski w widoku (dla którego jedna
+        // współrzędna, typowo Z, jest 0 dla OBU końców, bo widok jest 2D, nie
+        // dlatego że to oś) łapałby się jako "na osi" - zdarzyło się na
+        // [35270] w v1, patrz CLAUDE.md.
         private const double CoordDiffersToleranceMm = 0.01;
 
         // Jednostki modelu (mm), NIE mm na papierze - StartPoint/EndPoint są
@@ -91,6 +76,24 @@ namespace RoAxisDimensionRemover
                     {
                         continue;
                     }
+
+                    // Dwuznaczność oś/powierzchnia dotyczy tylko krótkiego,
+                    // lokalnego wymiaru przy złączu. Wymiar całkowitej
+                    // długości profilu też "dotyka osi" (jego punkt startowy
+                    // jest w definicji na osi - lokalny początek układu
+                    // współrzędnych rury), ale to nie jest ten sam przypadek -
+                    // odsiewamy go po własnej długości, zanim w ogóle trafi do
+                    // kandydatów. Zdiagnozowane na [3.5013] w v4, patrz CLAUDE.md.
+                    double ownLength = PointDistance(sd.StartPoint, sd.EndPoint);
+                    if (ownLength > SameJointDistanceMm)
+                    {
+                        if (dryRun)
+                        {
+                            log($"[diag] wymiar dotyka osi, ale ma {ownLength:F0} mm własnej długości (>{SameJointDistanceMm:F0} mm) - to nie lokalny artefakt złącza, pomijam jako kandydata.");
+                        }
+                        continue;
+                    }
+
                     double? value = GetDisplayedValue(sd);
                     if (value == null)
                     {
@@ -158,10 +161,12 @@ namespace RoAxisDimensionRemover
 
         /// <summary>
         /// Grupuje wymiary "do osi" po bliskości geometrycznej (to samo
-        /// złącze), a nie po przynależności do widoku - patrz PUŁAPKA 3.
-        /// Single-linkage: dwa wymiary trafiają do tej samej grupy, jeśli
-        /// KTÓRYKOLWIEK z ich punktów końcowych leży bliżej niż
-        /// SameJointDistanceMm od punktu drugiego wymiaru.
+        /// złącze), a nie po przynależności do widoku - jeden widok może
+        /// zawierać kilka niepowiązanych złączy RO (zdarzyło się na
+        /// [3.5013] w v2, patrz CLAUDE.md). Single-linkage: dwa wymiary
+        /// trafiają do tej samej grupy, jeśli KTÓRYKOLWIEK z ich punktów
+        /// końcowych leży bliżej niż SameJointDistanceMm od punktu drugiego
+        /// wymiaru.
         /// </summary>
         private static List<List<(StraightDimension Dim, double Value)>> GroupByProximity(
             List<(StraightDimension Dim, double Value)> candidates)
@@ -235,8 +240,7 @@ namespace RoAxisDimensionRemover
         /// Dimension.Value to kolekcja elementów tekstu wymiaru (obsługa
         /// mieszanego formatowania), nie sama liczba. Szukamy w niej
         /// pierwszego elementu z właściwością "Value" dającą się sparsować
-        /// jako liczba - zmierzone na [35270] przez zrzut refleksją, patrz
-        /// wiki 3-API-Tekli.
+        /// jako liczba - zmierzone na [35270] przez zrzut refleksją.
         /// </summary>
         private static double? GetDisplayedValue(StraightDimension sd)
         {
