@@ -132,11 +132,15 @@ proces działa (patrz `..\CLAUDE.md`, zasada 4).
 | Plik | Zawartość |
 |---|---|
 | `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI |
-| `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku (`dryRun: true` na sztywno) |
+| `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku (`dryRun: false` od 2026-09-04 — kasuje naprawdę) |
 | `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark` dla trybu konsolowego |
-| `DiagRunner.cs` | tymczasowy headless runner dry-run (patrz wyżej) — **do usunięcia przed pierwszym wydaniem**, jak `Inspector.cs` |
-| `Inspector.cs` | tymczasowy skaner kandydatów RO po całym modelu — **do usunięcia przed pierwszym wydaniem** |
+| `DiagRunner.cs` | headless runner dry-run (patrz wyżej) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) — wzorzec 1:1 z `Radius Dimention Mover` |
+
+`Inspector.cs` (tymczasowy skaner kandydatów RO po całym modelu, użyty
+jednorazowo do znalezienia `[3.5013]`) **usunięty po v0.2.0** — nieużywany
+od chwili, gdy oba rysunki testowe były już znane. Patrz git historia, jeśli
+trzeba znaleźć kolejnego kandydata na innym modelu.
 | `installer/setup.iss`, `installer/fetch-dependencies.ps1`, `installer/TeklaEULA.txt` | instalator Inno Setup — nie dołącza bibliotek Tekla, dociąga je z NuGet po instalacji, patrz komentarze w plikach |
 
 ## Wydania (GitHub Releases)
@@ -181,7 +185,10 @@ proces działa (patrz `..\CLAUDE.md`, zasada 4).
 2. ~~Przełączyć `dryRun: false` w `MainForm.cs`.~~ **Zrobione 2026-09-04.**
    `DiagRunner.cs` NIE dostał tej zmiany — zostaje na sztywno `dryRun: true`
    na zawsze, patrz brama bezpieczeństwa wyżej.
-3. Wydać wersję instalatora z realnym kasowaniem jako pełne wydanie (nie
-   pre-release) — patrz sekcja "Wydania" niżej.
-4. Usunąć `Inspector.cs` i `DiagRunner.cs` (albo świadomie zostawić —
-   zdecydować przy porządkach przed wydaniem).
+3. ~~Wydać wersję instalatora z realnym kasowaniem jako pełne wydanie (nie
+   pre-release).~~ **Zrobione 2026-09-04** — v0.2.0.
+4. ~~Usunąć `Inspector.cs` i `DiagRunner.cs` (albo świadomie zostawić).~~
+   **Zdecydowane i zrobione 2026-09-04**: `Inspector.cs` usunięty (był
+   nieużywany od chwili znalezienia obu rysunków testowych).
+   `DiagRunner.cs` zostaje świadomie, na zawsze — patrz brama
+   bezpieczeństwa wyżej i komentarz w tym pliku.

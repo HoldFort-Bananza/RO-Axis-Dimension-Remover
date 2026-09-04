@@ -3,11 +3,12 @@ using Tekla.Structures.Drawing;
 
 namespace RoAxisDimensionRemover
 {
-    // Rusztowanie diagnostyczne (jak Inspector.cs) - USUNĄĆ przed wydaniem.
-    // Automatyzacja (Claude Code) nie umie klikać przycisku w MainForm, więc
-    // to jedyny sposób odpalić dry-run na aktywnym rysunku bez człowieka przy
-    // GUI. dryRun jest tu na sztywno true - z linii komend nie da się tego
-    // przełączyć, więc ten tryb nigdy nie kasuje.
+    // Świadomie trwały element projektu, NIE tymczasowe rusztowanie (w
+    // odróżnieniu od usuniętego już Inspector.cs) - automatyzacja (Claude
+    // Code) nie umie klikać przycisku w MainForm, więc to jedyny sposób
+    // odpalić dry-run na aktywnym rysunku bez człowieka przy GUI. dryRun
+    // jest tu na sztywno true - z linii komend nie da się tego przełączyć,
+    // więc ten tryb nigdy nie kasuje.
     //
     // WAŻNE: to zostaje tak NA ZAWSZE, nawet po tym, jak MainForm.cs dostał
     // dryRun: false (2026-09-04, po potwierdzeniu operatora na [35270] i

@@ -125,26 +125,24 @@ komend.
 | `[35270]` | Einzelteil Geländer, RO Ø48,3 (promień 24,15) | ✅ v4 potwierdzone wizualnie 2026-09-04: kasuje tylko `12`, zostawia `24` i `2811` |
 | `[3.5013]` | Einzelteil Geländer, więcej złączy RO w jednym widoku | ✅ v4 potwierdzone wizualnie 2026-09-04: 2 widoki, po 1 duplikacie 21 mm skasowanym w każdym, `5796 mm` nietknięty |
 
-## Znajdowanie kolejnych kandydatów bez klikania
+## Znajdowanie kolejnych kandydatów bez klikania (historia - plik usunięty)
 
-`Inspector.cs` (rusztowanie diagnostyczne, **do usunięcia przed pierwszym
-"prawdziwym" wydaniem**, na razie zostawione bo działa i jest przydatne):
-skanuje **wszystkie** rysunki pojedynczych części (`SinglePartDrawing`),
-filtruje po `Profile.ProfileString` zaczynającym się od `"RO"`, i dla
-każdego robi "na sucho" sprawdzenie (`SetActiveDrawing(d, false)` →
-`RemoveRedundantAxisDimensions(dryRun: true)` → `CloseActiveDrawing(false)`)
-bez otwierania na ekranie. Znaleziony kandydat jest otwierany od razu z tej
-samej referencji `Drawing` (bez ponownego, wolnego szukania po `Mark`).
+`Inspector.cs`, **usunięty po v0.2.0** (był rusztowaniem diagnostycznym,
+zaplanowanym do usunięcia przed pierwszym pełnym wydaniem - patrz git
+historia, jeśli trzeba go przywrócić): skanował **wszystkie** rysunki
+pojedynczych części (`SinglePartDrawing`), filtrował po `Profile.ProfileString`
+zaczynającym się od `"RO"`, i dla każdego robił "na sucho" sprawdzenie
+(`SetActiveDrawing(d, false)` → `RemoveRedundantAxisDimensions(dryRun: true)`
+→ `CloseActiveDrawing(false)`) bez otwierania na ekranie. Znaleziony kandydat
+był otwierany od razu z tej samej referencji `Drawing` (bez ponownego,
+wolnego szukania po `Mark`).
 
 Na 1023 rysunkach pojedynczych części: 7 miało profil RO, jeden odrzucony
 (`CannotPerformOperationDrawingNotUpToDateException` - rysunek nieaktualny,
 wymaga `UpdateDrawing()` przed otwarciem, tak samo jak w Radius Dimension
 Mover), `[3.5013]` był pierwszym trafieniem z realnym duplikatem (3
-kandydatów).
-
-Wywołanie tymczasowo wyłączone w `Program.cs` (`Inspector.FindAnotherCandidate`
-zakomentowane/usunięte z `Main()`) - dopisz z powrotem, jeśli potrzebny kolejny
-kandydat.
+kandydatów). Ta rola jest teraz spełniona - obie znalezione wtedy drogi
+([35270], [3.5013]) są potwierdzonymi rysunkami testowymi.
 
 ## Architektura
 
@@ -156,8 +154,8 @@ Kopiuje wzorzec z `Radius Dimention Mover` (ten sam katalog nadrzędny,
 | `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI |
 | `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku |
 | `Program.cs` | punkt wejścia, w tym tryb konsolowy `--diag-active`/`--diag-mark` |
-| `Inspector.cs` | tymczasowy skaner kandydatów po całym modelu (patrz wyżej) |
-| `DiagRunner.cs` | tymczasowy headless runner dry-run na jednym rysunku (patrz "Headless diagnostyka" wyżej), **do usunięcia przed pierwszym wydaniem** jak `Inspector.cs` |
+| `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja |
+| `DiagRunner.cs` | headless runner dry-run na jednym rysunku (patrz "Headless diagnostyka" wyżej) - **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, patrz komentarz w tym pliku |
 
 ## Następne kroki
 
@@ -167,9 +165,10 @@ Kopiuje wzorzec z `Radius Dimention Mover` (ten sam katalog nadrzędny,
 2. ~~Przełączyć `dryRun: false` w `MainForm.cs`.~~ **Zrobione 2026-09-04.**
    `DiagRunner.cs` zostaje na sztywno `dryRun: true` na zawsze (patrz
    komentarz w tym pliku).
-3. Wydać nową wersję instalatora z realnym kasowaniem (nie pre-release -
-   patrz `CLAUDE.md`, sekcja "Wydania").
-4. Usunąć `Inspector.cs` i `DiagRunner.cs` (albo zostawić jako świadomą
-   część projektu - zdecydować przy porządkach przed pierwszym wydaniem).
-4. Rozważyć wiki (jak w Radius Dimention Mover) zamiast tego README, jeśli
+3. ~~Wydać nową wersję instalatora z realnym kasowaniem (nie pre-release).~~
+   **Zrobione 2026-09-04** - [v0.2.0](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/releases/tag/v0.2.0).
+4. ~~Usunąć `Inspector.cs` (albo zostawić jako świadomą część projektu).~~
+   **Zrobione** - usunięty, był nieużywany od chwili znalezienia obu
+   rysunków testowych. `DiagRunner.cs` zostaje świadomie (patrz wyżej).
+5. Rozważyć wiki (jak w Radius Dimention Mover) zamiast tego README, jeśli
    projekt urośnie.
