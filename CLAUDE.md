@@ -16,10 +16,11 @@ wiedzy — historia, powody decyzji, ślepe uliczki.
   zgłosił, że realne kasowanie na `[35270]` "usuwa całą szerokość albo całą
   długość", kasując wymiary boczne/dolne w tej samej linii, nie tylko
   zamierzony duplikat. `dryRun` wrócił na `true` OD RAZU po tym zgłoszeniu.
-  **PUŁAPKA 5, NIEZDIAGNOZOWANA:** jeden nadzorowany, obserwowany test na
-  `[35270]` (operator patrzył w momencie kliknięcia) usunął TYLKO 12 mm,
-  zostawił oba 24 mm i 2811 mm - zgodnie z przewidywaniem dry-run, BEZ
-  odtworzenia zgłoszonego problemu. Sprawdzone i odrzucone jako przyczyna:
+  **PUŁAPKA 5, NIEZDIAGNOZOWANA (ale coraz słabszy sygnał):** DWA
+  nadzorowane, obserwowane testy na `[35270]` (operator patrzył w momencie
+  kliknięcia, oba 2026-09-04 wieczorem) usunęły TYLKO 12 mm, zostawiły oba
+  24 mm i 2811 mm - zgodnie z przewidywaniem dry-run, BEZ odtworzenia
+  zgłoszonego problemu, ani razu. Sprawdzone i odrzucone jako przyczyna:
   `StraightDimension.GetDimensionSet()` na 24mm i 12mm pokazuje dwa
   ODRĘBNE, jednoelementowe `StraightDimensionSet` (patrz `DescribeDimensionSet`
   w `RoAxisDimensionService.cs`, dodane do logu `[diag]`) - więc to nie jest
@@ -29,8 +30,10 @@ wiedzy — historia, powody decyzji, ślepe uliczki.
   operator nie pamiętał precyzyjnie przy odtwarzaniu. **Nie przełączać na
   `false` bez nowego, pełnego przejścia bramy** (patrz niżej) - najpierw
   trzeba albo odtworzyć problem z konkretnymi współrzędnymi, albo mieć
-  wystarczająco wielokrotne, obserwowane, poprawne testy, żeby uznać
-  pierwsze zgłoszenie za pojedynczy incydent.
+  wystarczająco wielokrotne, obserwowane, poprawne testy (dwa dobre, ale
+  wszystkie jak dotąd na TYM SAMYM miejscu na `[35270]` - `[3.5013]` jeszcze
+  nie sprawdzone tą metodą), żeby uznać pierwsze zgłoszenie za pojedynczy
+  incydent.
 - **[DiagRunner.cs](DiagRunner.cs) (tryb headless) ma `dryRun` na sztywno
   `true` NA ZAWSZE**, mimo że brama wyżej przeszła. To ścieżka wywoływana
   bez człowieka przy przycisku (automatyzacja/agent AI, `--diag-active` /
