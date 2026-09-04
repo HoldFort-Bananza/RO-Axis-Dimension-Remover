@@ -16,24 +16,24 @@ wiedzy — historia, powody decyzji, ślepe uliczki.
   zgłosił, że realne kasowanie na `[35270]` "usuwa całą szerokość albo całą
   długość", kasując wymiary boczne/dolne w tej samej linii, nie tylko
   zamierzony duplikat. `dryRun` wrócił na `true` OD RAZU po tym zgłoszeniu.
-  **PUŁAPKA 5, NIEZDIAGNOZOWANA (ale coraz słabszy sygnał):** DWA
-  nadzorowane, obserwowane testy na `[35270]` (operator patrzył w momencie
-  kliknięcia, oba 2026-09-04 wieczorem) usunęły TYLKO 12 mm, zostawiły oba
-  24 mm i 2811 mm - zgodnie z przewidywaniem dry-run, BEZ odtworzenia
-  zgłoszonego problemu, ani razu. Sprawdzone i odrzucone jako przyczyna:
-  `StraightDimension.GetDimensionSet()` na 24mm i 12mm pokazuje dwa
-  ODRĘBNE, jednoelementowe `StraightDimensionSet` (patrz `DescribeDimensionSet`
-  w `RoAxisDimensionService.cs`, dodane do logu `[diag]`) - więc to nie jest
-  kaskada przez wspólny "łańcuch" wymiarów, przynajmniej nie dla tej pary.
-  Niejasne: czy pierwsze zgłoszenie było tym samym zdarzeniem źle
-  zinterpretowanym w danej chwili, czy dotyczyło innego miejsca/rysunku -
-  operator nie pamiętał precyzyjnie przy odtwarzaniu. **Nie przełączać na
-  `false` bez nowego, pełnego przejścia bramy** (patrz niżej) - najpierw
-  trzeba albo odtworzyć problem z konkretnymi współrzędnymi, albo mieć
-  wystarczająco wielokrotne, obserwowane, poprawne testy (dwa dobre, ale
-  wszystkie jak dotąd na TYM SAMYM miejscu na `[35270]` - `[3.5013]` jeszcze
-  nie sprawdzone tą metodą), żeby uznać pierwsze zgłoszenie za pojedynczy
-  incydent.
+  **PUŁAPKA 5, NIEZDIAGNOZOWANA (sygnał coraz słabszy):** TRZY nadzorowane,
+  obserwowane testy 2026-09-04 wieczorem - dwa na `[35270]` (usunięte TYLKO
+  12 mm, oba 24 mm i 2811 mm zostały) i jeden na `[3.5013]` (2 widoki w
+  jednym przebiegu: po jednym 21 mm usuniętym w każdym widoku, drugi 21 mm
+  i 5796 mm zostały w obu, potwierdzone też przez `--diag-active` po
+  Ctrl+Z) - wszystkie zgodne z przewidywaniem dry-run, BEZ odtworzenia
+  zgłoszonego problemu, ani razu, na OBU rysunkach testowych. Sprawdzone i
+  odrzucone jako przyczyna: `StraightDimension.GetDimensionSet()` na 24mm i
+  12mm pokazuje dwa ODRĘBNE, jednoelementowe `StraightDimensionSet` (patrz
+  `DescribeDimensionSet` w `RoAxisDimensionService.cs`, dodane do logu
+  `[diag]`) - więc to nie jest kaskada przez wspólny "łańcuch" wymiarów,
+  przynajmniej nie dla tej pary. Niejasne: czy pierwsze zgłoszenie było tym
+  samym zdarzeniem źle zinterpretowanym w danej chwili, czy dotyczyło innego
+  miejsca/rysunku - operator nie pamiętał precyzyjnie przy odtwarzaniu.
+  **Nie przełączać na `false` bez wyraźnej decyzji operatora** - trzy czyste
+  testy na obu rysunkach to mocny sygnał, że pierwsze zgłoszenie było
+  pojedynczym incydentem, ale to operator decyduje, czy to wystarczająco, nie
+  agent AI samodzielnie.
 - **[DiagRunner.cs](DiagRunner.cs) (tryb headless) ma `dryRun` na sztywno
   `true` NA ZAWSZE**, mimo że brama wyżej przeszła. To ścieżka wywoływana
   bez człowieka przy przycisku (automatyzacja/agent AI, `--diag-active` /

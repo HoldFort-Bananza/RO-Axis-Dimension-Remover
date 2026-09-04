@@ -203,12 +203,12 @@ namespace RoAxisDimensionRemover
                     return;
                 }
 
-                // dryRun: true - DRUGI nadzorowany test 2026-09-04 na
-                // [35270] usunął TYLKO 12 mm, oba 24 mm zostały - drugi
-                // czysty wynik z rzędu. Nie wystarczająco, żeby uznać
-                // PUŁAPKĘ 5 za zamknięty jednorazowy incydent (patrz
-                // CLAUDE.md - ile testów to "wystarczająco"). Zostaje na
-                // true.
+                // dryRun: true - TRZECI nadzorowany test 2026-09-04, pierwszy
+                // na [3.5013] (2 widoki): usunięto po jednym 21 mm w każdym
+                // widoku, drugi 21 mm i 5796 mm zostały w obu - zgodnie z
+                // przewidywaniem dry-run. Trzeci czysty wynik z rzędu, teraz
+                // na innym rysunku niż poprzednie dwa. Zostaje na true - patrz
+                // CLAUDE.md, ile testów to "wystarczająco".
                 var result = _service.RemoveRedundantAxisDimensions(drawing, Log, dryRun: true);
                 _statusLabel.Text = $"Gotowe. Sprawdzono {result.ViewsChecked} widoków, usunięto {result.RemovedCount} wymiarów. Sprawdź wizualnie w Tekli (Ctrl+Z cofa, jeśli coś jest nie tak).";
 
