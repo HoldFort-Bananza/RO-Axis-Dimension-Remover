@@ -149,7 +149,7 @@ proces działa (patrz `..\CLAUDE.md`, zasada 4).
 | Plik | Zawartość |
 |---|---|
 | `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI |
-| `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku (`dryRun: false` od 2026-09-04 — kasuje naprawdę) |
+| `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku (`dryRun: true` — patrz brama bezpieczeństwa i PUŁAPKA 5 wyżej, na razie tylko loguje) |
 | `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark` dla trybu konsolowego |
 | `DiagRunner.cs` | headless runner dry-run (patrz wyżej) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) — wzorzec 1:1 z `Radius Dimention Mover` |
@@ -183,17 +183,21 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   zainstalowany na tej maszynie, patrz `..\CLAUDE.md`). `dryRun: true` jest
   tu dozwolony i oczekiwany dopóki reguła nie przejdzie bramy bezpieczeństwa
   wyżej.
-- `release` — ma trzymać tylko kod potwierdzony jako bezpieczny
-  (`dryRun: false`, po wizualnym potwierdzeniu operatora na obu rysunkach
-  testowych).
-  **UWAGA:** poprawka v4 (filtr długości własnej) została scalona do
-  `release` przez [PR #1](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/pull/1)
-  — to porządkowanie repo (branch `dev`→`release` jako miejsce docelowe),
-  **NIE jest to potwierdzenie bezpieczeństwa**. `dryRun` w kodzie na obu
-  branchach jest nadal na sztywno `true`. Merge do `release` sam w sobie
-  nie zastępuje bramy z sekcji wyżej — dopóki operator nie spojrzy na
-  `[35270]` i `[3.5013]` w Tekli po realnym uruchomieniu, traktuj `release`
-  jako "kod gotowy do przetestowania na żywo", nie "przetestowany".
+- `release` — ma trzymać tylko kod potwierdzony jako bezpieczny. W praktyce
+  do tej pory `dev` i `release` zawsze kończą z identyczną treścią po
+  serii PR-ów w obie strony (`dev`→`release` żeby promować, `release`→`dev`
+  żeby zsynchronizować historię po merge commicie z GitHuba) — sprawdzaj
+  `git diff origin/dev origin/release` zamiast zgadywać, czy się rozjechały.
+  **Merge do `release` sam w sobie NIE jest potwierdzeniem bezpieczeństwa.**
+  Historia flag na `release`, tego samego dnia (2026-09-04): PR #1 scalił v4
+  (jeszcze `dryRun: true` na obu branchach - porządkowanie repo, nie
+  potwierdzenie). PR #5 wniosło `dryRun: false` po realnym potwierdzeniu
+  operatora. PR #8/#9 dodały focus-fix, wciąż `dryRun: false`. **PR #10
+  (scalony) wróciło z `dryRun: true`** po nieodtworzonym zgłoszeniu błędu
+  (PUŁAPKA 5, patrz brama bezpieczeństwa wyżej) - `dev` i `release` są od
+  tego merge'u znowu identyczne, obie z `dryRun: true`. **Ten opis bywa
+  aktualizowany wolniej niż kod - przed użyciem czegokolwiek z `release`
+  sprawdź `dryRun` w `MainForm.cs` na tym branchu wprost w plikach.**
 
 ## Następne kroki
 
