@@ -9,31 +9,21 @@ wiedzy — historia, powody decyzji, ślepe uliczki.
 
 ## Zanim cokolwiek uruchomisz — brama bezpieczeństwa
 
-- **Brama ZNOWU ZAMKNIĘTA, stan na wieczór 2026-09-04.** `dryRun` w
-  [MainForm.cs](MainForm.cs) jest na sztywno `true`. Historia tego dnia:
-  brama przeszła (operator potwierdził wizualnie na `[35270]` i `[3.5013]`),
-  `dryRun: false` weszło do GUI, operator używał programu na żywo - i
-  zgłosił, że realne kasowanie na `[35270]` "usuwa całą szerokość albo całą
-  długość", kasując wymiary boczne/dolne w tej samej linii, nie tylko
-  zamierzony duplikat. `dryRun` wrócił na `true` OD RAZU po tym zgłoszeniu.
-  **PUŁAPKA 5, NIEZDIAGNOZOWANA (sygnał coraz słabszy):** TRZY nadzorowane,
-  obserwowane testy 2026-09-04 wieczorem - dwa na `[35270]` (usunięte TYLKO
-  12 mm, oba 24 mm i 2811 mm zostały) i jeden na `[3.5013]` (2 widoki w
-  jednym przebiegu: po jednym 21 mm usuniętym w każdym widoku, drugi 21 mm
-  i 5796 mm zostały w obu, potwierdzone też przez `--diag-active` po
-  Ctrl+Z) - wszystkie zgodne z przewidywaniem dry-run, BEZ odtworzenia
-  zgłoszonego problemu, ani razu, na OBU rysunkach testowych. Sprawdzone i
-  odrzucone jako przyczyna: `StraightDimension.GetDimensionSet()` na 24mm i
-  12mm pokazuje dwa ODRĘBNE, jednoelementowe `StraightDimensionSet` (patrz
-  `DescribeDimensionSet` w `RoAxisDimensionService.cs`, dodane do logu
-  `[diag]`) - więc to nie jest kaskada przez wspólny "łańcuch" wymiarów,
-  przynajmniej nie dla tej pary. Niejasne: czy pierwsze zgłoszenie było tym
-  samym zdarzeniem źle zinterpretowanym w danej chwili, czy dotyczyło innego
-  miejsca/rysunku - operator nie pamiętał precyzyjnie przy odtwarzaniu.
-  **Nie przełączać na `false` bez wyraźnej decyzji operatora** - trzy czyste
-  testy na obu rysunkach to mocny sygnał, że pierwsze zgłoszenie było
-  pojedynczym incydentem, ale to operator decyduje, czy to wystarczająco, nie
-  agent AI samodzielnie.
+- **Brama PRZESZŁA PONOWNIE 2026-09-04 (wieczór), PUŁAPKA 5 ZAMKNIĘTA.**
+  `dryRun` w [MainForm.cs](MainForm.cs) jest `false` - program kasuje
+  naprawdę. Historia tego dnia: brama przeszła pierwszy raz, `dryRun: false`
+  weszło do GUI, operator zgłosił że realne kasowanie na `[35270]` "usuwa
+  całą szerokość albo całą długość" - `dryRun` wrócił na `true` od razu.
+  Trzy kolejne nadzorowane, obserwowane testy (2x `[35270]`, 1x `[3.5013]`,
+  szczegóły w historii commitów i `README.md`) usunęły TYLKO zamierzony
+  duplikat każdy raz, na obu rysunkach, bez odtworzenia problemu ani razu.
+  Sprawdzone i odrzucone jako przyczyna: wspólny `StraightDimensionSet`
+  między parą 24mm/12mm (patrz `DescribeDimensionSet` w
+  `RoAxisDimensionService.cs`) - to nie kaskada przez łańcuch wymiarów.
+  **Operator PODJĄŁ WYRAŹNĄ DECYZJĘ** (nie założenie agenta AI) uznać
+  pierwsze zgłoszenie za pojedynczy incydent i przywrócić `dryRun: false`.
+  Przyczyna oryginalnego zgłoszenia zostaje NIEWYJAŚNIONA - to świadoma
+  decyzja o akceptowalnym ryzyku, nie dowód że problem nie istnieje.
 - **[DiagRunner.cs](DiagRunner.cs) (tryb headless) ma `dryRun` na sztywno
   `true` NA ZAWSZE**, mimo że brama wyżej przeszła. To ścieżka wywoływana
   bez człowieka przy przycisku (automatyzacja/agent AI, `--diag-active` /
@@ -152,7 +142,7 @@ proces działa (patrz `..\CLAUDE.md`, zasada 4).
 | Plik | Zawartość |
 |---|---|
 | `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI |
-| `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku (`dryRun: true` — patrz brama bezpieczeństwa i PUŁAPKA 5 wyżej, na razie tylko loguje) |
+| `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku (`dryRun: false` od 2026-09-04 — kasuje naprawdę, patrz brama bezpieczeństwa wyżej) |
 | `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark` dla trybu konsolowego |
 | `DiagRunner.cs` | headless runner dry-run (patrz wyżej) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) — wzorzec 1:1 z `Radius Dimention Mover` |
@@ -217,19 +207,13 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
    nieużywany od chwili znalezienia obu rysunków testowych).
    `DiagRunner.cs` zostaje świadomie, na zawsze — patrz brama
    bezpieczeństwa wyżej i komentarz w tym pliku.
-5. **PUŁAPKA 5 (bieżący priorytet)** — zdiagnozować zgłoszenie "usuwa całą
-   szerokość/długość" na `[35270]`, które nie odtworzyło się w jednym
-   nadzorowanym teście (patrz brama bezpieczeństwa wyżej). Kandydaci na
-   następny krok, zanim znowu zgadywać:
-   - Powtórzyć nadzorowany test kilka razy, na obu rysunkach, każdy raz z
-     operatorem patrzącym w momencie kliknięcia - jeśli problem nie wróci,
-     to mocny sygnał, że pierwsze zgłoszenie było źle zinterpretowanym
-     normalnym zachowaniem (12 mm zniknęło, coś innego w polu widzenia
-     przesunęło się przy odświeżeniu widoku i wyglądało jak zniknięcie).
-   - Jeśli problem wróci: zanotować DOKŁADNIE które wymiary (wartości,
-     `Start`/`End`) zniknęły, i czy `DescribeDimensionSet` (już w logu
-     `[diag]`) pokazuje wspólny `StraightDimensionSet` między nimi.
-   - Sprawdzić, czy `drawing.CommitChanges()` między wieloma `.Delete()` w
-     jednej sesji (widok 2 na `[3.5013]` usuwa 2 wymiary w jednym
-     przebiegu) ma jakiś efekt kolejności - obecnie `CommitChanges()`
-     woła się RAZ na końcu całej metody, po wszystkich `.Delete()`.
+5. ~~PUŁAPKA 5 — zdiagnozować zgłoszenie "usuwa całą szerokość/długość" na
+   `[35270]`.~~ **Zamknięte decyzją operatora 2026-09-04** po trzech czystych
+   nadzorowanych testach (2x `[35270]`, 1x `[3.5013]`) - żaden nie odtworzył
+   problemu. Przyczyna oryginalnego zgłoszenia NIEWYJAŚNIONA - jeśli
+   problem wróci przy normalnym użyciu, to nie jest "już sprawdzone i
+   bezpieczne", to nawrót tego samego, niezdiagnozowanego zjawiska.
+   Zanotować DOKŁADNIE które wymiary (wartości, `Start`/`End`) zniknęły,
+   sprawdzić `DescribeDimensionSet` w logu `[diag]`, i wrócić do bramy
+   bezpieczeństwa od zera (`dryRun: true` natychmiast, nowe potwierdzenie
+   przed kolejnym `false`).

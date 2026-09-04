@@ -4,16 +4,18 @@ Samodzielny `.exe` dla Tekla Structures 2025. Ma kasować nadmiarowe wymiary
 "do osi" na profilach RO (rura okrągła) w widokach przekroju/detalu miejsc
 łączenia.
 
-## ⚠️ Stan: brama bezpieczeństwa ZNOWU ZAMKNIĘTA, `dryRun: true` (wieczór 2026-09-04)
+## Stan: brama bezpieczeństwa przeszła ponownie, `dryRun: false` (wieczór 2026-09-04)
 
-**Przycisk w `MainForm.cs` NIE kasuje naprawdę - `dryRun: true`.** Ten sam
-dzień: operator potwierdził wizualnie na `[35270]` i `[3.5013]`, `dryRun`
-przełączono na `false`, a potem operator zgłosił, że realne kasowanie na
-`[35270]` "usuwa całą szerokość albo całą długość" - więcej niż zamierzony
-duplikat. `dryRun` wrócił na `true` od razu. Jeden nadzorowany test po tym
-zgłoszeniu usunął TYLKO 12 mm (poprawnie) i nie odtworzył problemu - sprawa
-jest NIEZDIAGNOZOWANA, patrz `CLAUDE.md`, sekcja "brama bezpieczeństwa" i
-"PUŁAPKA 5". Nie przełączać na `false` bez pełnego, nowego przejścia bramy.
+**Przycisk w `MainForm.cs` kasuje naprawdę.** Tego samego dnia: operator
+potwierdził wizualnie na `[35270]` i `[3.5013]`, `dryRun` przełączono na
+`false`, operator zgłosił że realne kasowanie na `[35270]` "usuwa całą
+szerokość albo całą długość" - `dryRun` wróciło na `true` od razu. Trzy
+kolejne nadzorowane, obserwowane testy (2x `[35270]`, 1x `[3.5013]`) NIE
+odtworzyły problemu - każdy usunął tylko zamierzony duplikat. **Operator
+podjął wyraźną decyzję** uznać pierwsze zgłoszenie za pojedynczy incydent i
+przywrócić `dryRun: false`. Przyczyna oryginalnego zgłoszenia zostaje
+NIEWYJAŚNIONA - to świadoma decyzja o akceptowalnym ryzyku, nie dowód że
+problemu nie ma. Pełna historia: `CLAUDE.md`, sekcja "brama bezpieczeństwa".
 
 Tryb konsolowy (`--diag-active`/`--diag-mark`, `DiagRunner.cs`) **zostaje na
 sztywno `dryRun: true` na zawsze** - to ścieżka wywoływana bez człowieka przy
@@ -124,8 +126,8 @@ komend.
 
 | Rysunek | Profil / opis | Status |
 |---|---|---|
-| `[35270]` | Einzelteil Geländer, RO Ø48,3 (promień 24,15) | ⚠️ Potwierdzone wizualnie 2026-09-04, ale POTEM zgłoszenie realnego kasowania "za dużo" na tym rysunku (niezdiagnozowane, jeden nadzorowany powtórz-test wyszedł poprawnie) - patrz `CLAUDE.md`, PUŁAPKA 5 |
-| `[3.5013]` | Einzelteil Geländer, więcej złączy RO w jednym widoku | ✅ v4 potwierdzone wizualnie 2026-09-04: 2 widoki, po 1 duplikacie 21 mm skasowanym w każdym, `5796 mm` nietknięty - problem z `[35270]` nie zgłoszony tutaj |
+| `[35270]` | Einzelteil Geländer, RO Ø48,3 (promień 24,15) | ✅ Potwierdzone wizualnie 2026-09-04, zgłoszenie "za dużo" po jednym realnym uruchomieniu, potem 2 czyste nadzorowane powtórz-testy - PUŁAPKA 5 zamknięta decyzją operatora, patrz `CLAUDE.md` |
+| `[3.5013]` | Einzelteil Geländer, więcej złączy RO w jednym widoku | ✅ v4 potwierdzone wizualnie 2026-09-04, plus 1 nadzorowany realny test (2 widoki, po 1 duplikacie 21 mm skasowanym w każdym, `5796 mm` nietknięty) |
 
 ## Znajdowanie kolejnych kandydatów bez klikania (historia - plik usunięty)
 
@@ -173,8 +175,11 @@ Kopiuje wzorzec z `Radius Dimention Mover` (ten sam katalog nadrzędny,
 4. ~~Usunąć `Inspector.cs` (albo zostawić jako świadomą część projektu).~~
    **Zrobione** - usunięty, był nieużywany od chwili znalezienia obu
    rysunków testowych. `DiagRunner.cs` zostaje świadomie (patrz wyżej).
-5. **PUŁAPKA 5 (bieżący priorytet, `dryRun` znowu `true`)** - zdiagnozować
-   zgłoszone "usuwa całą szerokość/długość" na `[35270]`, patrz `CLAUDE.md`.
-   Brama musi przejść od nowa, zanim `dryRun` znowu wróci na `false`.
+5. ~~PUŁAPKA 5 - zdiagnozować zgłoszone "usuwa całą szerokość/długość" na
+   `[35270]`.~~ **Zamknięte decyzją operatora 2026-09-04** po trzech czystych
+   nadzorowanych testach - przyczyna oryginalnego zgłoszenia NIEWYJAŚNIONA,
+   patrz `CLAUDE.md`. Jeśli problem wróci przy normalnym użyciu, to nawrót
+   tego samego niezdiagnozowanego zjawiska - `dryRun: true` natychmiast,
+   nowe przejście bramy od zera.
 6. Rozważyć wiki (jak w Radius Dimention Mover) zamiast tego README, jeśli
    projekt urośnie.

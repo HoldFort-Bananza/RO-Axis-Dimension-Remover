@@ -203,13 +203,16 @@ namespace RoAxisDimensionRemover
                     return;
                 }
 
-                // dryRun: true - TRZECI nadzorowany test 2026-09-04, pierwszy
-                // na [3.5013] (2 widoki): usunięto po jednym 21 mm w każdym
-                // widoku, drugi 21 mm i 5796 mm zostały w obu - zgodnie z
-                // przewidywaniem dry-run. Trzeci czysty wynik z rzędu, teraz
-                // na innym rysunku niż poprzednie dwa. Zostaje na true - patrz
-                // CLAUDE.md, ile testów to "wystarczająco".
-                var result = _service.RemoveRedundantAxisDimensions(drawing, Log, dryRun: true);
+                // dryRun: false od 2026-09-04 (PUŁAPKA 5 zamknięta) - trzy
+                // nadzorowane, obserwowane testy z rzędu (2x [35270], 1x
+                // [3.5013]) po zgłoszeniu "usuwa całą szerokość/długość" nie
+                // odtworzyły problemu - każdy usunął tylko zamierzony
+                // duplikat. Operator PODJĄŁ WYRAŹNĄ DECYZJĘ uznać pierwsze
+                // zgłoszenie za pojedynczy incydent i przywrócić realne
+                // kasowanie - patrz CLAUDE.md, brama bezpieczeństwa. Każda
+                // KOLEJNA zmiana reguły wykrywania wymaga nowego przejścia
+                // bramy od zera, nie dziedziczy tego potwierdzenia.
+                var result = _service.RemoveRedundantAxisDimensions(drawing, Log, dryRun: false);
                 _statusLabel.Text = $"Gotowe. Sprawdzono {result.ViewsChecked} widoków, usunięto {result.RemovedCount} wymiarów. Sprawdź wizualnie w Tekli (Ctrl+Z cofa, jeśli coś jest nie tak).";
 
                 // Fokus wraca na Teklę, żeby Ctrl+Z od razu poszedł tam, gdzie
