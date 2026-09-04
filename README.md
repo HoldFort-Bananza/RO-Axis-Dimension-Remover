@@ -4,14 +4,16 @@ Samodzielny `.exe` dla Tekla Structures 2025. Ma kasować nadmiarowe wymiary
 "do osi" na profilach RO (rura okrągła) w widokach przekroju/detalu miejsc
 łączenia.
 
-## Stan: reguła v4 potwierdzona, `dryRun: false` w GUI od 2026-09-04
+## ⚠️ Stan: brama bezpieczeństwa ZNOWU ZAMKNIĘTA, `dryRun: true` (wieczór 2026-09-04)
 
-**Przycisk w `MainForm.cs` kasuje teraz naprawdę.** Operator potwierdził
-wizualnie w Tekli, na `[35270]` i `[3.5013]`, że reguła v4 (patrz niżej i
-`CLAUDE.md`) usuwa dokładnie te wymiary, które przewidywał dry-run - żadnego
-potrzebnego wymiaru nie brakuje. Wcześniej dwie kolejne wersje algorytmu
-realnie skasowały złe wymiary na żywym modelu, zanim ktoś to zauważył (patrz
-historia niżej) - stąd cała ta procedura potwierdzenia przed przełączeniem.
+**Przycisk w `MainForm.cs` NIE kasuje naprawdę - `dryRun: true`.** Ten sam
+dzień: operator potwierdził wizualnie na `[35270]` i `[3.5013]`, `dryRun`
+przełączono na `false`, a potem operator zgłosił, że realne kasowanie na
+`[35270]` "usuwa całą szerokość albo całą długość" - więcej niż zamierzony
+duplikat. `dryRun` wrócił na `true` od razu. Jeden nadzorowany test po tym
+zgłoszeniu usunął TYLKO 12 mm (poprawnie) i nie odtworzył problemu - sprawa
+jest NIEZDIAGNOZOWANA, patrz `CLAUDE.md`, sekcja "brama bezpieczeństwa" i
+"PUŁAPKA 5". Nie przełączać na `false` bez pełnego, nowego przejścia bramy.
 
 Tryb konsolowy (`--diag-active`/`--diag-mark`, `DiagRunner.cs`) **zostaje na
 sztywno `dryRun: true` na zawsze** - to ścieżka wywoływana bez człowieka przy
@@ -122,8 +124,8 @@ komend.
 
 | Rysunek | Profil / opis | Status |
 |---|---|---|
-| `[35270]` | Einzelteil Geländer, RO Ø48,3 (promień 24,15) | ✅ v4 potwierdzone wizualnie 2026-09-04: kasuje tylko `12`, zostawia `24` i `2811` |
-| `[3.5013]` | Einzelteil Geländer, więcej złączy RO w jednym widoku | ✅ v4 potwierdzone wizualnie 2026-09-04: 2 widoki, po 1 duplikacie 21 mm skasowanym w każdym, `5796 mm` nietknięty |
+| `[35270]` | Einzelteil Geländer, RO Ø48,3 (promień 24,15) | ⚠️ Potwierdzone wizualnie 2026-09-04, ale POTEM zgłoszenie realnego kasowania "za dużo" na tym rysunku (niezdiagnozowane, jeden nadzorowany powtórz-test wyszedł poprawnie) - patrz `CLAUDE.md`, PUŁAPKA 5 |
+| `[3.5013]` | Einzelteil Geländer, więcej złączy RO w jednym widoku | ✅ v4 potwierdzone wizualnie 2026-09-04: 2 widoki, po 1 duplikacie 21 mm skasowanym w każdym, `5796 mm` nietknięty - problem z `[35270]` nie zgłoszony tutaj |
 
 ## Znajdowanie kolejnych kandydatów bez klikania (historia - plik usunięty)
 
@@ -155,6 +157,7 @@ Kopiuje wzorzec z `Radius Dimention Mover` (ten sam katalog nadrzędny,
 | `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku |
 | `Program.cs` | punkt wejścia, w tym tryb konsolowy `--diag-active`/`--diag-mark` |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja |
+| `TeklaWindowFocus.cs` | po realnym usunięciu przełącza fokus Windows na okno Tekli (Ctrl+Z od razu trafia tam, gdzie ma) |
 | `DiagRunner.cs` | headless runner dry-run na jednym rysunku (patrz "Headless diagnostyka" wyżej) - **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, patrz komentarz w tym pliku |
 
 ## Następne kroki
@@ -170,5 +173,8 @@ Kopiuje wzorzec z `Radius Dimention Mover` (ten sam katalog nadrzędny,
 4. ~~Usunąć `Inspector.cs` (albo zostawić jako świadomą część projektu).~~
    **Zrobione** - usunięty, był nieużywany od chwili znalezienia obu
    rysunków testowych. `DiagRunner.cs` zostaje świadomie (patrz wyżej).
-5. Rozważyć wiki (jak w Radius Dimention Mover) zamiast tego README, jeśli
+5. **PUŁAPKA 5 (bieżący priorytet, `dryRun` znowu `true`)** - zdiagnozować
+   zgłoszone "usuwa całą szerokość/długość" na `[35270]`, patrz `CLAUDE.md`.
+   Brama musi przejść od nowa, zanim `dryRun` znowu wróci na `false`.
+6. Rozważyć wiki (jak w Radius Dimention Mover) zamiast tego README, jeśli
    projekt urośnie.

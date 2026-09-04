@@ -9,11 +9,28 @@ wiedzy — historia, powody decyzji, ślepe uliczki.
 
 ## Zanim cokolwiek uruchomisz — brama bezpieczeństwa
 
-- **Brama PRZESZŁA 2026-09-04.** Operator potwierdził wizualnie w Tekli —
-  na żywo, patrząc na rysunek, nie tylko na log dry-run — że na `[35270]`
-  i `[3.5013]` reguła v4 usuwa dokładnie te wymiary, które przewidywał
-  dry-run. `dryRun` w [MainForm.cs](MainForm.cs) (przycisk GUI) jest od tego
-  dnia `false` — program **kasuje naprawdę**.
+- **Brama ZNOWU ZAMKNIĘTA, stan na wieczór 2026-09-04.** `dryRun` w
+  [MainForm.cs](MainForm.cs) jest na sztywno `true`. Historia tego dnia:
+  brama przeszła (operator potwierdził wizualnie na `[35270]` i `[3.5013]`),
+  `dryRun: false` weszło do GUI, operator używał programu na żywo - i
+  zgłosił, że realne kasowanie na `[35270]` "usuwa całą szerokość albo całą
+  długość", kasując wymiary boczne/dolne w tej samej linii, nie tylko
+  zamierzony duplikat. `dryRun` wrócił na `true` OD RAZU po tym zgłoszeniu.
+  **PUŁAPKA 5, NIEZDIAGNOZOWANA:** jeden nadzorowany, obserwowany test na
+  `[35270]` (operator patrzył w momencie kliknięcia) usunął TYLKO 12 mm,
+  zostawił oba 24 mm i 2811 mm - zgodnie z przewidywaniem dry-run, BEZ
+  odtworzenia zgłoszonego problemu. Sprawdzone i odrzucone jako przyczyna:
+  `StraightDimension.GetDimensionSet()` na 24mm i 12mm pokazuje dwa
+  ODRĘBNE, jednoelementowe `StraightDimensionSet` (patrz `DescribeDimensionSet`
+  w `RoAxisDimensionService.cs`, dodane do logu `[diag]`) - więc to nie jest
+  kaskada przez wspólny "łańcuch" wymiarów, przynajmniej nie dla tej pary.
+  Niejasne: czy pierwsze zgłoszenie było tym samym zdarzeniem źle
+  zinterpretowanym w danej chwili, czy dotyczyło innego miejsca/rysunku -
+  operator nie pamiętał precyzyjnie przy odtwarzaniu. **Nie przełączać na
+  `false` bez nowego, pełnego przejścia bramy** (patrz niżej) - najpierw
+  trzeba albo odtworzyć problem z konkretnymi współrzędnymi, albo mieć
+  wystarczająco wielokrotne, obserwowane, poprawne testy, żeby uznać
+  pierwsze zgłoszenie za pojedynczy incydent.
 - **[DiagRunner.cs](DiagRunner.cs) (tryb headless) ma `dryRun` na sztywno
   `true` NA ZAWSZE**, mimo że brama wyżej przeszła. To ścieżka wywoływana
   bez człowieka przy przycisku (automatyzacja/agent AI, `--diag-active` /
@@ -193,3 +210,19 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
    nieużywany od chwili znalezienia obu rysunków testowych).
    `DiagRunner.cs` zostaje świadomie, na zawsze — patrz brama
    bezpieczeństwa wyżej i komentarz w tym pliku.
+5. **PUŁAPKA 5 (bieżący priorytet)** — zdiagnozować zgłoszenie "usuwa całą
+   szerokość/długość" na `[35270]`, które nie odtworzyło się w jednym
+   nadzorowanym teście (patrz brama bezpieczeństwa wyżej). Kandydaci na
+   następny krok, zanim znowu zgadywać:
+   - Powtórzyć nadzorowany test kilka razy, na obu rysunkach, każdy raz z
+     operatorem patrzącym w momencie kliknięcia - jeśli problem nie wróci,
+     to mocny sygnał, że pierwsze zgłoszenie było źle zinterpretowanym
+     normalnym zachowaniem (12 mm zniknęło, coś innego w polu widzenia
+     przesunęło się przy odświeżeniu widoku i wyglądało jak zniknięcie).
+   - Jeśli problem wróci: zanotować DOKŁADNIE które wymiary (wartości,
+     `Start`/`End`) zniknęły, i czy `DescribeDimensionSet` (już w logu
+     `[diag]`) pokazuje wspólny `StraightDimensionSet` między nimi.
+   - Sprawdzić, czy `drawing.CommitChanges()` między wieloma `.Delete()` w
+     jednej sesji (widok 2 na `[3.5013]` usuwa 2 wymiary w jednym
+     przebiegu) ma jakiś efekt kolejności - obecnie `CommitChanges()`
+     woła się RAZ na końcu całej metody, po wszystkich `.Delete()`.
