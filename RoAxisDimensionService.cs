@@ -113,7 +113,7 @@ namespace RoAxisDimensionRemover
                     log($"[diag] widok, kandydatów do osi: {candidates.Count}");
                     foreach (var c in candidates)
                     {
-                        log($"[diag]   wartość={c.Value:F1}  Start=({c.Dim.StartPoint.X:F1};{c.Dim.StartPoint.Y:F1};{c.Dim.StartPoint.Z:F1})  End=({c.Dim.EndPoint.X:F1};{c.Dim.EndPoint.Y:F1};{c.Dim.EndPoint.Z:F1})");
+                        log($"[diag]   wartość={c.Value:F1}  Start=({c.Dim.StartPoint.X:F1};{c.Dim.StartPoint.Y:F1};{c.Dim.StartPoint.Z:F1})  End=({c.Dim.EndPoint.X:F1};{c.Dim.EndPoint.Y:F1};{c.Dim.EndPoint.Z:F1})  {DescribeDimensionSet(c.Dim)}");
                     }
                 }
 
@@ -260,6 +260,42 @@ namespace RoAxisDimensionRemover
                 }
             }
             return null;
+        }
+
+        /// <summary>
+        /// Diagnostyka do znalezienia PUŁAPKI 5 (zgłoszone przez operatora:
+        /// realne kasowanie usunęło więcej niż jeden zamierzony wymiar - "całą
+        /// szerokość albo całą długość"). Tekla grupuje pojedyncze
+        /// StraightDimension w StraightDimensionSet ("łańcuch" - wspólna linia
+        /// wymiarowa z wieloma odcinkami). GetDimensionSet() mówi, do jakiego
+        /// łańcucha należy kandydat - jeśli "24 mm"/"2811 mm" są w TYM SAMYM
+        /// zestawie co "12 mm", to .Delete() na jednym elemencie może
+        /// kaskadowo ruszyć resztę zestawu w Tekli, mimo że nasz kod prosi o
+        /// usunięcie tylko jednego konkretnego obiektu. Czysto do odczytu -
+        /// nie wywołuje niczego, co modyfikuje rysunek.
+        /// </summary>
+        private static string DescribeDimensionSet(StraightDimension sd)
+        {
+            try
+            {
+                var set = sd.GetDimensionSet();
+                if (set == null)
+                {
+                    return "DimensionSet=brak (samodzielny wymiar)";
+                }
+
+                int count = 0;
+                var members = set.GetObjects();
+                while (members.MoveNext())
+                {
+                    count++;
+                }
+                return $"DimensionSet={set.GetType().Name} elementów={count}";
+            }
+            catch (Exception ex)
+            {
+                return $"DimensionSet=błąd odczytu ({ex.GetType().Name}: {ex.Message})";
+            }
         }
     }
 }
