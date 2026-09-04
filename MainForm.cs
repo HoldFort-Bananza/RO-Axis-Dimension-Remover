@@ -203,8 +203,15 @@ namespace RoAxisDimensionRemover
                     return;
                 }
 
-                var result = _service.RemoveRedundantAxisDimensions(drawing, Log, dryRun: true);
-                _statusLabel.Text = $"Gotowe. Sprawdzono {result.ViewsChecked} widoków, usunięto {result.RemovedCount} wymiarów. Sprawdź wizualnie w Tekli.";
+                // dryRun: false od 2026-09-04 - operator potwierdził wizualnie w
+                // Tekli, na [35270] i [3.5013], że reguła v4 usuwa dokładnie te
+                // wymiary, które przewiduje dry-run (patrz CLAUDE.md, brama
+                // bezpieczeństwa). DiagRunner.cs (tryb headless, patrz Program.cs
+                // --diag-*) ZOSTAJE na sztywno dryRun: true - to ścieżka
+                // wywoływana bez człowieka przy przycisku, nigdy nie powinna
+                // dostać możliwości realnego kasowania.
+                var result = _service.RemoveRedundantAxisDimensions(drawing, Log, dryRun: false);
+                _statusLabel.Text = $"Gotowe. Sprawdzono {result.ViewsChecked} widoków, usunięto {result.RemovedCount} wymiarów. Sprawdź wizualnie w Tekli (Ctrl+Z cofa, jeśli coś jest nie tak).";
             }
             catch (Exception ex)
             {

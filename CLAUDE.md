@@ -9,20 +9,28 @@ wiedzy — historia, powody decyzji, ślepe uliczki.
 
 ## Zanim cokolwiek uruchomisz — brama bezpieczeństwa
 
-- **`dryRun` jest na sztywno `true`** w [MainForm.cs](MainForm.cs) (przycisk
-  GUI) i w [DiagRunner.cs](DiagRunner.cs) (tryb headless) — w obu miejscach
-  jako literał, nie parametr. Program **nigdy nie kasuje** wymiarów w
-  obecnym stanie, tylko loguje, co by skasował.
-- **Nie przełączaj na `false`**, dopóki człowiek (operator) nie potwierdzi
-  wizualnie w Tekli — na żywo, patrząc na rysunek — że po realnym
-  uruchomieniu na `[35270]` i `[3.5013]` zostają dokładnie te wymiary, które
-  przewiduje aktualny dry-run (patrz "Rysunki testowe" w README). Odczyt
-  współrzędnych z logu to nie to samo co spojrzenie na gotowy rysunek.
+- **Brama PRZESZŁA 2026-09-04.** Operator potwierdził wizualnie w Tekli —
+  na żywo, patrząc na rysunek, nie tylko na log dry-run — że na `[35270]`
+  i `[3.5013]` reguła v4 usuwa dokładnie te wymiary, które przewidywał
+  dry-run. `dryRun` w [MainForm.cs](MainForm.cs) (przycisk GUI) jest od tego
+  dnia `false` — program **kasuje naprawdę**.
+- **[DiagRunner.cs](DiagRunner.cs) (tryb headless) ma `dryRun` na sztywno
+  `true` NA ZAWSZE**, mimo że brama wyżej przeszła. To ścieżka wywoływana
+  bez człowieka przy przycisku (automatyzacja/agent AI, `--diag-active` /
+  `--diag-mark`) — nigdy nie powinna dostać możliwości realnego kasowania,
+  niezależnie od tego, jak dobrze zweryfikowana jest reguła. Jeśli
+  potrzebujesz sprawdzić regułę bez ryzyka, to jest do tego droga; jeśli
+  ktoś prosi o headless tryb, który NAPRAWDĘ kasuje — to jest dokładnie
+  ten rodzaj prośby, przy którym trzeba się zatrzymać i zapytać, nie
+  zgadywać.
 - **Powód tej bramy jest realny, nie proceduralny**: dwie kolejne wersje
   reguły wykrywania (v1, v2) NAPRAWDĘ skasowały dobre wymiary na żywym
   modelu, zanim ktoś to zauważył. v3 znowu gubiła wszystkie wymiary do osi
   na `[3.5013]`. Historia niżej istnieje po to, żeby nie powtórzyć tych
-  samych błędów pod inną postacią.
+  samych błędów pod inną postacią — a każda KOLEJNA zmiana reguły
+  wykrywania w tym pliku powinna przejść przez tę samą bramę od nowa
+  (dry-run → operator patrzy na żywy rysunek → dopiero wtedy realne
+  kasowanie), nie dziedziczyć zaufania z tego potwierdzenia.
 - **Nigdy nie zgaduj progu ani reguły "na wyczucie".** Każda stała w
   [RoAxisDimensionService.cs](RoAxisDimensionService.cs) ma komentarz
   wyjaśniający skąd się wzięła. Jeśli trzeba dodać nową regułę — najpierw
@@ -167,13 +175,13 @@ proces działa (patrz `..\CLAUDE.md`, zasada 4).
 
 ## Następne kroki
 
-1. Operator ma spojrzeć na `[35270]` i `[3.5013]` w Tekli po realnym
+1. ~~Operator ma spojrzeć na `[35270]` i `[3.5013]` w Tekli po realnym
    uruchomieniu i potwierdzić, że zostają dokładnie te wymiary co w
-   dry-run v4. (Kod v4 jest już na `dev` i `release` po PR #1 — ten punkt
-   dotyczy potwierdzenia, nie przeniesienia kodu.)
-2. Dopiero po potwierdzeniu: przełączyć `dryRun: false` w `MainForm.cs`
-   (`RunButton_Click`) i w `DiagRunner.cs`, jeśli tryb headless ma zostać.
-   To osobny PR/commit - dopisać w jego opisie, na jakich rysunkach i kiedy
-   potwierdzono.
-3. Usunąć `Inspector.cs` i `DiagRunner.cs` (albo świadomie zostawić —
+   dry-run v4.~~ **Zrobione 2026-09-04.**
+2. ~~Przełączyć `dryRun: false` w `MainForm.cs`.~~ **Zrobione 2026-09-04.**
+   `DiagRunner.cs` NIE dostał tej zmiany — zostaje na sztywno `dryRun: true`
+   na zawsze, patrz brama bezpieczeństwa wyżej.
+3. Wydać wersję instalatora z realnym kasowaniem jako pełne wydanie (nie
+   pre-release) — patrz sekcja "Wydania" niżej.
+4. Usunąć `Inspector.cs` i `DiagRunner.cs` (albo świadomie zostawić —
    zdecydować przy porządkach przed wydaniem).
