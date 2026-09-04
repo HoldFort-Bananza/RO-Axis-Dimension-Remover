@@ -17,14 +17,16 @@ krytycznego nie zginęło przy zmianie narzędzia.
 1. **To jest wtyczka do Tekla Structures 2025, która potrafi NAPRAWDĘ
    kasować dane w modelu.** Dwie wcześniejsze wersje reguły wykrywania
    realnie skasowały dobre wymiary na żywym modelu, zanim ktoś to
-   zauważył. Trzecia (opisana niżej, "PUŁAPKA 5") ma niewyjaśnione
-   zgłoszenie tego samego typu błędu.
+   zauważył. Trzecia (opisana niżej, "PUŁAPKA 5") miała niewyjaśnione
+   zgłoszenie tego samego typu błędu - zamknięte decyzją operatora, ale
+   PRZYCZYNA NIGDY NIE ZOSTAŁA ZDIAGNOZOWANA.
 2. **Sprawdź `dryRun` w `MainForm.cs` (`RunButton_Click`) WPROST W PLIKU,
    nie z tego opisu** — ten opis może być nieaktualny w chwili, gdy go
-   czytasz. Stan na 2026-09-04 (wieczór): `dryRun: true` na `dev` i na
-   `release` — program NIE kasuje, tylko loguje. Jeśli zobaczysz
-   `dryRun: false`, to znaczy że ktoś to świadomie zmienił PO tej notatce —
-   sprawdź historię commitów i `CLAUDE.md` przed założeniem, że to bezpieczne.
+   czytasz. Stan na 2026-09-04 (wieczór): `dryRun: false` na `dev` i na
+   `release` — program KASUJE NAPRAWDĘ. Jeśli coś wygląda podobnie do
+   zgłoszenia w PUŁAPCE 5 (usuwa więcej niż jeden zamierzony wymiar) -
+   przełącz `dryRun` na `true` OD RAZU i traktuj to jako nawrót
+   niezdiagnozowanego problemu, nie jako nowy, osobny błąd.
 3. **Nigdy nie zgaduj progu/reguły detekcji "na wyczucie".** Każda stała w
    `RoAxisDimensionService.cs` ma komentarz skąd się wzięła (zmierzona, nie
    zgadana). Jeśli trzeba zmienić regułę — zdobądź realne współrzędne z
@@ -38,18 +40,21 @@ krytycznego nie zginęło przy zmianie narzędzia.
    włączyć realne kasowanie" retorycznie - naprawdę czekaj na wyraźne "tak"
    od człowieka, konkretnie na TO pytanie, nie na ogólne "kontynuuj".
 
-## Bieżący nierozwiązany problem (PUŁAPKA 5)
+## Zamknięty, ale niewyjaśniony problem (PUŁAPKA 5)
 
 Operator zgłosił, że realne kasowanie (`dryRun: false`) na rysunku `[35270]`
 usunęło więcej niż zamierzony duplikat - "całą szerokość albo całą długość".
-Jeden nadzorowany test powtórzony po tym zgłoszeniu (operator patrzył w
-momencie kliknięcia) usunął TYLKO zamierzony wymiar (12 mm) i NIE odtworzył
-problemu. Sprawdzone i odrzucone jako przyczyna: wspólny `StraightDimensionSet`
-("łańcuch" wymiarów w Tekli) między parą 24mm/12mm - są w dwóch odrębnych,
-jednoelementowych zestawach, więc to nie kaskada przez łańcuch, przynajmniej
-nie dla tej pary. Sprawa jest OTWARTA - `CLAUDE.md`, sekcja "brama
-bezpieczeństwa" i "Następne kroki" ma pełne szczegóły i listę kolejnych
-kroków diagnostycznych.
+Trzy nadzorowane testy powtórzone po tym zgłoszeniu (2x `[35270]`, 1x
+`[3.5013]`, operator patrzył w momencie kliknięcia) usunęły TYLKO zamierzony
+wymiar każdy raz i NIE odtworzyły problemu. Sprawdzone i odrzucone jako
+przyczyna: wspólny `StraightDimensionSet` ("łańcuch" wymiarów w Tekli)
+między parą 24mm/12mm - są w dwóch odrębnych, jednoelementowych zestawach,
+więc to nie kaskada przez łańcuch, przynajmniej nie dla tej pary.
+
+**Operator zdecydował** uznać oryginalne zgłoszenie za pojedynczy incydent i
+przywrócić `dryRun: false` - to ŚWIADOMA DECYZJA O RYZYKU, nie dowód że
+problemu nie ma. Przyczyna nigdy nie została zdiagnozowana. `CLAUDE.md`,
+sekcja "brama bezpieczeństwa", ma pełną historię.
 
 ## Szybkie fakty
 
