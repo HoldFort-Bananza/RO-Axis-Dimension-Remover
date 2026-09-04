@@ -128,6 +128,23 @@ proces działa (patrz `..\CLAUDE.md`, zasada 4).
 | `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark` dla trybu konsolowego |
 | `DiagRunner.cs` | tymczasowy headless runner dry-run (patrz wyżej) — **do usunięcia przed pierwszym wydaniem**, jak `Inspector.cs` |
 | `Inspector.cs` | tymczasowy skaner kandydatów RO po całym modelu — **do usunięcia przed pierwszym wydaniem** |
+| `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) — wzorzec 1:1 z `Radius Dimention Mover` |
+| `installer/setup.iss`, `installer/fetch-dependencies.ps1`, `installer/TeklaEULA.txt` | instalator Inno Setup — nie dołącza bibliotek Tekla, dociąga je z NuGet po instalacji, patrz komentarze w plikach |
+
+## Wydania (GitHub Releases)
+
+- Wersja w `RoAxisDimensionRemover.csproj` (`<Version>`), `installer/setup.iss`
+  (`MyAppVersion`) i tag na GitHubie muszą się zgadzać — `UpdateCheck.cs`
+  porównuje assembly version z tagiem najnowszego release.
+- Instalator budowany lokalnie: `dotnet build -c Debug -p:Platform=x64`
+  (WAŻNE: `-p:Platform=x64` explicit, bez tego `dotnet build` ląduje w
+  `bin\Debug\net48` bez segmentu `x64`, co nie zgadza się ze ścieżką w
+  `setup.iss`), potem `ISCC.exe installer\setup.iss` (Inno Setup 6,
+  `%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe`).
+- `v0.1.0` opublikowane jako **pre-release** na GitHubie — dry-run-only build
+  do testów, nie potwierdzone bezpieczne narzędzie. Nie usuwać flagi
+  pre-release z kolejnych wydań, dopóki operator nie przejdzie przez bramę
+  bezpieczeństwa z sekcji wyżej.
 
 ## Branche
 
