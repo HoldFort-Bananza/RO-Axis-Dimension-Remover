@@ -4,14 +4,20 @@ Samodzielny `.exe` dla Tekla Structures 2025. Ma kasować nadmiarowe wymiary
 "do osi" na profilach RO (rura okrągła) w widokach przekroju/detalu miejsc
 łączenia.
 
-## ⚠️ STAN: WIP, NIEBEZPIECZNE DO UŻYCIA NA ŻYWO
+## Stan: reguła v4 potwierdzona, `dryRun: false` w GUI od 2026-09-04
 
-**Przycisk w `MainForm.cs` jest celowo przełączony na `dryRun: true`.**
-Program **NIE kasuje** wymiarów, tylko loguje, co by skasował. Reguła
-wykrywania nadal jest w trakcie ustalania - dwie kolejne wersje algorytmu
-realnie skasowały złe wymiary na żywym modelu (patrz niżej), zanim ktoś to
-zauważył. **Nie przełączać z powrotem na `dryRun: false`, dopóki reguła nie
-przejdzie testu na `[3.5013]` bez utraty żadnego potrzebnego wymiaru.**
+**Przycisk w `MainForm.cs` kasuje teraz naprawdę.** Operator potwierdził
+wizualnie w Tekli, na `[35270]` i `[3.5013]`, że reguła v4 (patrz niżej i
+`CLAUDE.md`) usuwa dokładnie te wymiary, które przewidywał dry-run - żadnego
+potrzebnego wymiaru nie brakuje. Wcześniej dwie kolejne wersje algorytmu
+realnie skasowały złe wymiary na żywym modelu, zanim ktoś to zauważył (patrz
+historia niżej) - stąd cała ta procedura potwierdzenia przed przełączeniem.
+
+Tryb konsolowy (`--diag-active`/`--diag-mark`, `DiagRunner.cs`) **zostaje na
+sztywno `dryRun: true` na zawsze** - to ścieżka wywoływana bez człowieka przy
+przycisku (automatyzacja/agent AI) i nigdy nie powinna dostać możliwości
+realnego kasowania, niezależnie od tego, jak dobrze zweryfikowana jest
+reguła.
 
 ## Fakt wyjściowy
 
@@ -98,10 +104,12 @@ Zweryfikowane w dry-run (headless, patrz niżej) po zmianie:
   kasuje po jednym w każdym, `5796 mm` (całkowita długość) jawnie
   odfiltrowany i nietknięty w obu widokach.
 
-**Nadal NIE potwierdzone wizualnie przez operatora w Tekli** (tylko dry-run
-+ odczyt współrzędnych z logu). Nie przełączaj `dryRun` na `false`, dopóki
-ktoś nie spojrzy na oba rysunki po realnym uruchomieniu i nie potwierdzi, że
-nic wartościowego nie zniknęło.
+**Potwierdzone wizualnie przez operatora w Tekli 2026-09-04** - na obu
+rysunkach, patrząc na rzeczywisty rysunek (nie tylko dry-run + log): `[35270]`
+poprawnie kasuje `12 mm` i zostawia `24 mm`/`2811 mm`, `[3.5013]` poprawnie
+kasuje jeden `21 mm` w każdym z 2 widoków i zostawia `5796 mm`. `dryRun` w
+`MainForm.cs` przełączony na `false` tego samego dnia - patrz "Stan" na
+początku tego README.
 
 **Headless diagnostyka bez GUI:** Claude Code (i każda automatyzacja) nie
 klika w przycisk `MainForm`. `Program.cs` ma więc tryb konsolowy:
@@ -114,8 +122,8 @@ komend.
 
 | Rysunek | Profil / opis | Status |
 |---|---|---|
-| `[35270]` | Einzelteil Geländer, RO Ø48,3 (promień 24,15) | ⚠️ v4 w dry-run: kasuje tylko `12`, zostawia `24` i `2811` (zgodnie z oczekiwaniem) - operator jeszcze nie potwierdził wizualnie po v4 |
-| `[3.5013]` | Einzelteil Geländer, więcej złączy RO w jednym widoku | ⚠️ v4 w dry-run: 2 widoki, po 1 realnym duplikacie 21 mm w każdym, `5796 mm` nietknięty - operator jeszcze nie potwierdził wizualnie |
+| `[35270]` | Einzelteil Geländer, RO Ø48,3 (promień 24,15) | ✅ v4 potwierdzone wizualnie 2026-09-04: kasuje tylko `12`, zostawia `24` i `2811` |
+| `[3.5013]` | Einzelteil Geländer, więcej złączy RO w jednym widoku | ✅ v4 potwierdzone wizualnie 2026-09-04: 2 widoki, po 1 duplikacie 21 mm skasowanym w każdym, `5796 mm` nietknięty |
 
 ## Znajdowanie kolejnych kandydatów bez klikania
 
@@ -153,14 +161,15 @@ Kopiuje wzorzec z `Radius Dimention Mover` (ten sam katalog nadrzędny,
 
 ## Następne kroki
 
-1. **Operator ma spojrzeć na `[35270]` i `[3.5013]` w Tekli** po realnym
-   uruchomieniu (`dryRun: false`, ale NIE przełączać jeszcze - najpierw ten
-   punkt) i potwierdzić, że zostają dokładnie te wymiary, co w dry-run v4
-   (patrz "Rysunki testowe"). Dry-run i odczyt współrzędnych to nie to samo
-   co spojrzenie na gotowy rysunek.
-2. Dopiero po potwierdzeniu punktu 1: przełączyć `dryRun: false` w
-   `MainForm.cs` (jedno miejsce, `RunButton_Click`).
-3. Usunąć `Inspector.cs` i `DiagRunner.cs` (albo zostawić jako świadomą
+1. ~~Operator ma spojrzeć na `[35270]` i `[3.5013]` w Tekli po realnym
+   uruchomieniu i potwierdzić, że zostają dokładnie te wymiary co w
+   dry-run v4.~~ **Zrobione 2026-09-04** - patrz "Stan" na początku README.
+2. ~~Przełączyć `dryRun: false` w `MainForm.cs`.~~ **Zrobione 2026-09-04.**
+   `DiagRunner.cs` zostaje na sztywno `dryRun: true` na zawsze (patrz
+   komentarz w tym pliku).
+3. Wydać nową wersję instalatora z realnym kasowaniem (nie pre-release -
+   patrz `CLAUDE.md`, sekcja "Wydania").
+4. Usunąć `Inspector.cs` i `DiagRunner.cs` (albo zostawić jako świadomą
    część projektu - zdecydować przy porządkach przed pierwszym wydaniem).
 4. Rozważyć wiki (jak w Radius Dimention Mover) zamiast tego README, jeśli
    projekt urośnie.

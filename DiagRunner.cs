@@ -8,6 +8,13 @@ namespace RoAxisDimensionRemover
     // to jedyny sposób odpalić dry-run na aktywnym rysunku bez człowieka przy
     // GUI. dryRun jest tu na sztywno true - z linii komend nie da się tego
     // przełączyć, więc ten tryb nigdy nie kasuje.
+    //
+    // WAŻNE: to zostaje tak NA ZAWSZE, nawet po tym, jak MainForm.cs dostał
+    // dryRun: false (2026-09-04, po potwierdzeniu operatora na [35270] i
+    // [3.5013] - patrz CLAUDE.md). Ta klasa jest wywoływana bez człowieka
+    // przy przycisku - z linii komend, przez automatyzację/agenta AI. Taka
+    // ścieżka nigdy nie powinna dostać możliwości realnego kasowania,
+    // niezależnie od tego, jak dobrze zweryfikowana jest reguła.
     internal static class DiagRunner
     {
         public static void RunOnActiveDrawing()
