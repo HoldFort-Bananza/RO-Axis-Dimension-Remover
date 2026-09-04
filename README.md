@@ -50,37 +50,72 @@ jednym rysunku ogólnym) **skasowało wszystkie wymiary do osi w widoku**,
 single-linkage, próg `SameJointDistanceMm = 300` mm), nie po przynależności
 do widoku.
 
-### v3 (BIEŻĄCY STAN): grupowanie po bliskości NADAL kasuje za dużo na [3.5013]
+### v3: grupowanie po bliskości NADAL kasuje za dużo na [3.5013]
 
-Po wdrożeniu grupowania po bliskości, `[3.5013]` **nadal traci wszystkie**
-wymiary do osi w teście operatora. Nie zdiagnozowane. Hipotezy do
-sprawdzenia w następnej sesji:
+Po wdrożeniu grupowania po bliskości, `[3.5013]` **nadal traciło wszystkie**
+wymiary do osi w teście operatora. Zdiagnozowane w v4 (niżej) przez odczyt
+logu `[diag]`, nie przez zgadywanie.
 
-1. **Próg 300 mm jest zgadywany, nie zmierzony** - możliwe że na `[3.5013]`
-   wszystkie kandydaci naprawdę leżą bliżej niż 300 mm, bo to jedno złącze o
-   innej geometrii niż `[35270]`, a nie kilka złączy. W takim razie problem
-   nie jest w grupowaniu, tylko w założeniu "keep tylko 1 na klaster" - może
-   przy 3+ kandydatach reguła musi być inna (np. zostają wszyscy oprócz
-   dokładnie jednego zduplikowanego pod względem wartości).
-2. **Jednostki współrzędnych mogą się różnić między widokami** - `CLAUDE.md`
-   nadrzędny (`..\CLAUDE.md`) ostrzega, że w tej samej klasie potrafią
-   mieszać się jednostki modelu i mm na papierze zależnie od kontekstu.
-   Możliwe że różne widoki na `[3.5013]` mają różną skalę, więc stały próg
-   w mm nie ma sensu bez podzielenia przez skalę widoku (`view.Attributes.Scale`?).
-3. Trzeba **przeczytać log diagnostyczny** (`dryRun: true` już wgrane,
-   loguje pełne współrzędne i podział na klastry - `RoAxisDimensionService.cs`,
-   bloki `[diag]`) zamiast zgadywać dalej. Log leci do `logs/session_*.log`
-   obok `.exe` **i** do okna programu.
+### v4 (BIEŻĄCY STAN): zdiagnozowane i naprawione - do potwierdzenia w dry-run na obu rysunkach
 
-**Nie przełączaj `dryRun` z powrotem na `false`, dopóki log z `[3.5013]`
-nie pokaże sensownego podziału na klastry.**
+Diagnoza z realnych współrzędnych na `[3.5013]` (headless `--diag-mark`,
+patrz niżej): w jednym z widoków klaster bliskości miał 3 kandydatów, nie 2 -
+oprócz dwóch prawdziwych duplikatów po 21 mm trafił tam też wymiar
+**całkowitej długości profilu** (5796 mm, od `(0,0,0)` do wierzchołka skosu).
+Ten wymiar też "dotyka osi" wg `TouchesAxis`, bo dla rury okrągłej lokalny
+początek układu współrzędnych (punkt referencyjny X=0) leży dokładnie na
+teoretycznej osi (Y=0, Z=0) - to definicja układu, nie ślepy skos bez
+odniesienia powierzchni. `GroupByProximity` złączył go z dwoma prawdziwymi
+duplikatami, bo patrzy tylko na najbliższy punkt (a wszystkie trzy dzielą
+wierzchołek skosu), nie na cały wymiar. Reguła "zostaw największą wartość w
+klastrze" zostawiała wtedy 5796 mm (przypadkiem poprawnie), ale kasowała
+**oba** wymiary po 21 mm - stąd "traci wszystkie wymiary do osi".
+
+**Ślepa uliczka po drodze:** pierwsza poprawka kasowała w klastrze tylko
+wymiary o identycznej wyświetlanej wartości. Działała na `[3.5013]`, ale
+**zepsuła `[35270]`** - tam prawdziwa para duplikat/oryginał to 24 mm i
+12 mm (RÓŻNE wartości - jeden koniec dotyka powierzchni, drugi osi, więc
+rzut wychodzi inny), więc wymóg równości wartości nie kasował niczego.
+Wniosek: "różne wartości" samo w sobie NIC nie mówi o tym, czy dwa wymiary
+są duplikatem - trzeba było innego kryterium.
+
+**Poprawka, która działa na obu rysunkach:** dwuznaczność oś/powierzchnia
+dotyczy z definicji tylko **krótkiego, lokalnego** wymiaru przy złączu -
+wymiar całkowitej długości profilu nie ma tego problemu (jego punkty
+referencyjne to płaskie przekroje, nie promień). Odfiltrowuje się więc z
+kandydatów każdy wymiar "dotykający osi", którego WŁASNA długość
+(`StartPoint`-`EndPoint`) przekracza `SameJointDistanceMm` (300 mm - ten sam
+próg co przy grupowaniu, sensownie: "lokalne złącze" ma skalę promienia
+profilu, nie metrów). Reguła "zostaw największą wartość w klastrze" wraca
+bez zmian - **ona była poprawna**, brakowało tylko wykluczenia wymiaru,
+który w ogóle nie powinien być kandydatem.
+
+Zweryfikowane w dry-run (headless, patrz niżej) po zmianie:
+- `[35270]`: kasuje dokładnie `12 mm`, zostawia `24 mm` **i** `2811 mm`
+  (`2811 mm` teraz jawnie odfiltrowany jako "nie lokalny artefakt złącza") -
+  zgodnie z oczekiwanym zachowaniem.
+- `[3.5013]`: 2 widoki, każdy z klastrem 2 prawdziwych duplikatów po 21 mm -
+  kasuje po jednym w każdym, `5796 mm` (całkowita długość) jawnie
+  odfiltrowany i nietknięty w obu widokach.
+
+**Nadal NIE potwierdzone wizualnie przez operatora w Tekli** (tylko dry-run
++ odczyt współrzędnych z logu). Nie przełączaj `dryRun` na `false`, dopóki
+ktoś nie spojrzy na oba rysunki po realnym uruchomieniu i nie potwierdzi, że
+nic wartościowego nie zniknęło.
+
+**Headless diagnostyka bez GUI:** Claude Code (i każda automatyzacja) nie
+klika w przycisk `MainForm`. `Program.cs` ma więc tryb konsolowy:
+`RoAxisDimensionRemover.exe --diag-active` (aktywny rysunek) albo
+`--diag-mark "[Mark]"` (otwiera rysunek po Mark, patrz `DiagRunner.cs`).
+`dryRun` jest tam na sztywno `true` - nie da się tego przełączyć z linii
+komend.
 
 ## Rysunki testowe
 
 | Rysunek | Profil / opis | Status |
 |---|---|---|
-| `[35270]` | Einzelteil Geländer, RO Ø48,3 (promień 24,15) | ✅ v2 działa poprawnie: kasuje tylko `12`, zostawia oba `24` i `2811` |
-| `[3.5013]` | Einzelteil Geländer, więcej złączy RO w jednym widoku | ❌ v2 i v3 kasują za dużo - patrz wyżej |
+| `[35270]` | Einzelteil Geländer, RO Ø48,3 (promień 24,15) | ⚠️ v4 w dry-run: kasuje tylko `12`, zostawia `24` i `2811` (zgodnie z oczekiwaniem) - operator jeszcze nie potwierdził wizualnie po v4 |
+| `[3.5013]` | Einzelteil Geländer, więcej złączy RO w jednym widoku | ⚠️ v4 w dry-run: 2 widoki, po 1 realnym duplikacie 21 mm w każdym, `5796 mm` nietknięty - operator jeszcze nie potwierdził wizualnie |
 
 ## Znajdowanie kolejnych kandydatów bez klikania
 
@@ -112,19 +147,20 @@ Kopiuje wzorzec z `Radius Dimention Mover` (ten sam katalog nadrzędny,
 |---|---|
 | `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI |
 | `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku |
-| `Program.cs` | punkt wejścia |
+| `Program.cs` | punkt wejścia, w tym tryb konsolowy `--diag-active`/`--diag-mark` |
 | `Inspector.cs` | tymczasowy skaner kandydatów po całym modelu (patrz wyżej) |
+| `DiagRunner.cs` | tymczasowy headless runner dry-run na jednym rysunku (patrz "Headless diagnostyka" wyżej), **do usunięcia przed pierwszym wydaniem** jak `Inspector.cs` |
 
 ## Następne kroki
 
-1. Przeczytać `logs/session_*.log` z próby na `[3.5013]` (dryRun) -
-   zobaczyć realne współrzędne i podział na klastry.
-2. Ustalić poprawną regułę (patrz hipotezy wyżej) i **zmierzyć**, nie zgadywać
-   progu kolejny raz.
-3. Przetestować na obu rysunkach (`[35270]` i `[3.5013]`) - żadna zmiana nie
-   może psuć tego, co już działa.
-4. Dopiero wtedy przełączyć `dryRun: false` w `MainForm.cs`.
-5. Usunąć `Inspector.cs` (albo zostawić jako świadomą część projektu -
-   zdecydować przy porządkach przed pierwszym wydaniem).
-6. Rozważyć wiki (jak w Radius Dimention Mover) zamiast tego README, jeśli
+1. **Operator ma spojrzeć na `[35270]` i `[3.5013]` w Tekli** po realnym
+   uruchomieniu (`dryRun: false`, ale NIE przełączać jeszcze - najpierw ten
+   punkt) i potwierdzić, że zostają dokładnie te wymiary, co w dry-run v4
+   (patrz "Rysunki testowe"). Dry-run i odczyt współrzędnych to nie to samo
+   co spojrzenie na gotowy rysunek.
+2. Dopiero po potwierdzeniu punktu 1: przełączyć `dryRun: false` w
+   `MainForm.cs` (jedno miejsce, `RunButton_Click`).
+3. Usunąć `Inspector.cs` i `DiagRunner.cs` (albo zostawić jako świadomą
+   część projektu - zdecydować przy porządkach przed pierwszym wydaniem).
+4. Rozważyć wiki (jak w Radius Dimention Mover) zamiast tego README, jeśli
    projekt urośnie.
