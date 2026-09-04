@@ -212,6 +212,11 @@ namespace RoAxisDimensionRemover
                 // dostać możliwości realnego kasowania.
                 var result = _service.RemoveRedundantAxisDimensions(drawing, Log, dryRun: false);
                 _statusLabel.Text = $"Gotowe. Sprawdzono {result.ViewsChecked} widoków, usunięto {result.RemovedCount} wymiarów. Sprawdź wizualnie w Tekli (Ctrl+Z cofa, jeśli coś jest nie tak).";
+
+                // Fokus wraca na Teklę, żeby Ctrl+Z od razu poszedł tam, gdzie
+                // ma pójść - bez tego zostałby na tym oknie i nic by się nie
+                // stało.
+                TeklaWindowFocus.BringToFront(Log);
             }
             catch (Exception ex)
             {
