@@ -131,22 +131,32 @@ proces działa (patrz `..\CLAUDE.md`, zasada 4).
 
 ## Branche
 
-- `main` — rozwojowy/WIP. `dryRun: true` jest tu dozwolony i oczekiwany
-  dopóki reguła nie przejdzie bramy bezpieczeństwa wyżej.
+- `dev` — domyślny branch repo, rozwojowy/WIP (dawniej `main`, zmieniony na
+  `dev` i ustawiony jako domyślny przez GitHub API — `gh` nie jest
+  zainstalowany na tej maszynie, patrz `..\CLAUDE.md`). `dryRun: true` jest
+  tu dozwolony i oczekiwany dopóki reguła nie przejdzie bramy bezpieczeństwa
+  wyżej.
 - `release` — ma trzymać tylko kod potwierdzony jako bezpieczny
   (`dryRun: false`, po wizualnym potwierdzeniu operatora na obu rysunkach
-  testowych). **W tej chwili wskazuje na ten sam commit co początek `main`
-  ("Initial checkpoint... WIP and unsafe") — to placeholder, nie potwierdzenie
-  bezpieczeństwa.** Nie przenosić na `release` niczego, co nie przeszło
-  bramy z sekcji wyżej.
+  testowych).
+  **UWAGA:** poprawka v4 (filtr długości własnej) została scalona do
+  `release` przez [PR #1](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/pull/1)
+  — to porządkowanie repo (branch `dev`→`release` jako miejsce docelowe),
+  **NIE jest to potwierdzenie bezpieczeństwa**. `dryRun` w kodzie na obu
+  branchach jest nadal na sztywno `true`. Merge do `release` sam w sobie
+  nie zastępuje bramy z sekcji wyżej — dopóki operator nie spojrzy na
+  `[35270]` i `[3.5013]` w Tekli po realnym uruchomieniu, traktuj `release`
+  jako "kod gotowy do przetestowania na żywo", nie "przetestowany".
 
 ## Następne kroki
 
 1. Operator ma spojrzeć na `[35270]` i `[3.5013]` w Tekli po realnym
    uruchomieniu i potwierdzić, że zostają dokładnie te wymiary co w
-   dry-run v4.
+   dry-run v4. (Kod v4 jest już na `dev` i `release` po PR #1 — ten punkt
+   dotyczy potwierdzenia, nie przeniesienia kodu.)
 2. Dopiero po potwierdzeniu: przełączyć `dryRun: false` w `MainForm.cs`
    (`RunButton_Click`) i w `DiagRunner.cs`, jeśli tryb headless ma zostać.
-3. Scommitować i przenieść potwierdzony stan na `release`.
-4. Usunąć `Inspector.cs` i `DiagRunner.cs` (albo świadomie zostawić —
+   To osobny PR/commit - dopisać w jego opisie, na jakich rysunkach i kiedy
+   potwierdzono.
+3. Usunąć `Inspector.cs` i `DiagRunner.cs` (albo świadomie zostawić —
    zdecydować przy porządkach przed wydaniem).
