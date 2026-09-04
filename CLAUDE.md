@@ -136,12 +136,13 @@ proces działa (patrz `..\CLAUDE.md`, zasada 4).
 | `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark` dla trybu konsolowego |
 | `DiagRunner.cs` | headless runner dry-run (patrz wyżej) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) — wzorzec 1:1 z `Radius Dimention Mover` |
+| `TeklaWindowFocus.cs` | po realnym usunięciu przełącza fokus Windows na główne okno Tekla Structures (Win32 `SetForegroundWindow`, nie API Tekli - Open API nie ma metody do tego, zweryfikowane), żeby Ctrl+Z od razu trafił tam gdzie ma |
+| `installer/setup.iss`, `installer/fetch-dependencies.ps1`, `installer/TeklaEULA.txt` | instalator Inno Setup — nie dołącza bibliotek Tekla, dociąga je z NuGet po instalacji, patrz komentarze w plikach |
 
 `Inspector.cs` (tymczasowy skaner kandydatów RO po całym modelu, użyty
 jednorazowo do znalezienia `[3.5013]`) **usunięty po v0.2.0** — nieużywany
 od chwili, gdy oba rysunki testowe były już znane. Patrz git historia, jeśli
 trzeba znaleźć kolejnego kandydata na innym modelu.
-| `installer/setup.iss`, `installer/fetch-dependencies.ps1`, `installer/TeklaEULA.txt` | instalator Inno Setup — nie dołącza bibliotek Tekla, dociąga je z NuGet po instalacji, patrz komentarze w plikach |
 
 ## Wydania (GitHub Releases)
 
