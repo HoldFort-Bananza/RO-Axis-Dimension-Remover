@@ -71,7 +71,7 @@ Po wdrożeniu grupowania po bliskości, `[3.5013]` **nadal traciło wszystkie**
 wymiary do osi w teście operatora. Zdiagnozowane w v4 (niżej) przez odczyt
 logu `[diag]`, nie przez zgadywanie.
 
-### v4 (BIEŻĄCY STAN): zdiagnozowane i naprawione - do potwierdzenia w dry-run na obu rysunkach
+### v4: naprawiono błąd z [3.5013]/v3, ALE reguła bazowa ma osobny, poważniejszy błąd - patrz PUŁAPKA 5 w `CLAUDE.md` i "Stan" na początku tego README
 
 Diagnoza z realnych współrzędnych na `[3.5013]` (headless `--diag-mark`,
 patrz niżej): w jednym z widoków klaster bliskości miał 3 kandydatów, nie 2 -
@@ -117,8 +117,13 @@ Zweryfikowane w dry-run (headless, patrz niżej) po zmianie:
 rysunkach, patrząc na rzeczywisty rysunek (nie tylko dry-run + log): `[35270]`
 poprawnie kasuje `12 mm` i zostawia `24 mm`/`2811 mm`, `[3.5013]` poprawnie
 kasuje jeden `21 mm` w każdym z 2 widoków i zostawia `5796 mm`. `dryRun` w
-`MainForm.cs` przełączony na `false` tego samego dnia - patrz "Stan" na
-początku tego README.
+`MainForm.cs` przełączony na `false` tego samego dnia.
+
+**⚠️ TO POTWIERDZENIE OKAZAŁO SIĘ NIEWYSTARCZAJĄCE.** Potwierdzało tylko,
+że "usuwa jeden z pary o tej samej wartości" - nie sprawdzało, czy para na
+`[3.5013]` jest w ogóle duplikatem. Nie jest: to dwa PROSTOPADŁE wymiary
+tego samego skosu, nie duplikat. Pełna diagnoza i bieżący stan `dryRun`:
+sekcja "Stan" na początku tego README i `CLAUDE.md`, "brama bezpieczeństwa".
 
 **Headless diagnostyka bez GUI:** Claude Code (i każda automatyzacja) nie
 klika w przycisk `MainForm`. `Program.cs` ma więc tryb konsolowy:
@@ -169,20 +174,15 @@ Kopiuje wzorzec z `Radius Dimention Mover` (ten sam katalog nadrzędny,
 
 ## Następne kroki
 
-1. ~~Operator ma spojrzeć na `[35270]` i `[3.5013]` w Tekli po realnym
-   uruchomieniu i potwierdzić, że zostają dokładnie te wymiary co w
-   dry-run v4.~~ **Zrobione 2026-09-04** - patrz "Stan" na początku README.
-2. ~~Przełączyć `dryRun: false` w `MainForm.cs`.~~ **Zrobione 2026-09-04.**
-   `DiagRunner.cs` zostaje na sztywno `dryRun: true` na zawsze (patrz
-   komentarz w tym pliku).
-3. ~~Wydać nową wersję instalatora z realnym kasowaniem (nie pre-release).~~
-   **Zrobione 2026-09-04** - [v0.2.0](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/releases/tag/v0.2.0).
-4. ~~Usunąć `Inspector.cs` (albo zostawić jako świadomą część projektu).~~
-   **Zrobione** - usunięty, był nieużywany od chwili znalezienia obu
-   rysunków testowych. `DiagRunner.cs` zostaje świadomie (patrz wyżej).
-5. **PUŁAPKA 5 - OTWARTA, ZDIAGNOZOWANA, JEDYNY PRIORYTET.** Naprawić
-   regułę tak, żeby prostopadłe wymiary nie były traktowane jako duplikat
-   (`[3.5013]`), nie psując prawdziwego duplikatu na `[35270]`. Konkretne
-   kroki i trop `UpDirection`: `CLAUDE.md`, "Następne kroki" pkt 5.
-6. Rozważyć wiki (jak w Radius Dimention Mover) zamiast tego README, jeśli
-   projekt urośnie.
+**Historyczne kroki (znalezienie rysunków testowych, pierwsze wydanie,
+usunięcie `Inspector.cs`) są zrobione - patrz historia commitów. Jedyny
+aktualny priorytet:**
+
+**PUŁAPKA 5 - OTWARTA, ZDIAGNOZOWANA, JEDYNY PRIORYTET.** Naprawić regułę
+tak, żeby prostopadłe wymiary nie były traktowane jako duplikat
+(`[3.5013]`), nie psując prawdziwego duplikatu na `[35270]`. Konkretne
+kroki, trop `UpDirection`, i stan branchy/PR-ów: `CLAUDE.md`, sekcje "brama
+bezpieczeństwa" i "Następne kroki".
+
+Osobno, bez pośpiechu: rozważyć wiki (jak w Radius Dimention Mover) zamiast
+tego README, jeśli projekt urośnie.
