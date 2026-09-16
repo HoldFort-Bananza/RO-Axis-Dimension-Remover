@@ -32,13 +32,6 @@ odniesienia, więc Tekla łapie oś. Czasem taki wymiar jest **jedyny i
 potrzebny** (opisuje długość profilu przy skosie), a czasem jest **duplikatem**
 innego wymiaru opisującego to samo miejsce - i tylko duplikat ma zniknąć.
 
-## Rysunki testowe
-
-| Rysunek | Profil / opis | Status |
-|---|---|---|
-| `[35270]` | Einzelteil Geländer, RO Ø48,3 (promień 24,15) | ✅ Para `24`/`12` to prawdziwy duplikat (równoległe wymiary, różne wartości) - kasuje `12`, zostawia `24`/`2811`. Potwierdzone wizualnie |
-| `[3.5013]` | Einzelteil Geländer, więcej złączy RO w jednym widoku | ❌ Para `21`/`21` w każdym widoku to dwa PROSTOPADŁE wymiary skosu 45°, nie duplikat - patrz [issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18) |
-
 ## Headless diagnostyka bez GUI
 
 Claude Code (i każda automatyzacja) nie klika w przycisk `MainForm`.
@@ -71,7 +64,7 @@ Kopiuje wzorzec z `Radius Dimention Mover` (ten sam katalog nadrzędny,
 
 Jedyny aktualny priorytet: naprawić regułę wykrywania tak, żeby prostopadłe
 wymiary o tej samej wartości nie były traktowane jako duplikat, bez psucia
-prawdziwego duplikatu na `[35270]`. Szczegóły, trop (`UpDirection` w
+prawdziwego duplikatu. Szczegóły, trop (`UpDirection` w
 `Tekla.Structures.Drawing`) i wymagana procedura zatwierdzenia:
 [issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18)
 i `CLAUDE.md`.
