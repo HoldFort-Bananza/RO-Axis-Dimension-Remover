@@ -4,29 +4,23 @@ Samodzielny `.exe` dla Tekla Structures 2025. Ma kasować nadmiarowe wymiary
 "do osi" na profilach RO (rura okrągła) w widokach przekroju/detalu miejsc
 łączenia.
 
-## ⚠️ Stan: BŁĄD ZDIAGNOZOWANY, `dryRun: true` (późny wieczór 2026-09-04)
+## Stan: `dryRun: true` — przycisk nic nie kasuje
 
-**Przycisk w `MainForm.cs` NIE kasuje - reguła v4 ma realny błąd.**
+Reguła wykrywania (v4) ma znany, zdiagnozowany błąd: potrafi skasować
+poprawny wymiar zamiast duplikatu, gdy dwa PROSTOPADŁE wymiary tego samego
+skosu 45° pokazują przypadkiem tę samą wartość. Pełna diagnoza, przykład
+liczbowy i kierunek naprawy:
+[issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18).
 
-Para `21`/`21` na `[3.5013]` to **nie duplikat**, a dwa **prostopadłe**
-wymiary tego samego skosu 45° (jeden poziomy - wzdłuż rury, jeden pionowy -
-w poprzek). Oba pokazują `21`, bo kąt to dokładnie 45°. Reguła kasuje jeden
-z nich → ginie cała jedna informacja. To dokładnie to, co operator zgłaszał
-od początku ("usuwa całą szerokość albo całą długość") - zgłoszenie było
-poprawne, a wcześniejsze "trzy czyste testy" były błędnie zwalidowane
-(porównywane z przewidywaniem dry-runa, a nie z poprawnością inżynierską -
-patrz `CLAUDE.md`, ta lekcja jest ważniejsza niż sam błąd).
+Pełna historia wersji (v1–v4) i "brama bezpieczeństwa", przez którą musi
+przejść każda zmiana reguły przed włączeniem realnego kasowania, są w
+`CLAUDE.md` — to on jest bazą wiedzy tego projektu, to README to tylko
+skrót.
 
-**Naprawa nie jest zaimplementowana.** Trzeba porównywać KIERUNEK POMIARU,
-nie tylko wartość. Trop: `UpDirection` w `Tekla.Structures.Drawing`.
-Konkretne kroki: `CLAUDE.md`, "Następne kroki" pkt 5. `[35270]` (`24`/`12`,
-różne wartości, dwa `24`) to prawdziwy duplikat i musi dalej działać.
-
-Tryb konsolowy (`--diag-active`/`--diag-mark`, `DiagRunner.cs`) **zostaje na
-sztywno `dryRun: true` na zawsze** - to ścieżka wywoływana bez człowieka przy
-przycisku (automatyzacja/agent AI) i nigdy nie powinna dostać możliwości
-realnego kasowania, niezależnie od tego, jak dobrze zweryfikowana jest
-reguła.
+Tryb konsolowy (`--diag-active`/`--diag-mark`, `DiagRunner.cs`) ma
+`dryRun: true` na sztywno, na zawsze — to ścieżka bez człowieka przy
+przycisku i nigdy nie powinna dostać możliwości realnego kasowania,
+niezależnie od stanu reguły.
 
 ## Fakt wyjściowy
 
@@ -38,125 +32,25 @@ odniesienia, więc Tekla łapie oś. Czasem taki wymiar jest **jedyny i
 potrzebny** (opisuje długość profilu przy skosie), a czasem jest **duplikatem**
 innego wymiaru opisującego to samo miejsce - i tylko duplikat ma zniknąć.
 
-## Historia błędów (NIE powtarzać)
-
-### v1: fałszywe trafienie na współrzędnej Z
-
-Kryterium "koniec wymiaru ma współrzędną ≈0" sprawdzało **wszystkie**
-współrzędne (Y i Z), łącznie z tą, która dla wymiaru leżącego płasko w
-widoku jest **zawsze 0 dla obu końców** (bo widok jest dwuwymiarowy, nie
-dlatego że to oś). To złapało prawidłowy wymiar "z boku rury" jako fałszywy
-duplikat i skasowało go razem z właściwym celem, na `[35270]`.
-
-**Poprawka:** sprawdzać tylko współrzędną, która **różni się** między
-`StartPoint` i `EndPoint` tego samego wymiaru (patrz `TouchesAxis` w
-`RoAxisDimensionService.cs`).
-
-### v2: grupowanie po całym widoku
-
-Po poprawce v1 program grupował wszystkie wymiary "dotykające osi" w
-**całym widoku** i zostawiał tylko jeden (o największej wyświetlanej
-wartości), kasując resztę. Zadziałało poprawnie na `[35270]` (jeden widok =
-jedno złącze). Na `[3.5013]` ("Einzelteil Geländer", więcej złączy RO w
-jednym rysunku ogólnym) **skasowało wszystkie wymiary do osi w widoku**,
-łącznie z takimi należącymi do zupełnie innych, niepowiązanych złączy.
-
-**Poprawka:** grupować po **bliskości geometrycznej** (`GroupByProximity`,
-single-linkage, próg `SameJointDistanceMm = 300` mm), nie po przynależności
-do widoku.
-
-### v3: grupowanie po bliskości NADAL kasuje za dużo na [3.5013]
-
-Po wdrożeniu grupowania po bliskości, `[3.5013]` **nadal traciło wszystkie**
-wymiary do osi w teście operatora. Zdiagnozowane w v4 (niżej) przez odczyt
-logu `[diag]`, nie przez zgadywanie.
-
-### v4: naprawiono błąd z [3.5013]/v3, ALE reguła bazowa ma osobny, poważniejszy błąd - patrz PUŁAPKA 5 w `CLAUDE.md` i "Stan" na początku tego README
-
-Diagnoza z realnych współrzędnych na `[3.5013]` (headless `--diag-mark`,
-patrz niżej): w jednym z widoków klaster bliskości miał 3 kandydatów, nie 2 -
-oprócz dwóch prawdziwych duplikatów po 21 mm trafił tam też wymiar
-**całkowitej długości profilu** (5796 mm, od `(0,0,0)` do wierzchołka skosu).
-Ten wymiar też "dotyka osi" wg `TouchesAxis`, bo dla rury okrągłej lokalny
-początek układu współrzędnych (punkt referencyjny X=0) leży dokładnie na
-teoretycznej osi (Y=0, Z=0) - to definicja układu, nie ślepy skos bez
-odniesienia powierzchni. `GroupByProximity` złączył go z dwoma prawdziwymi
-duplikatami, bo patrzy tylko na najbliższy punkt (a wszystkie trzy dzielą
-wierzchołek skosu), nie na cały wymiar. Reguła "zostaw największą wartość w
-klastrze" zostawiała wtedy 5796 mm (przypadkiem poprawnie), ale kasowała
-**oba** wymiary po 21 mm - stąd "traci wszystkie wymiary do osi".
-
-**Ślepa uliczka po drodze:** pierwsza poprawka kasowała w klastrze tylko
-wymiary o identycznej wyświetlanej wartości. Działała na `[3.5013]`, ale
-**zepsuła `[35270]`** - tam prawdziwa para duplikat/oryginał to 24 mm i
-12 mm (RÓŻNE wartości - jeden koniec dotyka powierzchni, drugi osi, więc
-rzut wychodzi inny), więc wymóg równości wartości nie kasował niczego.
-Wniosek: "różne wartości" samo w sobie NIC nie mówi o tym, czy dwa wymiary
-są duplikatem - trzeba było innego kryterium.
-
-**Poprawka, która działa na obu rysunkach:** dwuznaczność oś/powierzchnia
-dotyczy z definicji tylko **krótkiego, lokalnego** wymiaru przy złączu -
-wymiar całkowitej długości profilu nie ma tego problemu (jego punkty
-referencyjne to płaskie przekroje, nie promień). Odfiltrowuje się więc z
-kandydatów każdy wymiar "dotykający osi", którego WŁASNA długość
-(`StartPoint`-`EndPoint`) przekracza `SameJointDistanceMm` (300 mm - ten sam
-próg co przy grupowaniu, sensownie: "lokalne złącze" ma skalę promienia
-profilu, nie metrów). Reguła "zostaw największą wartość w klastrze" wraca
-bez zmian - **ona była poprawna**, brakowało tylko wykluczenia wymiaru,
-który w ogóle nie powinien być kandydatem.
-
-Zweryfikowane w dry-run (headless, patrz niżej) po zmianie:
-- `[35270]`: kasuje dokładnie `12 mm`, zostawia `24 mm` **i** `2811 mm`
-  (`2811 mm` teraz jawnie odfiltrowany jako "nie lokalny artefakt złącza") -
-  zgodnie z oczekiwanym zachowaniem.
-- `[3.5013]`: 2 widoki, każdy z klastrem 2 prawdziwych duplikatów po 21 mm -
-  kasuje po jednym w każdym, `5796 mm` (całkowita długość) jawnie
-  odfiltrowany i nietknięty w obu widokach.
-
-**Potwierdzone wizualnie przez operatora w Tekli 2026-09-04** - na obu
-rysunkach, patrząc na rzeczywisty rysunek (nie tylko dry-run + log): `[35270]`
-poprawnie kasuje `12 mm` i zostawia `24 mm`/`2811 mm`, `[3.5013]` poprawnie
-kasuje jeden `21 mm` w każdym z 2 widoków i zostawia `5796 mm`. `dryRun` w
-`MainForm.cs` przełączony na `false` tego samego dnia.
-
-**⚠️ TO POTWIERDZENIE OKAZAŁO SIĘ NIEWYSTARCZAJĄCE.** Potwierdzało tylko,
-że "usuwa jeden z pary o tej samej wartości" - nie sprawdzało, czy para na
-`[3.5013]` jest w ogóle duplikatem. Nie jest: to dwa PROSTOPADŁE wymiary
-tego samego skosu, nie duplikat. Pełna diagnoza i bieżący stan `dryRun`:
-sekcja "Stan" na początku tego README i `CLAUDE.md`, "brama bezpieczeństwa".
-
-**Headless diagnostyka bez GUI:** Claude Code (i każda automatyzacja) nie
-klika w przycisk `MainForm`. `Program.cs` ma więc tryb konsolowy:
-`RoAxisDimensionRemover.exe --diag-active` (aktywny rysunek) albo
-`--diag-mark "[Mark]"` (otwiera rysunek po Mark, patrz `DiagRunner.cs`).
-`dryRun` jest tam na sztywno `true` - nie da się tego przełączyć z linii
-komend.
-
 ## Rysunki testowe
 
 | Rysunek | Profil / opis | Status |
 |---|---|---|
-| `[35270]` | Einzelteil Geländer, RO Ø48,3 (promień 24,15) | ✅ Działa poprawnie: kasuje `12`, zostawia oba `24` i `2811` - potwierdzone wizualnie i w nadzorowanych testach. Para `24`/`12` ma RÓŻNE wartości - to prawdziwy duplikat |
-| `[3.5013]` | Einzelteil Geländer, więcej złączy RO w jednym widoku | ❌ **BŁĄD (PUŁAPKA 5)**: para `21`/`21` w każdym widoku to dwa PROSTOPADŁE wymiary skosu 45°, nie duplikat - reguła kasuje jeden i gubi poziom albo pion. Do naprawy |
+| `[35270]` | Einzelteil Geländer, RO Ø48,3 (promień 24,15) | ✅ Para `24`/`12` to prawdziwy duplikat (równoległe wymiary, różne wartości) - kasuje `12`, zostawia `24`/`2811`. Potwierdzone wizualnie |
+| `[3.5013]` | Einzelteil Geländer, więcej złączy RO w jednym widoku | ❌ Para `21`/`21` w każdym widoku to dwa PROSTOPADŁE wymiary skosu 45°, nie duplikat - patrz [issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18) |
 
-## Znajdowanie kolejnych kandydatów bez klikania (historia - plik usunięty)
+## Headless diagnostyka bez GUI
 
-`Inspector.cs`, **usunięty po v0.2.0** (był rusztowaniem diagnostycznym,
-zaplanowanym do usunięcia przed pierwszym pełnym wydaniem - patrz git
-historia, jeśli trzeba go przywrócić): skanował **wszystkie** rysunki
-pojedynczych części (`SinglePartDrawing`), filtrował po `Profile.ProfileString`
-zaczynającym się od `"RO"`, i dla każdego robił "na sucho" sprawdzenie
-(`SetActiveDrawing(d, false)` → `RemoveRedundantAxisDimensions(dryRun: true)`
-→ `CloseActiveDrawing(false)`) bez otwierania na ekranie. Znaleziony kandydat
-był otwierany od razu z tej samej referencji `Drawing` (bez ponownego,
-wolnego szukania po `Mark`).
+Claude Code (i każda automatyzacja) nie klika w przycisk `MainForm`.
+`Program.cs` ma więc tryb konsolowy:
 
-Na 1023 rysunkach pojedynczych części: 7 miało profil RO, jeden odrzucony
-(`CannotPerformOperationDrawingNotUpToDateException` - rysunek nieaktualny,
-wymaga `UpdateDrawing()` przed otwarciem, tak samo jak w Radius Dimension
-Mover), `[3.5013]` był pierwszym trafieniem z realnym duplikatem (3
-kandydatów). Ta rola jest teraz spełniona - obie znalezione wtedy drogi
-([35270], [3.5013]) są potwierdzonymi rysunkami testowymi.
+```
+RoAxisDimensionRemover.exe --diag-active          # aktywny rysunek w Tekli
+RoAxisDimensionRemover.exe --diag-mark "[3.5013]" # otwiera rysunek po Mark
+```
+
+`dryRun` jest tam na sztywno `true` - nie da się tego przełączyć z linii
+komend. Log leci na `stdout`.
 
 ## Architektura
 
@@ -168,21 +62,19 @@ Kopiuje wzorzec z `Radius Dimention Mover` (ten sam katalog nadrzędny,
 | `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI |
 | `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku |
 | `Program.cs` | punkt wejścia, w tym tryb konsolowy `--diag-active`/`--diag-mark` |
+| `DiagRunner.cs` | headless runner dry-run na jednym rysunku (patrz wyżej) - `dryRun` na sztywno `true` na zawsze |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja |
-| `TeklaWindowFocus.cs` | po realnym usunięciu przełącza fokus Windows na okno Tekli (Ctrl+Z od razu trafia tam, gdzie ma) |
-| `DiagRunner.cs` | headless runner dry-run na jednym rysunku (patrz "Headless diagnostyka" wyżej) - **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, patrz komentarz w tym pliku |
+| `TeklaWindowFocus.cs` | po realnym usunięciu przełącza fokus Windows na okno Tekli |
+| `installer/setup.iss`, `fetch-dependencies.ps1`, `TeklaEULA.txt` | instalator Inno Setup - nie dołącza bibliotek Tekla, dociąga je z NuGet po instalacji |
 
 ## Następne kroki
 
-**Historyczne kroki (znalezienie rysunków testowych, pierwsze wydanie,
-usunięcie `Inspector.cs`) są zrobione - patrz historia commitów. Jedyny
-aktualny priorytet:**
-
-**PUŁAPKA 5 - OTWARTA, ZDIAGNOZOWANA, JEDYNY PRIORYTET.** Naprawić regułę
-tak, żeby prostopadłe wymiary nie były traktowane jako duplikat
-(`[3.5013]`), nie psując prawdziwego duplikatu na `[35270]`. Konkretne
-kroki, trop `UpDirection`, i stan branchy/PR-ów: `CLAUDE.md`, sekcje "brama
-bezpieczeństwa" i "Następne kroki".
+Jedyny aktualny priorytet: naprawić regułę wykrywania tak, żeby prostopadłe
+wymiary o tej samej wartości nie były traktowane jako duplikat, bez psucia
+prawdziwego duplikatu na `[35270]`. Szczegóły, trop (`UpDirection` w
+`Tekla.Structures.Drawing`) i wymagana procedura zatwierdzenia:
+[issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18)
+i `CLAUDE.md`.
 
 Osobno, bez pośpiechu: rozważyć wiki (jak w Radius Dimention Mover) zamiast
 tego README, jeśli projekt urośnie.
