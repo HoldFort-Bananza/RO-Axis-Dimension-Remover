@@ -32,13 +32,6 @@ odniesienia, więc Tekla łapie oś. Czasem taki wymiar jest **jedyny i
 potrzebny** (opisuje długość profilu przy skosie), a czasem jest **duplikatem**
 innego wymiaru opisującego to samo miejsce - i tylko duplikat ma zniknąć.
 
-## Przypadki testowe
-
-| Przypadek | Status |
-|---|---|
-| Para równoległych wymiarów o różnych wartościach, to samo złącze | ✅ Prawdziwy duplikat - mniejszy kasowany, większy i wymiar całkowitej długości zostają. Potwierdzone wizualnie |
-| Para PROSTOPADŁYCH wymiarów tego samego skosu 45°, przypadkiem ta sama wartość | ❌ To nie duplikat - reguła błędnie kasuje jeden, patrz [issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18) |
-
 ## Headless diagnostyka bez GUI
 
 Claude Code (i każda automatyzacja) nie klika w przycisk `MainForm`.
@@ -71,9 +64,6 @@ Kopiuje wzorzec z siostrzanego projektu w tym samym katalogu nadrzędnym
 
 Jedyny aktualny priorytet: naprawić regułę wykrywania tak, żeby prostopadłe
 wymiary o tej samej wartości nie były traktowane jako duplikat, bez psucia
-przypadku prawdziwego duplikatu (patrz "Przypadki testowe" wyżej). Szczegóły,
-trop (`UpDirection` w `Tekla.Structures.Drawing`) i wymagana procedura
-zatwierdzenia:
 prawdziwego duplikatu. Szczegóły, trop (`UpDirection` w
 `Tekla.Structures.Drawing`) i wymagana procedura zatwierdzenia:
 [issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18)
