@@ -124,7 +124,7 @@ Pełne przykłady liczbowe są w komentarzach klasy
 | v2 | Grupowanie po CAŁYM widoku zamiast po złączu — na `[3.5013]` (więcej złączy RO w jednym widoku ogólnym) zostawiał tylko jeden wymiar z całego widoku, kasując wymiary należące do zupełnie innych złączy. Skasował dobre wymiary na żywym modelu. | `GroupByProximity` — grupowanie po bliskości geometrycznej (próg 300 mm), nie po widoku. |
 | v3 | Po poprawce v2 `[3.5013]` nadal traciło WSZYSTKIE wymiary do osi w teście operatora. Przyczyna nieznana na koniec tamtej sesji. | Zdiagnozowane w v4 przez odczyt logu `[diag]`, nie przez zgadywanie. |
 | v4, próba 1 (ODRZUCONA) | Diagnoza v3: klaster bliskości na `[3.5013]` mieszał 2 prawdziwe duplikaty (21 mm) z wymiarem całkowitej długości profilu (5796 mm), który też "dotyka osi" (bo lokalny początek układu współrzędnych rury leży na jej osi z definicji). Reguła "zostaw największy" zostawiała 5796 mm, ale kasowała OBA wymiary 21 mm. Pierwsza próba poprawki: kasować w klastrze tylko wymiary o IDENTYCZNEJ wartości. Działało na `[3.5013]`, ale **zepsuło `[35270]`** — tam prawdziwa para duplikat/oryginał to 24 mm i 12 mm (RÓŻNE wartości, bo jeden koniec dotyka powierzchni a drugi osi, więc rzut wychodzi inny) — wymóg równości wartości nie kasował niczego. | Odrzucone: "różne wartości" samo w sobie nic nie mówi o tym, czy dwa wymiary są duplikatem. |
-| v4 (BIEŻĄCY STAN) | — | Filtr długości własnej (patrz "Aktualna reguła" pkt 2) — wyklucza wymiar całkowitej długości z kandydatów PRZED grupowaniem, więc reguła "zostaw największy w klastrze" (poprawna od początku) znowu działa poprawnie. Zweryfikowane w dry-run na obu rysunkach — patrz README, "Rysunki testowe". **Nie potwierdzone jeszcze wizualnie przez operatora.** |
+| v4 | Filtr długości własnej naprawił [3.5013]/v3, ale reguła bazowa ("ta sama wartość + bliskość = duplikat, kasuj mniejszy/inny") ma osobny, poważniejszy błąd - patrz PUŁAPKA 5 wyżej: dwa PROSTOPADŁE wymiary tego samego skosu 45° mają identyczną wartość, ale nie są duplikatem. v4 przeszedł "bramę bezpieczeństwa" trzy razy (wizualnie + trzy nadzorowane testy) i mimo to okazał się błędny, bo wszystkie te potwierdzenia sprawdzały wynik względem przewidywania dry-runa tej samej reguły, nie względem poprawności inżynierskiej rysunku. | **NIE ZAIMPLEMENTOWANE.** Trzeba dodać porównanie KIERUNKU POMIARU (nie tylko wartości) - patrz brama bezpieczeństwa wyżej, sekcja "Kierunek naprawy" i "Następne kroki" pkt 5. Do tego momentu `dryRun: true` na sztywno. |
 
 PUŁAPKA 2 (osobna, nie wersja): "krótszy" nie znaczy mniejszy surowy dystans
 3D między `StartPoint`/`EndPoint` — to osobna liczba od wyświetlanej
@@ -197,10 +197,20 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   `bin\Debug\net48` bez segmentu `x64`, co nie zgadza się ze ścieżką w
   `setup.iss`), potem `ISCC.exe installer\setup.iss` (Inno Setup 6,
   `%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe`).
-- `v0.1.0` opublikowane jako **pre-release** na GitHubie — dry-run-only build
-  do testów, nie potwierdzone bezpieczne narzędzie. Nie usuwać flagi
-  pre-release z kolejnych wydań, dopóki operator nie przejdzie przez bramę
-  bezpieczeństwa z sekcji wyżej.
+- `v0.1.0` opublikowane jako **pre-release** (dry-run-only). `v0.2.0`-`v0.2.3`
+  opublikowane jako pełne wydania (nie pre-release) - **z czego v0.2.1 i
+  v0.2.3 miały `dryRun: false` z BŁĘDNĄ regułą, patrz PUŁAPKA 5 i historia
+  niżej.** Wniosek: sama flaga pre-release na GitHubie NIE jest wiarygodnym
+  sygnałem bezpieczeństwa w tym repo - nie ufaj jej, sprawdzaj kod.
+  `v0.2.4` (bieżące) wróciło do `dryRun: true` po znalezieniu prawdziwej
+  przyczyny PUŁAPKI 5. Historia wydań: `v0.1.0` (pre-release, dry-run) →
+  `v0.2.0` (pierwsze `dryRun: false`, po "bramie" która okazała się
+  niewystarczająca) → `v0.2.1` (dodał `TeklaWindowFocus`, wciąż
+  `dryRun: false`, TU operator pierwszy raz zgłosił błąd) → `v0.2.2`
+  (`dryRun: true`, bezpieczny rollback) → `v0.2.3` (`dryRun: false` po
+  BŁĘDNYM zamknięciu PUŁAPKI 5 trzema "czystymi" testami, które w
+  rzeczywistości niczego nie udowodniły - patrz brama bezpieczeństwa
+  wyżej) → `v0.2.4` (`dryRun: true`, prawdziwa przyczyna znaleziona).
 
 ## Branche
 
@@ -210,49 +220,59 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   tu dozwolony i oczekiwany dopóki reguła nie przejdzie bramy bezpieczeństwa
   wyżej.
 - `release` — ma trzymać tylko kod potwierdzony jako bezpieczny. W praktyce
-  do tej pory `dev` i `release` zawsze kończą z identyczną treścią po
+  do tej pory `dev` i `release` zwykle kończą z identyczną treścią po
   serii PR-ów w obie strony (`dev`→`release` żeby promować, `release`→`dev`
   żeby zsynchronizować historię po merge commicie z GitHuba) — sprawdzaj
   `git diff origin/dev origin/release` zamiast zgadywać, czy się rozjechały.
   **Merge do `release` sam w sobie NIE jest potwierdzeniem bezpieczeństwa.**
-  Historia flag na `release`, tego samego dnia (2026-09-04): PR #1 scalił v4
-  (jeszcze `dryRun: true` na obu branchach - porządkowanie repo, nie
-  potwierdzenie). PR #5 wniosło `dryRun: false` po realnym potwierdzeniu
-  operatora. PR #8/#9 dodały focus-fix, wciąż `dryRun: false`. **PR #10
-  (scalony) wróciło z `dryRun: true`** po nieodtworzonym zgłoszeniu błędu
-  (PUŁAPKA 5, patrz brama bezpieczeństwa wyżej) - `dev` i `release` są od
-  tego merge'u znowu identyczne, obie z `dryRun: true`. **Ten opis bywa
-  aktualizowany wolniej niż kod - przed użyciem czegokolwiek z `release`
-  sprawdź `dryRun` w `MainForm.cs` na tym branchu wprost w plikach.**
+
+  **STAN NA 2026-09-16: `dev` i `release` ZNOWU IDENTYCZNE, obie
+  `dryRun: true` (bezpieczne).** Historia rozjazdu tego dnia, dla
+  kontekstu: PR #13 wniosło do `release` `dryRun: false` (BŁĘDNA
+  poprawka, zanim znaleziono prawdziwą przyczynę PUŁAPKI 5). Po znalezieniu
+  przyczyny, `dev` dostało `dryRun: true` z powrotem, a
+  [PR #15](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/pull/15)
+  (dev→release) + PR #16 (release→dev, sync) doprowadziły branche z
+  powrotem do identycznej treści. **To NIE znaczy, że tak będzie zawsze -
+  NIGDY nie zgaduj stanu branchy z tego opisu ani z ich nazw. Zawsze
+  sprawdź `dryRun` w `MainForm.cs` wprost w plikach na branchu, z którego
+  rzeczywiście korzystasz, i `git diff origin/dev origin/release`, żeby
+  zobaczyć realną różnicę (jeśli jest) w chwili, gdy czytasz ten plik.**
 
 ## Następne kroki
 
-1. ~~Operator ma spojrzeć na `[35270]` i `[3.5013]` w Tekli po realnym
-   uruchomieniu i potwierdzić, że zostają dokładnie te wymiary co w
-   dry-run v4.~~ **Zrobione 2026-09-04.**
-2. ~~Przełączyć `dryRun: false` w `MainForm.cs`.~~ **Zrobione 2026-09-04.**
-   `DiagRunner.cs` NIE dostał tej zmiany — zostaje na sztywno `dryRun: true`
-   na zawsze, patrz brama bezpieczeństwa wyżej.
-3. ~~Wydać wersję instalatora z realnym kasowaniem jako pełne wydanie (nie
-   pre-release).~~ **Zrobione 2026-09-04** — v0.2.0.
-4. ~~Usunąć `Inspector.cs` i `DiagRunner.cs` (albo świadomie zostawić).~~
-   **Zdecydowane i zrobione 2026-09-04**: `Inspector.cs` usunięty (był
-   nieużywany od chwili znalezienia obu rysunków testowych).
-   `DiagRunner.cs` zostaje świadomie, na zawsze — patrz brama
-   bezpieczeństwa wyżej i komentarz w tym pliku.
-5. **PUŁAPKA 5 — OTWARTA, ZDIAGNOZOWANA, DO NAPRAWY. To jest jedyny
-   priorytet w tym projekcie.** Pełny opis w bramie bezpieczeństwa wyżej.
-   Konkretne kroki, w tej kolejności:
-   1. Dokończyć refleksję nad `Tekla.Structures.Drawing.dll`: gdzie
-      dokładnie siedzi `UpDirection` (typ, klasa nadrzędna) i co jeszcze
-      opisuje orientację/kierunek pomiaru `StraightDimension`.
-   2. Dopisać te pola do logu `[diag]` (obok `DescribeDimensionSet`) i
-      zebrać dane z OBU rysunków: `--diag-mark "[35270]"` i
-      `--diag-mark "[3.5013]"`. Nic nie kasuje, bezpieczne.
-   3. Dopiero na tych danych zaprojektować regułę: prostopadłe wymiary
-      nigdy nie są duplikatem. Sprawdzić na danych, czy `[35270]`
-      (`24`/`12`) to para RÓWNOLEGŁA (ma dalej być kasowana), a
-      `[3.5013]` (`21`/`21`) PROSTOPADŁA (nie ruszać).
-   4. Brama od zera: dry-run → operator patrzy na żywy rysunek → pytanie
-      zadane BEZ podpowiadania odpowiedzi ("czy rysunek nadal opisuje
-      wszystko, co musi?") → dopiero wtedy `dryRun: false`.
+**Historyczne kroki 1-4 (znalezienie obu rysunków testowych, pierwsze
+przejście bramy, pierwsze wydanie instalatora, usunięcie `Inspector.cs`)
+są zrobione i nieaktualne jako TODO - zobacz historię commitów, jeśli
+potrzebne. Jedyny aktualny priorytet:**
+
+**PUŁAPKA 5 — OTWARTA, ZDIAGNOZOWANA, DO NAPRAWY.** Pełny opis w bramie
+bezpieczeństwa na początku pliku. Konkretne kroki, w tej kolejności:
+
+0. ~~Scalić PR #15 (i sync PR #16), żeby `release` dostało `dryRun: true`.~~
+   **Zrobione 2026-09-16.** `dev` i `release` są znowu identyczne - ale
+   zawsze sprawdź to na nowo, nie ufaj temu opisowi (patrz sekcja
+   "Branche" wyżej).
+1. Dokończyć refleksję nad `Tekla.Structures.Drawing.dll`: gdzie
+   dokładnie siedzi `UpDirection` (typ, klasa nadrzędna) i co jeszcze
+   opisuje orientację/kierunek pomiaru `StraightDimension`. (Poprzednia
+   sesja przerwała to w połowie - `UpDirection` znaleziono, ale nie
+   ustalono jego dokładnego typu/lokalizacji w hierarchii klas.)
+2. Dopisać te pola do logu `[diag]` w `RoAxisDimensionService.cs` (obok
+   `DescribeDimensionSet`) i zebrać dane z OBU rysunków:
+   `RoAxisDimensionRemover.exe --diag-mark "[35270]"` i
+   `--diag-mark "[3.5013]"`. Nic nie kasuje, w pełni bezpieczne niezależnie
+   od stanu `dryRun`.
+3. Dopiero na tych ZMIERZONYCH danych zaprojektować regułę: prostopadłe
+   wymiary nigdy nie są duplikatem, nawet przy identycznej wartości.
+   Sprawdzić, czy `[35270]` (`24`/`12`, różne wartości) to para
+   RÓWNOLEGŁA (ma dalej być kasowana - `12` to prawdziwy duplikat), a
+   `[3.5013]` (`21`/`21`, ta sama wartość) to para PROSTOPADŁA (nie
+   ruszać - to dwa różne wymiary skosu 45°).
+4. Brama od zera, dla TEJ konkretnej zmiany reguły: dry-run na obu
+   rysunkach → operator patrzy na żywy rysunek w Tekli w momencie
+   kliknięcia → pytanie do operatora zadane BEZ podpowiadania odpowiedzi
+   ("czy rysunek nadal opisuje wszystko, co musi opisywać?", NIE "czy to
+   poprawnie usunęło duplikat?") → dopiero wtedy `dryRun: false`.
+   **Nie licz potwierdzeń z poprzedniej (błędnej) bramy v4 - ta reguła
+   jest inna i wymaga własnego, pełnego przejścia.**

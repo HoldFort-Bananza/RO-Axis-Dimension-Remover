@@ -19,9 +19,12 @@ krytycznego nie zginęło przy zmianie narzędzia.
    skasowały dobre wymiary na żywym modelu. **Aktualna reguła (v4) MA
    ZNANY BŁĄD** - patrz "PUŁAPKA 5" niżej. Nie włączaj realnego kasowania.
 2. **Sprawdź `dryRun` w `MainForm.cs` (`RunButton_Click`) WPROST W PLIKU,
-   nie z tego opisu.** Stan na 2026-09-04 (późny wieczór): `dryRun: true`
-   — program NIE kasuje, tylko loguje. Tak ma zostać, dopóki PUŁAPKA 5 nie
-   będzie naprawiona i brama nie przejdzie od zera.
+   nie z tego opisu, i sprawdź go NA BRANCHU, z którego faktycznie
+   korzystasz** — `dev` i `release` mogą mieć w tej chwili RÓŻNY stan
+   (patrz "Branche" niżej, to nie jest tylko teoretyczne ostrzeżenie).
+   Stan na 2026-09-04 (późny wieczór), na `dev`: `dryRun: true` — program
+   NIE kasuje, tylko loguje. Tak ma zostać na obu branchach, dopóki
+   PUŁAPKA 5 nie będzie naprawiona i brama nie przejdzie od zera.
 3. **NIE WALIDUJ REGUŁY PRZEZ JEJ WŁASNY DRY-RUN.** To najważniejsza
    lekcja z tego projektu i powód, dla którego błąd przeżył trzy "czyste"
    testy: dry-run i realne kasowanie używają tego samego kodu, więc zawsze
@@ -29,13 +32,13 @@ krytycznego nie zginęło przy zmianie narzędzia.
    operacji rysunek nadal opisuje wszystko, co musi opisywać?" I pytaj
    operatora BEZ podpowiadania odpowiedzi - "usuwa jeden z pary duplikatów,
    poprawnie?" to pytanie, które samo w sobie przemyca założenie.
-3. **Nigdy nie zgaduj progu/reguły detekcji "na wyczucie".** Każda stała w
+4. **Nigdy nie zgaduj progu/reguły detekcji "na wyczucie".** Każda stała w
    `RoAxisDimensionService.cs` ma komentarz skąd się wzięła (zmierzona, nie
    zgadana). Jeśli trzeba zmienić regułę — zdobądź realne współrzędne z
    dry-run (`RoAxisDimensionRemover.exe --diag-active` albo
    `--diag-mark "[Mark]"`, zawsze bezpieczne, nigdy nie kasuje) zanim
    napiszesz kod.
-4. **Każda zmiana reguły detekcji wymaga nowego przejścia bramy
+5. **Każda zmiana reguły detekcji wymaga nowego przejścia bramy
    bezpieczeństwa od zera**, nawet jeśli poprzednia reguła była
    potwierdzona: dry-run → operator patrzy na żywy rysunek w Tekli w
    momencie kliknięcia → dopiero wtedy `dryRun: false`. Nie pytaj "czy mogę
@@ -82,11 +85,17 @@ kroki" pkt 5.
   przed przebudowaniem, jeśli działa - inaczej build się nie uda.
 - Testowanie bez GUI: `RoAxisDimensionRemover.exe --diag-active` (aktywny
   rysunek w Tekli) - zawsze bezpieczne, `dryRun` na sztywno `true`.
-- Branche: `dev` (domyślny, WIP) i `release` (ma trzymać potwierdzony kod -
-  w praktyce oba branche zwykle mają identyczną treść po serii PR-ów w obie
-  strony; sprawdzaj `git diff origin/dev origin/release`, nie zgaduj).
+- Branche: `dev` (domyślny, WIP) i `release` (ma trzymać potwierdzony kod).
+  **STAN NA 2026-09-16: znowu identyczne, obie `dryRun: true` (bezpieczne)**
+  - po tym, jak PR #13 chwilowo wniosło do `release` błędne `dryRun: false`,
+  PR #15 + #16 to naprawiły. **To może się zmienić - zawsze sprawdzaj
+  `git diff origin/dev origin/release` i realny `dryRun` w plikach na
+  branchu, z którego korzystasz. Nie ufaj temu opisowi bez sprawdzenia.**
 - Merge pull requestów na GitHubie robi człowiek (operator), nie asystent -
   API do merge jest tu świadomie nieużywane.
+- Bieżąca wersja (na `dev`, commit "PUŁAPKA 5 root cause found"): `0.2.4`,
+  `dryRun: true`. Opublikowana jako GitHub Release
+  [v0.2.4](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/releases/tag/v0.2.4).
 - Pliki `RoAxisDimensionService.cs`, `MainForm.cs`, `Program.cs`,
   `DiagRunner.cs`, `UpdateCheck.cs`, `TeklaWindowFocus.cs` - patrz
   `CLAUDE.md`, sekcja "Struktura plików", po opis każdego.
