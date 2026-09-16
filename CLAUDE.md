@@ -5,7 +5,13 @@ katalogu. Nadrzędny `..\CLAUDE.md` (środowisko Tekla Structures 2025, stos,
 konwencje, pułapki API wspólne dla wszystkich projektów w `Projekty`)
 obowiązuje też tutaj — to jest uzupełnienie specyficzne dla TEGO projektu.
 `README.md` to krótki opis dla człowieka; ten plik to szczegółowa baza
-wiedzy — historia, powody decyzji, ślepe uliczki.
+wiedzy — historia, powody decyzji, ślepe uliczki. **Uwaga przy edycji
+`README.md`:** od 2026-09-16, na życzenie operatora, README celowo NIE
+zawiera numerów rysunków (Mark) ani nazw siostrzanych projektów (repo jest
+publiczne) — opisuj tam przypadki testowe geometrycznie (np. "para
+prostopadłych wymiarów o tej samej wartości"), nie po numerze. Ten plik
+(`CLAUDE.md`) i `AGENTS.md` nie mają tego ograniczenia — mają zostać
+szczegółowe, bo to one są bazą do diagnozy.
 
 ## Zanim cokolwiek uruchomisz — brama bezpieczeństwa
 
@@ -57,6 +63,11 @@ wiedzy — historia, powody decyzji, ślepe uliczki.
   (RÓŻNE wartości), są DWA wymiary `24`, a `12` jest faktycznie zbędny -
   operator potwierdził to wizualnie i osobno w nadzorowanym teście. Fix
   nie może zepsuć tego przypadku.
+  **Ten sam opis PUŁAPKI 5 jest też jako
+  [issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18)
+  na GitHubie (otwarte 2026-09-16)** — jeśli pracujesz nad naprawą, zostaw
+  tam komentarz z postępem, żeby kolejne narzędzie/sesja/agent nie
+  zaczynały diagnozy od zera.
 - **[DiagRunner.cs](DiagRunner.cs) (tryb headless) ma `dryRun` na sztywno
   `true` NA ZAWSZE**, mimo że brama wyżej przeszła. To ścieżka wywoływana
   bez człowieka przy przycisku (automatyzacja/agent AI, `--diag-active` /
@@ -215,10 +226,11 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
 ## Branche
 
 - `dev` — domyślny branch repo, rozwojowy/WIP (dawniej `main`, zmieniony na
-  `dev` i ustawiony jako domyślny przez GitHub API — `gh` nie jest
-  zainstalowany na tej maszynie, patrz `..\CLAUDE.md`). `dryRun: true` jest
-  tu dozwolony i oczekiwany dopóki reguła nie przejdzie bramy bezpieczeństwa
-  wyżej.
+  `dev` i ustawiony jako domyślny przez GitHub API w czasach, gdy `gh` nie
+  był jeszcze zainstalowany na tej maszynie — od 2026-09-16 `gh` jest
+  zainstalowany i zalogowany, patrz `..\CLAUDE.md`, sekcja "Narzędzia wokół
+  repozytorium"). `dryRun: true` jest tu dozwolony i oczekiwany dopóki
+  reguła nie przejdzie bramy bezpieczeństwa wyżej.
 - `release` — ma trzymać tylko kod potwierdzony jako bezpieczny. W praktyce
   do tej pory `dev` i `release` zwykle kończą z identyczną treścią po
   serii PR-ów w obie strony (`dev`→`release` żeby promować, `release`→`dev`
@@ -226,18 +238,33 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   `git diff origin/dev origin/release` zamiast zgadywać, czy się rozjechały.
   **Merge do `release` sam w sobie NIE jest potwierdzeniem bezpieczeństwa.**
 
-  **STAN NA 2026-09-16: `dev` i `release` ZNOWU IDENTYCZNE, obie
-  `dryRun: true` (bezpieczne).** Historia rozjazdu tego dnia, dla
-  kontekstu: PR #13 wniosło do `release` `dryRun: false` (BŁĘDNA
-  poprawka, zanim znaleziono prawdziwą przyczynę PUŁAPKI 5). Po znalezieniu
-  przyczyny, `dev` dostało `dryRun: true` z powrotem, a
+  **STAN NA 2026-09-16 (wieczór): `dev` i `release` ZNOWU IDENTYCZNE, obie
+  `dryRun: true` (bezpieczne).** To już drugi raz tego samego dnia, gdy
+  branche się rozjechały i wróciły do zgodności - historia dla kontekstu:
+
+  Pierwszy rozjazd (kod): PR #13 wniosło do `release` `dryRun: false`
+  (BŁĘDNA poprawka, zanim znaleziono prawdziwą przyczynę PUŁAPKI 5). Po
+  znalezieniu przyczyny, `dev` dostało `dryRun: true` z powrotem, a
   [PR #15](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/pull/15)
   (dev→release) + PR #16 (release→dev, sync) doprowadziły branche z
-  powrotem do identycznej treści. **To NIE znaczy, że tak będzie zawsze -
-  NIGDY nie zgaduj stanu branchy z tego opisu ani z ich nazw. Zawsze
-  sprawdź `dryRun` w `MainForm.cs` wprost w plikach na branchu, z którego
-  rzeczywiście korzystasz, i `git diff origin/dev origin/release`, żeby
-  zobaczyć realną różnicę (jeśli jest) w chwili, gdy czytasz ten plik.**
+  powrotem do identycznej treści.
+
+  Drugi rozjazd (dokumentacja, ten sam dzień): seria PR-ów porządkujących
+  `README.md`/`CLAUDE.md`/`AGENTS.md` (usunięcie numerów rysunków i nazw
+  projektów z README, otwarcie
+  [issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18)
+  z pełną diagnozą PUŁAPKI 5, naprawa sfabrykowanego mergea) trafiła na
+  `dev` przez PR #19, #20, #21, a
+  [PR #17](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/pull/17)
+  (dev→release) + PR #22 (release→dev, sync) znowu zsynchronizowały
+  branche. Zero zmian kodu w tej rundzie - tylko dokumentacja.
+
+  **To NIE znaczy, że tak będzie zawsze - NIGDY nie zgaduj stanu branchy z
+  tego opisu ani z ich nazw, niezależnie od tego, ile razy już się
+  "zgodziły". Zawsze sprawdź `dryRun` w `MainForm.cs` wprost w plikach na
+  branchu, z którego rzeczywiście korzystasz, i
+  `git diff origin/dev origin/release`, żeby zobaczyć realną różnicę
+  (jeśli jest) w chwili, gdy czytasz ten plik.**
 
 ## Następne kroki
 
@@ -250,9 +277,12 @@ potrzebne. Jedyny aktualny priorytet:**
 bezpieczeństwa na początku pliku. Konkretne kroki, w tej kolejności:
 
 0. ~~Scalić PR #15 (i sync PR #16), żeby `release` dostało `dryRun: true`.~~
-   **Zrobione 2026-09-16.** `dev` i `release` są znowu identyczne - ale
-   zawsze sprawdź to na nowo, nie ufaj temu opisowi (patrz sekcja
-   "Branche" wyżej).
+   ~~Otworzyć issue #18 z pełną diagnozą, uporządkować README/CLAUDE.md/
+   AGENTS.md dla przekazania między narzędziami AI, scalić PR #17
+   (i sync PR #22).~~ **Wszystko zrobione 2026-09-16.** `dev` i `release`
+   są znowu identyczne - ale zawsze sprawdź to na nowo, nie ufaj temu
+   opisowi (patrz sekcja "Branche" wyżej). Jedyna rzecz, która NIE jest
+   zrobiona: sama naprawa reguły (punkty 1-4 niżej).
 1. Dokończyć refleksję nad `Tekla.Structures.Drawing.dll`: gdzie
    dokładnie siedzi `UpDirection` (typ, klasa nadrzędna) i co jeszcze
    opisuje orientację/kierunek pomiaru `StraightDimension`. (Poprzednia
