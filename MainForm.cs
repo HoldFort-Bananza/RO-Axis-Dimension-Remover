@@ -203,16 +203,19 @@ namespace RoAxisDimensionRemover
                     return;
                 }
 
-                // dryRun: false od 2026-09-04 (PUŁAPKA 5 zamknięta) - trzy
-                // nadzorowane, obserwowane testy z rzędu (2x [35270], 1x
-                // [3.5013]) po zgłoszeniu "usuwa całą szerokość/długość" nie
-                // odtworzyły problemu - każdy usunął tylko zamierzony
-                // duplikat. Operator PODJĄŁ WYRAŹNĄ DECYZJĘ uznać pierwsze
-                // zgłoszenie za pojedynczy incydent i przywrócić realne
-                // kasowanie - patrz CLAUDE.md, brama bezpieczeństwa. Każda
-                // KOLEJNA zmiana reguły wykrywania wymaga nowego przejścia
-                // bramy od zera, nie dziedziczy tego potwierdzenia.
-                var result = _service.RemoveRedundantAxisDimensions(drawing, Log, dryRun: false);
+                // dryRun: true - PUŁAPKA 5 ZDIAGNOZOWANA 2026-09-04 (późny
+                // wieczór) i NIE jest zamknięta: operator zgłosił "usuwa
+                // jeden poziomy, jeden pionowy". Para 21/21 na [3.5013] to
+                // NIE duplikat - to dwa PROSTOPADŁE wymiary tego samego
+                // skosu 45° (poziomy offset wzdłuż rury i pionowy w
+                // poprzek), które mają IDENTYCZNĄ wartość właśnie dlatego,
+                // że kąt to 45°. Reguła kasuje jeden z nich, więc ginie cała
+                // jedna informacja - dokładnie to, co operator opisał od
+                // początku jako "usuwa całą szerokość albo całą długość".
+                // Trzy "czyste" testy wcześniej były testowane wobec
+                // przewidywania dry-run, a nie wobec poprawności
+                // inżynierskiej - stąd fałszywe zaliczenie bramy.
+                var result = _service.RemoveRedundantAxisDimensions(drawing, Log, dryRun: true);
                 _statusLabel.Text = $"Gotowe. Sprawdzono {result.ViewsChecked} widoków, usunięto {result.RemovedCount} wymiarów. Sprawdź wizualnie w Tekli (Ctrl+Z cofa, jeśli coś jest nie tak).";
 
                 // Fokus wraca na Teklę, żeby Ctrl+Z od razu poszedł tam, gdzie

@@ -15,18 +15,20 @@ krytycznego nie zginęło przy zmianie narzędzia.
 ## Najważniejsze zanim cokolwiek zrobisz
 
 1. **To jest wtyczka do Tekla Structures 2025, która potrafi NAPRAWDĘ
-   kasować dane w modelu.** Dwie wcześniejsze wersje reguły wykrywania
-   realnie skasowały dobre wymiary na żywym modelu, zanim ktoś to
-   zauważył. Trzecia (opisana niżej, "PUŁAPKA 5") miała niewyjaśnione
-   zgłoszenie tego samego typu błędu - zamknięte decyzją operatora, ale
-   PRZYCZYNA NIGDY NIE ZOSTAŁA ZDIAGNOZOWANA.
+   kasować dane w modelu.** Dwie wcześniejsze wersje reguły realnie
+   skasowały dobre wymiary na żywym modelu. **Aktualna reguła (v4) MA
+   ZNANY BŁĄD** - patrz "PUŁAPKA 5" niżej. Nie włączaj realnego kasowania.
 2. **Sprawdź `dryRun` w `MainForm.cs` (`RunButton_Click`) WPROST W PLIKU,
-   nie z tego opisu** — ten opis może być nieaktualny w chwili, gdy go
-   czytasz. Stan na 2026-09-04 (wieczór): `dryRun: false` na `dev` i na
-   `release` — program KASUJE NAPRAWDĘ. Jeśli coś wygląda podobnie do
-   zgłoszenia w PUŁAPCE 5 (usuwa więcej niż jeden zamierzony wymiar) -
-   przełącz `dryRun` na `true` OD RAZU i traktuj to jako nawrót
-   niezdiagnozowanego problemu, nie jako nowy, osobny błąd.
+   nie z tego opisu.** Stan na 2026-09-04 (późny wieczór): `dryRun: true`
+   — program NIE kasuje, tylko loguje. Tak ma zostać, dopóki PUŁAPKA 5 nie
+   będzie naprawiona i brama nie przejdzie od zera.
+3. **NIE WALIDUJ REGUŁY PRZEZ JEJ WŁASNY DRY-RUN.** To najważniejsza
+   lekcja z tego projektu i powód, dla którego błąd przeżył trzy "czyste"
+   testy: dry-run i realne kasowanie używają tego samego kodu, więc zawsze
+   się zgodzą - także gdy oba są błędne. Waliduj pytaniem "czy po tej
+   operacji rysunek nadal opisuje wszystko, co musi opisywać?" I pytaj
+   operatora BEZ podpowiadania odpowiedzi - "usuwa jeden z pary duplikatów,
+   poprawnie?" to pytanie, które samo w sobie przemyca założenie.
 3. **Nigdy nie zgaduj progu/reguły detekcji "na wyczucie".** Każda stała w
    `RoAxisDimensionService.cs` ma komentarz skąd się wzięła (zmierzona, nie
    zgadana). Jeśli trzeba zmienić regułę — zdobądź realne współrzędne z
@@ -40,21 +42,35 @@ krytycznego nie zginęło przy zmianie narzędzia.
    włączyć realne kasowanie" retorycznie - naprawdę czekaj na wyraźne "tak"
    od człowieka, konkretnie na TO pytanie, nie na ogólne "kontynuuj".
 
-## Zamknięty, ale niewyjaśniony problem (PUŁAPKA 5)
+## PUŁAPKA 5 — znany błąd, otwarty, zdiagnozowany, do naprawy
 
-Operator zgłosił, że realne kasowanie (`dryRun: false`) na rysunku `[35270]`
-usunęło więcej niż zamierzony duplikat - "całą szerokość albo całą długość".
-Trzy nadzorowane testy powtórzone po tym zgłoszeniu (2x `[35270]`, 1x
-`[3.5013]`, operator patrzył w momencie kliknięcia) usunęły TYLKO zamierzony
-wymiar każdy raz i NIE odtworzyły problemu. Sprawdzone i odrzucone jako
-przyczyna: wspólny `StraightDimensionSet` ("łańcuch" wymiarów w Tekli)
-między parą 24mm/12mm - są w dwóch odrębnych, jednoelementowych zestawach,
-więc to nie kaskada przez łańcuch, przynajmniej nie dla tej pary.
+**To jest jedyny priorytet w tym projekcie.**
 
-**Operator zdecydował** uznać oryginalne zgłoszenie za pojedynczy incydent i
-przywrócić `dryRun: false` - to ŚWIADOMA DECYZJA O RYZYKU, nie dowód że
-problemu nie ma. Przyczyna nigdy nie została zdiagnozowana. `CLAUDE.md`,
-sekcja "brama bezpieczeństwa", ma pełną historię.
+Para `21`/`21` na `[3.5013]` to NIE duplikat, a dwa **PROSTOPADŁE** wymiary
+tego samego skosu 45° - jeden mierzy offset poziomo (wzdłuż rury), drugi
+pionowo (w poprzek). Oba pokazują `21` tylko dlatego, że kąt to dokładnie
+45°. Reguła v4 patrzy na wartość i bliskość, uznaje je za duplikat, kasuje
+jeden - i ginie cała jedna informacja (albo poziom, albo pion):
+
+```
+21,0  Start=(5775,0; 0,0;  0,0)   End=(5796,2; 21,2; 0,0)
+21,0  Start=(5775,0; 0,0; 21,2)   End=(5796,2; 21,2; 0,0)
+```
+
+**Naprawa (nie zaimplementowana):** porównywać KIERUNEK POMIARU, nie tylko
+wartość. Uwaga: wyświetlana wartość to RZUT rozpiętości `StartPoint`→
+`EndPoint` na kierunek pomiaru, więc sama rozpiętość nie rozróżnia tych
+dwóch (rzut na `(1,0,0)` i na `(0,1,0)` daje to samo 21,2). Trop z
+refleksji nad `Tekla.Structures.Drawing.dll`: **istnieje `UpDirection`** -
+dokończyć sprawdzanie gdzie dokładnie (typ/klasa), dopisać do logu
+`[diag]`, zebrać dane z obu rysunków, DOPIERO potem pisać regułę.
+
+**`[35270]` musi dalej działać:** tam para to `24` i `12` (RÓŻNE wartości,
+plus są DWA wymiary `24`) - to prawdziwy duplikat, operator potwierdził
+wizualnie. Fix nie może tego zepsuć.
+
+Pełna historia i kroki: `CLAUDE.md`, "brama bezpieczeństwa" + "Następne
+kroki" pkt 5.
 
 ## Szybkie fakty
 

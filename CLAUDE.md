@@ -9,21 +9,54 @@ wiedzy — historia, powody decyzji, ślepe uliczki.
 
 ## Zanim cokolwiek uruchomisz — brama bezpieczeństwa
 
-- **Brama PRZESZŁA PONOWNIE 2026-09-04 (wieczór), PUŁAPKA 5 ZAMKNIĘTA.**
-  `dryRun` w [MainForm.cs](MainForm.cs) jest `false` - program kasuje
-  naprawdę. Historia tego dnia: brama przeszła pierwszy raz, `dryRun: false`
-  weszło do GUI, operator zgłosił że realne kasowanie na `[35270]` "usuwa
-  całą szerokość albo całą długość" - `dryRun` wrócił na `true` od razu.
-  Trzy kolejne nadzorowane, obserwowane testy (2x `[35270]`, 1x `[3.5013]`,
-  szczegóły w historii commitów i `README.md`) usunęły TYLKO zamierzony
-  duplikat każdy raz, na obu rysunkach, bez odtworzenia problemu ani razu.
-  Sprawdzone i odrzucone jako przyczyna: wspólny `StraightDimensionSet`
-  między parą 24mm/12mm (patrz `DescribeDimensionSet` w
-  `RoAxisDimensionService.cs`) - to nie kaskada przez łańcuch wymiarów.
-  **Operator PODJĄŁ WYRAŹNĄ DECYZJĘ** (nie założenie agenta AI) uznać
-  pierwsze zgłoszenie za pojedynczy incydent i przywrócić `dryRun: false`.
-  Przyczyna oryginalnego zgłoszenia zostaje NIEWYJAŚNIONA - to świadoma
-  decyzja o akceptowalnym ryzyku, nie dowód że problem nie istnieje.
+- **BRAMA ZAMKNIĘTA. `dryRun: true` w [MainForm.cs](MainForm.cs).
+  PUŁAPKA 5 OTWARTA, ale ZDIAGNOZOWANA (2026-09-04, późny wieczór).**
+  Operator miał rację od pierwszego zgłoszenia - to NIE był pojedynczy
+  incydent ani błędna interpretacja.
+
+  **Na czym polega błąd (zdiagnozowane z logu + zgłoszenia operatora
+  "usuwa jeden poziomy, jeden pionowy"):** para `21`/`21` na `[3.5013]` to
+  NIE duplikat. To DWA PROSTOPADŁE wymiary tego samego skosu 45° - jeden
+  mierzy offset POZIOMO (wzdłuż rury), drugi PIONOWO (w poprzek). Oba
+  pokazują `21`, bo kąt to dokładnie 45° (adnotacja `45°` jest na rysunku).
+  Równa wartość, zupełnie inne znaczenie. Reguła v4 widzi: oba dotykają
+  osi ✓, oba krótkie ✓, oba blisko siebie ✓, oba `21,0` ✓ → "duplikat,
+  kasuj jeden" → ginie CAŁA jedna informacja (albo poziom, albo pion).
+  To dokładnie to, co operator opisał na początku jako "usuwa całą
+  szerokość albo całą długość".
+
+  ```
+  21,0  Start=(5775,0; 0,0;  0,0)   End=(5796,2; 21,2; 0,0)
+  21,0  Start=(5775,0; 0,0; 21,2)   End=(5796,2; 21,2; 0,0)
+  ```
+
+  **DLACZEGO TRZY "CZYSTE" TESTY TEGO NIE ZŁAPAŁY - najważniejsza lekcja
+  z tej sesji:** testy sprawdzały, czy realne kasowanie zgadza się z
+  PRZEWIDYWANIEM DRY-RUN, a nie czy wynik jest POPRAWNY INŻYNIERSKO. To
+  tautologia - dry-run i realny przebieg używają tego samego kodu, więc
+  zawsze się zgodzą, także gdy oba są błędne. Do tego pytanie do operatora
+  było zadane z już wbudowanym założeniem ("usuwa jeden z pary duplikatów -
+  poprawnie?"), więc potwierdzenie dotyczyło ramki, nie geometrii.
+  **Nigdy nie waliduj reguły przez porównanie z jej własnym dry-runem.
+  Waliduj przez pytanie "czy po tej operacji rysunek nadal opisuje
+  wszystko, co musi opisywać?" - i formułuj pytanie do operatora BEZ
+  podpowiadania odpowiedzi.**
+
+  **Kierunek naprawy (nie zaimplementowany):** trzeba porównywać KIERUNEK
+  POMIARU wymiaru, nie tylko wartość - dwa prostopadłe wymiary nigdy nie
+  są duplikatem, nawet przy identycznej wartości. Uwaga: wyświetlana
+  wartość to RZUT rozpiętości `StartPoint`→`EndPoint` na kierunek pomiaru,
+  więc sama rozpiętość nie wystarcza do rozróżnienia (dla obu wymiarów
+  wyżej rzut na `(1,0,0)` i na `(0,1,0)` daje to samo 21,2). Trop z
+  refleksji nad `Tekla.Structures.Drawing.dll`: **istnieje `UpDirection`**
+  (na typie atrybutów wymiaru / w hierarchii `DimensionBase` - nie
+  dokończono sprawdzania, dokończyć zanim pisać kod). Najpierw dopisać
+  `UpDirection` (i cokolwiek jeszcze opisuje orientację) do logu `[diag]`
+  dla OBU rysunków, potem projektować regułę na zmierzonych danych.
+  **`[35270]` jest inny i musi dalej działać:** tam para to `24` i `12`
+  (RÓŻNE wartości), są DWA wymiary `24`, a `12` jest faktycznie zbędny -
+  operator potwierdził to wizualnie i osobno w nadzorowanym teście. Fix
+  nie może zepsuć tego przypadku.
 - **[DiagRunner.cs](DiagRunner.cs) (tryb headless) ma `dryRun` na sztywno
   `true` NA ZAWSZE**, mimo że brama wyżej przeszła. To ścieżka wywoływana
   bez człowieka przy przycisku (automatyzacja/agent AI, `--diag-active` /
@@ -142,7 +175,7 @@ proces działa (patrz `..\CLAUDE.md`, zasada 4).
 | Plik | Zawartość |
 |---|---|
 | `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI |
-| `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku (`dryRun: false` od 2026-09-04 — kasuje naprawdę, patrz brama bezpieczeństwa wyżej) |
+| `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku (`dryRun: true` — NIE kasuje, PUŁAPKA 5 otwarta, patrz brama bezpieczeństwa wyżej) |
 | `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark` dla trybu konsolowego |
 | `DiagRunner.cs` | headless runner dry-run (patrz wyżej) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) — wzorzec 1:1 z `Radius Dimention Mover` |
@@ -207,13 +240,19 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
    nieużywany od chwili znalezienia obu rysunków testowych).
    `DiagRunner.cs` zostaje świadomie, na zawsze — patrz brama
    bezpieczeństwa wyżej i komentarz w tym pliku.
-5. ~~PUŁAPKA 5 — zdiagnozować zgłoszenie "usuwa całą szerokość/długość" na
-   `[35270]`.~~ **Zamknięte decyzją operatora 2026-09-04** po trzech czystych
-   nadzorowanych testach (2x `[35270]`, 1x `[3.5013]`) - żaden nie odtworzył
-   problemu. Przyczyna oryginalnego zgłoszenia NIEWYJAŚNIONA - jeśli
-   problem wróci przy normalnym użyciu, to nie jest "już sprawdzone i
-   bezpieczne", to nawrót tego samego, niezdiagnozowanego zjawiska.
-   Zanotować DOKŁADNIE które wymiary (wartości, `Start`/`End`) zniknęły,
-   sprawdzić `DescribeDimensionSet` w logu `[diag]`, i wrócić do bramy
-   bezpieczeństwa od zera (`dryRun: true` natychmiast, nowe potwierdzenie
-   przed kolejnym `false`).
+5. **PUŁAPKA 5 — OTWARTA, ZDIAGNOZOWANA, DO NAPRAWY. To jest jedyny
+   priorytet w tym projekcie.** Pełny opis w bramie bezpieczeństwa wyżej.
+   Konkretne kroki, w tej kolejności:
+   1. Dokończyć refleksję nad `Tekla.Structures.Drawing.dll`: gdzie
+      dokładnie siedzi `UpDirection` (typ, klasa nadrzędna) i co jeszcze
+      opisuje orientację/kierunek pomiaru `StraightDimension`.
+   2. Dopisać te pola do logu `[diag]` (obok `DescribeDimensionSet`) i
+      zebrać dane z OBU rysunków: `--diag-mark "[35270]"` i
+      `--diag-mark "[3.5013]"`. Nic nie kasuje, bezpieczne.
+   3. Dopiero na tych danych zaprojektować regułę: prostopadłe wymiary
+      nigdy nie są duplikatem. Sprawdzić na danych, czy `[35270]`
+      (`24`/`12`) to para RÓWNOLEGŁA (ma dalej być kasowana), a
+      `[3.5013]` (`21`/`21`) PROSTOPADŁA (nie ruszać).
+   4. Brama od zera: dry-run → operator patrzy na żywy rysunek → pytanie
+      zadane BEZ podpowiadania odpowiedzi ("czy rysunek nadal opisuje
+      wszystko, co musi?") → dopiero wtedy `dryRun: false`.
