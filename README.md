@@ -4,18 +4,23 @@ Samodzielny `.exe` dla Tekla Structures 2025. Ma kasować nadmiarowe wymiary
 "do osi" na profilach RO (rura okrągła) w widokach przekroju/detalu miejsc
 łączenia.
 
-## Stan: brama bezpieczeństwa przeszła ponownie, `dryRun: false` (wieczór 2026-09-04)
+## ⚠️ Stan: BŁĄD ZDIAGNOZOWANY, `dryRun: true` (późny wieczór 2026-09-04)
 
-**Przycisk w `MainForm.cs` kasuje naprawdę.** Tego samego dnia: operator
-potwierdził wizualnie na `[35270]` i `[3.5013]`, `dryRun` przełączono na
-`false`, operator zgłosił że realne kasowanie na `[35270]` "usuwa całą
-szerokość albo całą długość" - `dryRun` wróciło na `true` od razu. Trzy
-kolejne nadzorowane, obserwowane testy (2x `[35270]`, 1x `[3.5013]`) NIE
-odtworzyły problemu - każdy usunął tylko zamierzony duplikat. **Operator
-podjął wyraźną decyzję** uznać pierwsze zgłoszenie za pojedynczy incydent i
-przywrócić `dryRun: false`. Przyczyna oryginalnego zgłoszenia zostaje
-NIEWYJAŚNIONA - to świadoma decyzja o akceptowalnym ryzyku, nie dowód że
-problemu nie ma. Pełna historia: `CLAUDE.md`, sekcja "brama bezpieczeństwa".
+**Przycisk w `MainForm.cs` NIE kasuje - reguła v4 ma realny błąd.**
+
+Para `21`/`21` na `[3.5013]` to **nie duplikat**, a dwa **prostopadłe**
+wymiary tego samego skosu 45° (jeden poziomy - wzdłuż rury, jeden pionowy -
+w poprzek). Oba pokazują `21`, bo kąt to dokładnie 45°. Reguła kasuje jeden
+z nich → ginie cała jedna informacja. To dokładnie to, co operator zgłaszał
+od początku ("usuwa całą szerokość albo całą długość") - zgłoszenie było
+poprawne, a wcześniejsze "trzy czyste testy" były błędnie zwalidowane
+(porównywane z przewidywaniem dry-runa, a nie z poprawnością inżynierską -
+patrz `CLAUDE.md`, ta lekcja jest ważniejsza niż sam błąd).
+
+**Naprawa nie jest zaimplementowana.** Trzeba porównywać KIERUNEK POMIARU,
+nie tylko wartość. Trop: `UpDirection` w `Tekla.Structures.Drawing`.
+Konkretne kroki: `CLAUDE.md`, "Następne kroki" pkt 5. `[35270]` (`24`/`12`,
+różne wartości, dwa `24`) to prawdziwy duplikat i musi dalej działać.
 
 Tryb konsolowy (`--diag-active`/`--diag-mark`, `DiagRunner.cs`) **zostaje na
 sztywno `dryRun: true` na zawsze** - to ścieżka wywoływana bez człowieka przy
@@ -126,8 +131,8 @@ komend.
 
 | Rysunek | Profil / opis | Status |
 |---|---|---|
-| `[35270]` | Einzelteil Geländer, RO Ø48,3 (promień 24,15) | ✅ Potwierdzone wizualnie 2026-09-04, zgłoszenie "za dużo" po jednym realnym uruchomieniu, potem 2 czyste nadzorowane powtórz-testy - PUŁAPKA 5 zamknięta decyzją operatora, patrz `CLAUDE.md` |
-| `[3.5013]` | Einzelteil Geländer, więcej złączy RO w jednym widoku | ✅ v4 potwierdzone wizualnie 2026-09-04, plus 1 nadzorowany realny test (2 widoki, po 1 duplikacie 21 mm skasowanym w każdym, `5796 mm` nietknięty) |
+| `[35270]` | Einzelteil Geländer, RO Ø48,3 (promień 24,15) | ✅ Działa poprawnie: kasuje `12`, zostawia oba `24` i `2811` - potwierdzone wizualnie i w nadzorowanych testach. Para `24`/`12` ma RÓŻNE wartości - to prawdziwy duplikat |
+| `[3.5013]` | Einzelteil Geländer, więcej złączy RO w jednym widoku | ❌ **BŁĄD (PUŁAPKA 5)**: para `21`/`21` w każdym widoku to dwa PROSTOPADŁE wymiary skosu 45°, nie duplikat - reguła kasuje jeden i gubi poziom albo pion. Do naprawy |
 
 ## Znajdowanie kolejnych kandydatów bez klikania (historia - plik usunięty)
 
@@ -175,11 +180,9 @@ Kopiuje wzorzec z `Radius Dimention Mover` (ten sam katalog nadrzędny,
 4. ~~Usunąć `Inspector.cs` (albo zostawić jako świadomą część projektu).~~
    **Zrobione** - usunięty, był nieużywany od chwili znalezienia obu
    rysunków testowych. `DiagRunner.cs` zostaje świadomie (patrz wyżej).
-5. ~~PUŁAPKA 5 - zdiagnozować zgłoszone "usuwa całą szerokość/długość" na
-   `[35270]`.~~ **Zamknięte decyzją operatora 2026-09-04** po trzech czystych
-   nadzorowanych testach - przyczyna oryginalnego zgłoszenia NIEWYJAŚNIONA,
-   patrz `CLAUDE.md`. Jeśli problem wróci przy normalnym użyciu, to nawrót
-   tego samego niezdiagnozowanego zjawiska - `dryRun: true` natychmiast,
-   nowe przejście bramy od zera.
+5. **PUŁAPKA 5 - OTWARTA, ZDIAGNOZOWANA, JEDYNY PRIORYTET.** Naprawić
+   regułę tak, żeby prostopadłe wymiary nie były traktowane jako duplikat
+   (`[3.5013]`), nie psując prawdziwego duplikatu na `[35270]`. Konkretne
+   kroki i trop `UpDirection`: `CLAUDE.md`, "Następne kroki" pkt 5.
 6. Rozważyć wiki (jak w Radius Dimention Mover) zamiast tego README, jeśli
    projekt urośnie.
