@@ -1,10 +1,15 @@
 # AGENTS.md — instrukcje dla dowolnego asystenta AI w tym repo
 
 Ten plik jest tu specjalnie dla asystentów, które NIE czytają automatycznie
-`CLAUDE.md` (np. GitHub Copilot, Qwen Coder, Cursor, Aider) — na wypadek gdy
-praca przechodzi z Claude Code na inne narzędzie w połowie sesji. Jeśli
-jesteś Claude Code: `CLAUDE.md` już się wczytał automatycznie, ten plik nie
-wnosi nic nowego poza powtórzeniem tego samego w skrócie.
+`CLAUDE.md` — w szczególności **ChatGPT Codex** (`AGENTS.md` to jego natywna
+konwencja), a także GitHub Copilot, Qwen Coder, Cursor, Aider — na wypadek
+gdy praca przechodzi z Claude Code na inne narzędzie w połowie sesji.
+
+Jeśli jesteś **Claude Code**: `CLAUDE.md` już się wczytał automatycznie, ten
+plik nie wnosi nic nowego poza powtórzeniem tego samego w skrócie. Jeśli
+jesteś **GLM Code** (binarka Claude Code wskazana na backend GLM): to
+technicznie to samo narzędzie co Claude Code, więc `CLAUDE.md` też ci się
+wczytał automatycznie — ten plik również nie wnosi nic nowego.
 
 **Jeśli czytasz to jako inny asystent: przeczytaj `CLAUDE.md` w całości
 zanim zmienisz jakikolwiek kod w tym repo.** To jest pełna baza wiedzy —
@@ -73,7 +78,10 @@ plus są DWA wymiary `24`) - to prawdziwy duplikat, operator potwierdził
 wizualnie. Fix nie może tego zepsuć.
 
 Pełna historia i kroki: `CLAUDE.md`, "brama bezpieczeństwa" + "Następne
-kroki" pkt 5.
+kroki" pkt 5. Ten sam opis jest też jako
+[issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18)
+na GitHubie — zostaw tam komentarz z postępem, jeśli coś ustalisz, żeby
+kolejne narzędzie/sesja nie zaczynały od zera.
 
 ## Szybkie fakty
 
@@ -86,19 +94,40 @@ kroki" pkt 5.
 - Testowanie bez GUI: `RoAxisDimensionRemover.exe --diag-active` (aktywny
   rysunek w Tekli) - zawsze bezpieczne, `dryRun` na sztywno `true`.
 - Branche: `dev` (domyślny, WIP) i `release` (ma trzymać potwierdzony kod).
-  **STAN NA 2026-09-16: znowu identyczne, obie `dryRun: true` (bezpieczne)**
-  - po tym, jak PR #13 chwilowo wniosło do `release` błędne `dryRun: false`,
-  PR #15 + #16 to naprawiły. **To może się zmienić - zawsze sprawdzaj
+  **STAN NA 2026-09-16 (po PR #17/#19-22): znowu identyczne, obie
+  `dryRun: true` (bezpieczne)** - to już DRUGI raz w tym samym dniu, gdy
+  branche się rozjeżdżały i wracały do zgodności (pierwszy raz: PR #13
+  wniosło błędne `dryRun: false`, PR #15+#16 to naprawiły; drugi raz: same
+  doc-only zmiany w README, PR #17 promowało, PR #19-21 dokładały kolejne
+  poprawki README na `dev`, PR #22 zsynchronizowało `release`→`dev` z
+  powrotem). **To znowu może się zmienić - zawsze sprawdzaj
   `git diff origin/dev origin/release` i realny `dryRun` w plikach na
-  branchu, z którego korzystasz. Nie ufaj temu opisowi bez sprawdzenia.**
+  branchu, z którego korzystasz. Nie ufaj temu opisowi bez sprawdzenia,
+  niezależnie od tego, ile razy już się "zgodziły".**
 - Merge pull requestów na GitHubie robi człowiek (operator), nie asystent -
-  API do merge jest tu świadomie nieużywane.
-- Bieżąca wersja (na `dev`, commit "PUŁAPKA 5 root cause found"): `0.2.4`,
-  `dryRun: true`. Opublikowana jako GitHub Release
-  [v0.2.4](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/releases/tag/v0.2.4).
+  API do merge jest tu świadomie nieużywane, także przez `gh pr merge`.
+- **`gh` (GitHub CLI) jest zainstalowany i zalogowany od 2026-09-16**
+  (`C:\Program Files\GitHub CLI\gh.exe`, konto `HoldFort-Bananza`, protokół
+  HTTPS) - użyj `gh issue create`/`gh pr create` zamiast ręcznego REST API.
+  Może nie być jeszcze na `PATH` w nowej sesji Bash (sprawdź `which gh`
+  najpierw, wywołaj pełną ścieżką jeśli trzeba). Szczegóły i fallback
+  (REST API przez `git credential fill`): `..\CLAUDE.md`, sekcja
+  "Narzędzia wokół repozytorium".
+- Bieżąca wersja (na `dev`): `0.2.4`, `dryRun: true`. Opublikowana jako
+  GitHub Release
+  [v0.2.4](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/releases/tag/v0.2.4)
+  - żadna nowsza wersja nie została jeszcze wydana, bo PUŁAPKA 5 wciąż nie
+  jest naprawiona (patrz wyżej i issue #18).
 - Pliki `RoAxisDimensionService.cs`, `MainForm.cs`, `Program.cs`,
   `DiagRunner.cs`, `UpdateCheck.cs`, `TeklaWindowFocus.cs` - patrz
   `CLAUDE.md`, sekcja "Struktura plików", po opis każdego.
+- **`README.md` celowo NIE zawiera numerów rysunków (Mark) ani nazw
+  siostrzanych projektów** - to świadoma decyzja operatora (2026-09-16),
+  bo repo jest publiczne. Ten plik i `CLAUDE.md` mogą i powinny zachować
+  konkretne dane (to baza wiedzy do diagnozy), ale jeśli edytujesz
+  `README.md`, zachowaj ten sam brak identyfikatorów - opisuj przypadki
+  testowe geometrycznie (np. "para prostopadłych wymiarów"), nie po
+  numerze rysunku.
 
 ## Konwencje repo (patrz też `..\CLAUDE.md`, nadrzędny dla wszystkich
 projektów Tekla w tym katalogu)
