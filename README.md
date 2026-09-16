@@ -74,6 +74,8 @@ wymiary o tej samej wartości nie były traktowane jako duplikat, bez psucia
 przypadku prawdziwego duplikatu (patrz "Przypadki testowe" wyżej). Szczegóły,
 trop (`UpDirection` w `Tekla.Structures.Drawing`) i wymagana procedura
 zatwierdzenia:
+prawdziwego duplikatu. Szczegóły, trop (`UpDirection` w
+`Tekla.Structures.Drawing`) i wymagana procedura zatwierdzenia:
 [issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18)
 i `CLAUDE.md`.
 
