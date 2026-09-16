@@ -215,8 +215,17 @@ namespace RoAxisDimensionRemover
                 // Trzy "czyste" testy wcześniej były testowane wobec
                 // przewidywania dry-run, a nie wobec poprawności
                 // inżynierskiej - stąd fałszywe zaliczenie bramy.
-                var result = _service.RemoveRedundantAxisDimensions(drawing, Log, dryRun: true);
-                _statusLabel.Text = $"Gotowe. Sprawdzono {result.ViewsChecked} widoków, usunięto {result.RemovedCount} wymiarów. Sprawdź wizualnie w Tekli (Ctrl+Z cofa, jeśli coś jest nie tak).";
+                //
+                // dryRun wyciągnięty do zmiennej (zamiast literału w wywołaniu),
+                // żeby komunikat w pasku stanu poniżej nie mógł się z nim
+                // rozjechać - wcześniej pasek na sztywno pisał "usunięto X
+                // wymiarów" nawet w dry-run, czyli kłamał, że coś realnie
+                // skasowano.
+                const bool dryRun = true;
+                var result = _service.RemoveRedundantAxisDimensions(drawing, Log, dryRun);
+                _statusLabel.Text = dryRun
+                    ? $"Gotowe (dry-run). Sprawdzono {result.ViewsChecked} widoków, znaleziono {result.RemovedCount} wymiarów do usunięcia - nic nie skasowano. Sprawdź log, czy wygląda poprawnie."
+                    : $"Gotowe. Sprawdzono {result.ViewsChecked} widoków, usunięto {result.RemovedCount} wymiarów. Sprawdź wizualnie w Tekli (Ctrl+Z cofa, jeśli coś jest nie tak).";
 
                 // Fokus wraca na Teklę, żeby Ctrl+Z od razu poszedł tam, gdzie
                 // ma pójść - bez tego zostałby na tym oknie i nic by się nie
