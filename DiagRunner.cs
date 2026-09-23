@@ -233,6 +233,49 @@ namespace RoAxisDimensionRemover
         }
 
         /// <summary>
+        /// Tylko odczyt: zapisuje geometrię i wspólne atrybuty istniejących
+        /// wymiarów, aby nowy wymiar przejął styl z rysunku zamiast domyślnego.
+        /// </summary>
+        public static void RunDimensionStyleDiag()
+        {
+            void Log(string s) => Console.WriteLine(s);
+            var handler = new DrawingHandler();
+            if (!handler.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+            var drawing = handler.GetActiveDrawing();
+            if (drawing == null)
+            {
+                Log("Brak otwartego rysunku.");
+                return;
+            }
+
+            Log($"[dim-style] Aktywny rysunek: {drawing.Mark} / {drawing.Name}");
+            int viewIndex = 0;
+            var top = drawing.GetSheet().GetAllObjects();
+            while (top.MoveNext())
+            {
+                if (!(top.Current is View view)) continue;
+                viewIndex++;
+                int dimensionIndex = 0;
+                var dimensions = view.GetAllObjects(new[] { typeof(StraightDimension) });
+                while (dimensions.MoveNext())
+                {
+                    if (!(dimensions.Current is StraightDimension dimension)) continue;
+                    dimensionIndex++;
+                    var set = dimension.GetDimensionSet() as StraightDimensionSet;
+                    var attributes = set?.Attributes;
+                    Log($"[dim-style] widok {viewIndex}, wymiar {dimensionIndex}: " +
+                        $"Start={PointStr(dimension.StartPoint)} End={PointStr(dimension.EndPoint)} " +
+                        $"Up=({dimension.UpDirection.X:F2};{dimension.UpDirection.Y:F2};{dimension.UpDirection.Z:F2}) " +
+                        $"Distance={dimension.Distance:F2} Attributes={attributes}");
+                }
+            }
+        }
+
+        /// <summary>
         /// Szuka ściany cięcia (ta z >1 pętlą - profil RO jest pusty w
         /// środku, więc cięta powierzchnia to pierścień: obrys zewnętrzny +
         /// otwór) i liczy z NIEJ (nie z zgadywania) parę punktów "długość

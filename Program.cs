@@ -24,6 +24,11 @@ namespace RoAxisDimensionRemover
                 DiagRunner.RunNotchDiag();
                 return;
             }
+            if (args.Length > 0 && args[0] == "--diag-dimension-style")
+            {
+                DiagRunner.RunDimensionStyleDiag();
+                return;
+            }
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);

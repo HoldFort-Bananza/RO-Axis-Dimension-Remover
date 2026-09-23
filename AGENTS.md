@@ -120,15 +120,14 @@ od razu aktualizuje to, co operator odpala z pulpitu — wygodne w tej fazie
 częstych zmian reguły. Gdy reguła będzie gotowa do dystrybucji, rozważyć
 przywrócenie skrótu na świeżo zbudowany instalator.
 
-## Wymiar wcięcia (cut fitting) — W TRAKCIE, NIE DOKOŃCZONE
+## Wymiar wcięcia (cut fitting) — PILOT DZIAŁA NA `[35021]`, NIE PRODUKCYJNE
 
 Program ma docelowo po skasowaniu wymiarów do osi dorysować nowy wymiar
 (albo dwa: długość i szerokość) opisujący wcięcie (cut fitting) profilu w
 złączu — żeby rysunek nie tracił informacji, tylko zmieniał jej formę.
-**Kasowanie już działa (patrz wyżej), TWORZENIE nowego wymiaru jeszcze NIE
-jest wpięte do przycisku** — cały research niżej jest w `DiagRunner.
-RunNotchDiag`/`TryLogNotchCandidate`, czysto do odczytu, nic nie wstawia do
-rysunku.
+**Kasowanie już działa (patrz wyżej). Tworzenie nowego wymiaru ma teraz
+działający, POTWIERDZONY WIZUALNIE PRZEZ OPERATORA pilot — ale celowo
+zablokowany do jednego rysunku, nie wpięty do głównego przycisku.**
 
 ### Co już ustalone i zmierzone na żywo (`[35021]`, profil `RO42.4*3.2`)
 
@@ -180,35 +179,61 @@ rysunku.
    profilu. To niezależne potwierdzenie, że transformacja model→widok jest
    poprawna (zgadza się z realną, wcześniej istniejącą geometrią rysunku).
 
-### Co NIE jest jeszcze rozwiązane
+### `NotchPilot.cs` — pierwszy realny insert, potwierdzony operatorem
 
-- **Wymiar "długości cięcia" ma duży komponent głębi (Z) w tym
-  konkretnym widoku**: przeliczone punkty to `(0,00;0,00;21,20) ->
-  (15,35;0,00;-21,20)` — współrzędna Z (głębia, "w ekran") zmienia się o
-  42,4 mm, a to, co widać na płasko (X) to tylko 15,35 mm. Ten konkretny
-  widok jest ustawiony bokiem do tej osi cięcia, więc pełne 45 mm nie da
-  się ładnie pokazać jako prosta pozioma/pionowa linia BEZ dodatkowej
-  obróbki (inny kierunek pomiaru, może inny widok, może zaakceptować, że
-  Tekla pokaże rzut jak przy starych wymiarach — `Dimension.Value` to
-  zawsze rzut na kierunek pomiaru, nie odległość euklidesowa, patrz
-  PUŁAPKA 2 niżej). "Szerokość cięcia" (42,4 mm) NIE ma tego problemu —
-  leży całkowicie w płaszczyźnie widoku (Z≈0 na obu końcach).
-- **Nic jeszcze nie wywołuje `StraightDimension.Insert()`.** Operator był
-  pytany, czy spróbować realnie dorysować (przynajmniej samą "szerokość",
-  co do której jest pewność) — sesja skończyła się przed odpowiedzią/próbą.
-  **To pierwsza rzecz, którą trzeba zrobić w kolejnej sesji: albo dostać
-  odpowiedź operatora, albo (jeśli kontekst jasno wskazuje kontynuację)
-  spróbować wstawić TYLKO wymiar szerokości jako pierwszy, mały, odwracalny
-  test (Ctrl+Z), i pokazać wynik operatorowi PRZED próbą z długością.**
+W kolejnej sesji (kontynuacja przez ChatGPT, ten sam wątek) dopisano
+`NotchPilot.cs` i dwa przyciski testowe w `MainForm.cs` ("TEST: wstaw
+szerokość wcięcia 42,4 mm ([35021])" i analogiczny dla długości 45,09 mm).
+**Oba przyciski zostały użyte na żywo 2026-09-23, oba `StraightDimension.
+Insert()` + `CommitChanges()` powiodły się, i operator PO OBEJRZENIU
+rysunku w Tekli potwierdził wprost: "ta na koniec połozenia były
+poprawne."** To pierwsze udane przejście przez wzorzec bramy bezpieczeństwa
+dla TWORZENIA (nie tylko kasowania) na tym projekcie - dowód, że cała
+matematyka wyżej (wybór ściany, cięciwa, transformacja do układu widoku)
+faktycznie daje wizualnie poprawny wynik, nie tylko liczbowo spójny.
+
+**Dlaczego to wciąż "pilot", nie gotowa reguła produkcyjna:**
+
+- **Twardo zablokowany do `PilotDrawingMark = "[35021]"`** w kodzie
+  (`NotchPilot.InsertTest`) — próba na innym rysunku od razu przerywa się
+  komunikatem "TEST WSTRZYMANY", nic nie wstawia. To świadome ograniczenie,
+  nie bug — zdjąć dopiero po sprawdzeniu na kilku różnych złączach.
+- Wymaga **dokładnie jednego** płaskiego (Z≈0 po projekcji na widok)
+  kandydata w całym rysunku — jeśli znajdzie 0 albo >1, zatrzymuje się i
+  loguje liczbę, nie zgaduje który wybrać. Bezpieczne, ale też oznacza, że
+  nie zadziała automatycznie na rysunku z wieloma złączami w jednym widoku
+  bez dalszej pracy (np. ograniczenia do widoku wybranego przez operatora,
+  tak jak robi to już `RemoveAxisDimensions`).
+- **Przejmuje styl (Attributes) z innego, istniejącego `StraightDimension`
+  w tym samym widoku** (`FindReferenceDimension` — pierwszy napotkany
+  wymiar, który NIE jest tym samym punktem startu/końca) zamiast domyślnego
+  stylu Tekli - dobre, żeby nowy wymiar wyglądał jak reszta rysunku, ale
+  zakłada, że w widoku JEST jakiś inny wymiar do skopiowania; jeśli nie ma
+  żadnego, `InsertTest` zatrzymuje się z "nie znaleziono istniejącego
+  wymiaru jako wzorca stylu" (bezpieczne, ale trzeba to obsłużyć inaczej,
+  jeśli reguła ma działać ogólnie).
+- Kierunek odsunięcia linii wymiarowej (`side`) liczony jako obrót
+  `UpDirection` wzorca o 90° w płaszczyźnie widoku - zadziałało wizualnie
+  w tym jednym teście, ale to heurystyka, nie zmierzona reguła - potwierdzić
+  na kolejnych złączach, zwłaszcza o innej orientacji.
+- **Problem głębi (Z) w widoku, opisany wcześniej dla "długości cięcia",
+  NIE zablokował insertu** (`Math.Abs(candidate.Start.Z) <= NumericalZero`
+  akurat przeszło dla obu testów na `[35021]` - `NumericalZero = 0.000001`,
+  czyli w praktyce wymaga Z dokładnie zero, nie tylko "małe"). Nie wiadomo
+  jeszcze, czy na INNYM złączu (inny kąt, inna orientacja widoku) ta sama
+  ściana cięcia da Z bliskie zeru, czy nie - do sprawdzenia przy kolejnych
+  próbach, nie zakładać, że problem zniknął na stałe.
 - Reguła znajdowania "ściany cięcia" (>1 pętla + normalna nierównoległa do
-  osi belki, `TSM.Beam.EndPoint - StartPoint`) sprawdzona na JEDNYM złączu
-  (`[35021]`). Przed użyciem produkcyjnym: sprawdzić na kilku różnych
-  złączach (różne kąty, może różne profile) — nie ufać jednemu przypadkowi,
-  dokładnie tak samo jak przy regule kasowania (PUŁAPKA 5 była błędem
-  uogólnionym z zbyt małej liczby przypadków).
-- `StraightDimension` ma konstruktor `(targetView, startPoint, endPoint,
-  upDirection, distance)` — `upDirection` i `distance` (offset linii
-  wymiarowej od mierzonych punktów) jeszcze nie dobrane/przetestowane.
+  osi belki) wciąż sprawdzona na JEDNYM złączu. Przed użyciem produkcyjnym:
+  sprawdzić na kilku różnych złączach (różne kąty, może różne profile) —
+  nie ufać jednemu przypadkowi, dokładnie tak samo jak przy regule
+  kasowania (PUŁAPKA 5 była błędem uogólnionym z zbyt małej liczby
+  przypadków).
+- **Nowa diagnostyka `--diag-dimension-style`** (`DiagRunner.
+  RunDimensionStyleDiag`, tylko odczyt) loguje `StartPoint`/`EndPoint`/
+  `UpDirection`/`Distance`/`Attributes` wszystkich istniejących wymiarów na
+  aktywnym rysunku — to źródło danych, z którego `NotchPilot` bierze
+  realny styl zamiast zgadywać.
 
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
@@ -307,15 +332,17 @@ Automatyzacja (w tym agent AI) nie klika w przycisk `MainForm`. `Program.cs`
 ma więc tryb konsolowy:
 
 ```
-RoAxisDimensionRemover.exe --diag-active          # aktywny rysunek w Tekli, wszystkie widoki, reguła v5
-RoAxisDimensionRemover.exe --diag-mark "[3.5013]" # otwiera rysunek po Mark, potem diagnostyka
-RoAxisDimensionRemover.exe --diag-notch           # tylko odczyt: geometria bryły + kandydat na wymiar wcięcia
+RoAxisDimensionRemover.exe --diag-active           # aktywny rysunek w Tekli, wszystkie widoki, reguła v5
+RoAxisDimensionRemover.exe --diag-mark "[3.5013]"  # otwiera rysunek po Mark, potem diagnostyka
+RoAxisDimensionRemover.exe --diag-notch            # tylko odczyt: geometria bryły + kandydat na wymiar wcięcia
+RoAxisDimensionRemover.exe --diag-dimension-style  # tylko odczyt: styl (Attributes/UpDirection/Distance) istniejących wymiarów
 ```
 
-`dryRun` jest we wszystkich trzech na sztywno `true` w `DiagRunner.cs` — nie
-da się tego przełączyć z linii poleceń. `--diag-notch` nawet nie ma pojęcia
-`dryRun` — nic nie usuwa ani nie tworzy, tylko czyta model przez
-`Tekla.Structures.Model.Model`. Log leci na `stdout` (przechwyć np.
+`dryRun` jest we wszystkich na sztywno `true` w `DiagRunner.cs` — nie da się
+tego przełączyć z linii poleceń. `--diag-notch`/`--diag-dimension-style`
+nawet nie mają pojęcia `dryRun` — nic nie usuwają ani nie tworzą, tylko
+czytają (model przez `Tekla.Structures.Model.Model`, albo istniejące
+wymiary na rysunku). Log leci na `stdout` (przechwyć np.
 `> plik.txt 2>&1` albo uruchom w tle i przeczytaj output). `--diag-mark`
 woła `SetActiveDrawing(d, true)` — otwiera rysunek na ekranie.
 
@@ -333,9 +360,10 @@ blokuje proces, `taskkill` to jedyny sposób go zakończyć.**
 | Plik | Zawartość |
 |---|---|
 | `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI (reguła v5 — kasuje wszystko w widoku) |
-| `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku (`dryRun: false` od 2026-09-23 — brama v5 przeszła). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie). Fokus na Teklę po operacji tylko gdy `!dryRun` |
-| `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark`/`--diag-notch` dla trybu konsolowego |
-| `DiagRunner.cs` | headless runner dry-run + `RunNotchDiag`/`TryLogNotchCandidate` (research nad wymiarem wcięcia — geometria bryły, wybór ściany cięcia, przeliczenie na współrzędne widoku) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
+| `MainForm.cs` | UI: główny przycisk kasowania, log do okna i do pliku (`dryRun: false` od 2026-09-23 — brama v5 przeszła). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie). Fokus na Teklę po operacji tylko gdy `!dryRun`. Plus DWA przyciski testowe (`NotchTestButton_Click`/`NotchLengthTestButton_Click`) wołające `NotchPilot` — z potwierdzeniem w MessageBox, celowo poza głównym flow |
+| `NotchPilot.cs` | pilot TWORZENIA wymiaru wcięcia — twardo zablokowany do `[35021]` (`PilotDrawingMark`), realnie wstawia `StraightDimension` na żywy rysunek. Potwierdzony wizualnie przez operatora 2026-09-23. Patrz sekcja "Wymiar wcięcia" wyżej po pełny opis ograniczeń |
+| `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark`/`--diag-notch`/`--diag-dimension-style` dla trybu konsolowego |
+| `DiagRunner.cs` | headless runner dry-run + `RunNotchDiag`/`TryLogNotchCandidate` (research geometrii wcięcia) + `RunDimensionStyleDiag` (styl istniejących wymiarów, źródło danych dla `NotchPilot`) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) |
 | `TeklaWindowFocus.cs` | przełącza fokus Windows na główne okno Tekla Structures (Win32 `SetForegroundWindow`, nie API Tekli). **Nie wołać PRZED startem Pickera** — podejrzenie, że to psuje stan interaktywnej komendy Tekli |
 | `installer/setup.iss`, `installer/fetch-dependencies.ps1`, `installer/TeklaEULA.txt` | instalator Inno Setup — nie dołącza bibliotek Tekla, dociąga je z NuGet po instalacji |
@@ -389,22 +417,25 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
 
 ## Następne kroki
 
-1. **Wymiar wcięcia — dokończyć.** Zacząć od pytania operatora (albo,
-   jeśli sesja wyraźnie kontynuuje ten wątek, od razu spróbować): czy
-   wstawić realnie SAMĄ szerokość cięcia (42,4 mm — ta, co do której mamy
-   pewność, bez problemu głębi Z) jako pierwszy, mały, odwracalny test na
-   żywym `[35021]`? Potem pokazać wynik, dopiero potem brać się za
-   "długość" (ma problem z głębią w tym widoku, patrz sekcja "Wymiar
-   wcięcia" wyżej — może wymagać innego podejścia niż prosta linia).
-2. **Reguła wyboru ściany cięcia sprawdzona na JEDNYM złączu.** Przed
-   wpięciem do przycisku: potwierdzić na kilku różnych złączach (różne
-   kąty, ew. różne profile), że heurystyka ">1 pętla + normalna
-   nierównoległa do osi belki" trafia poprawnie za każdym razem.
-3. **Brama bezpieczeństwa dla TWORZENIA wymiaru** — osobna od bramy dla
-   kasowania (już przeszła). Dry-run/podgląd (na razie: sam log w
-   `--diag-notch`) → operator patrzy na żywy rysunek PO próbie wstawienia
-   → potwierdza, że wygląda sensownie → dopiero wtedy wpiąć do przycisku
-   na stałe.
-4. **UX wyboru widoku** — zaakceptowane 2026-09-23 jako "działa po
+1. **Wymiar wcięcia — pilot potwierdzony na `[35021]`, teraz trzeba
+   powtórzyć na INNYCH złączach.** `NotchPilot` zadziałał wizualnie
+   poprawnie (operator: "ta na koniec połozenia były poprawne") dla obu
+   wymiarów (szerokość 42,4 mm, długość 45,09 mm) na jednym złączu. Znaleźć
+   drugi/trzeci przykład złącza RO ciętego pod kątem (inny rysunek albo
+   inne miejsce na tym samym), zdjąć tymczasowo ograniczenie
+   `PilotDrawingMark` (albo dodać go jako drugą dozwoloną wartość) i
+   powtórzyć test — patrząc, czy: (a) heurystyka ściany cięcia (>1 pętla +
+   normalna nierównoległa do osi belki) nadal trafia poprawnie, (b) problem
+   głębi Z (opisany w sekcji "Wymiar wcięcia" wyżej) nie blokuje insertu
+   inaczej niż na `[35021]`, (c) branie stylu z "pierwszego napotkanego
+   innego wymiaru w widoku" (`FindReferenceDimension`) nadal daje sensowny
+   wynik, gdy w widoku jest więcej niż jeden inny wymiar o różnych stylach.
+2. **Dopiero po kilku potwierdzonych złączach:** zdjąć blokadę
+   `PilotDrawingMark`, połączyć z głównym przyciskiem kasowania (żeby
+   kasowanie wymiarów do osi i wstawianie wymiaru wcięcia było jedną
+   operacją na tym samym, wybranym przez operatora widoku), i przeprowadzić
+   to przez pełną bramę bezpieczeństwa (dry-run/podgląd → operator patrzy
+   na żywy rysunek → potwierdza → dopiero wtedy na stałe).
+3. **UX wyboru widoku** — zaakceptowane 2026-09-23 jako "działa po
    kliknięciu w geometrię partu; Esc → lista jako zapasowa ścieżka". Nie
    próbować dalej "naprawiać" bez nowego wyraźnego zgłoszenia operatora.
