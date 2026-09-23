@@ -21,15 +21,20 @@ krytycznego nie zginęło przy zmianie narzędzia.
 
 1. **To jest wtyczka do Tekla Structures 2025, która potrafi NAPRAWDĘ
    kasować dane w modelu.** Dwie wcześniejsze wersje reguły realnie
-   skasowały dobre wymiary na żywym modelu. **Aktualna reguła (v4) MA
-   ZNANY BŁĄD** - patrz "PUŁAPKA 5" niżej. Nie włączaj realnego kasowania.
+   skasowały dobre wymiary na żywym modelu. **Reguła detekcji została
+   2026-09-23 CAŁKOWICIE ZASTĄPIONA (v5)** - zamiast kasować "duplikaty"
+   (v4, PUŁAPKA 5 niżej - historia, nie bieżący stan), program kasuje
+   TERAZ każdy wymiar do osi w wybranym widoku, bez wyjątku. To NOWA
+   reguła i NIE przeszła jeszcze bramy bezpieczeństwa - nie włączaj
+   realnego kasowania. Pełny opis: `CLAUDE.md`, sekcja "STAN NA
+   2026-09-23".
 2. **Sprawdź `dryRun` w `MainForm.cs` (`RunButton_Click`) WPROST W PLIKU,
    nie z tego opisu, i sprawdź go NA BRANCHU, z którego faktycznie
    korzystasz** — `dev` i `release` mogą mieć w tej chwili RÓŻNY stan
    (patrz "Branche" niżej, to nie jest tylko teoretyczne ostrzeżenie).
-   Stan na 2026-09-04 (późny wieczór), na `dev`: `dryRun: true` — program
-   NIE kasuje, tylko loguje. Tak ma zostać na obu branchach, dopóki
-   PUŁAPKA 5 nie będzie naprawiona i brama nie przejdzie od zera.
+   Stan na 2026-09-23, na `dev`: `dryRun: true` — program NIE kasuje,
+   tylko loguje. Tak ma zostać, dopóki reguła v5 nie przejdzie bramy od
+   zera (nowa reguła, nie kontynuacja PUŁAPKI 5).
 3. **NIE WALIDUJ REGUŁY PRZEZ JEJ WŁASNY DRY-RUN.** To najważniejsza
    lekcja z tego projektu i powód, dla którego błąd przeżył trzy "czyste"
    testy: dry-run i realne kasowanie używają tego samego kodu, więc zawsze
@@ -50,38 +55,43 @@ krytycznego nie zginęło przy zmianie narzędzia.
    włączyć realne kasowanie" retorycznie - naprawdę czekaj na wyraźne "tak"
    od człowieka, konkretnie na TO pytanie, nie na ogólne "kontynuuj".
 
-## PUŁAPKA 5 — znany błąd, otwarty, zdiagnozowany, do naprawy
-
-**To jest jedyny priorytet w tym projekcie.**
+## PUŁAPKA 5 — historia (reguła v4, ZASTĄPIONA, nie bieżący stan)
 
 Para `21`/`21` na `[3.5013]` to NIE duplikat, a dwa **PROSTOPADŁE** wymiary
 tego samego skosu 45° - jeden mierzy offset poziomo (wzdłuż rury), drugi
-pionowo (w poprzek). Oba pokazują `21` tylko dlatego, że kąt to dokładnie
-45°. Reguła v4 patrzy na wartość i bliskość, uznaje je za duplikat, kasuje
-jeden - i ginie cała jedna informacja (albo poziom, albo pion):
-
-```
-21,0  Start=(5775,0; 0,0;  0,0)   End=(5796,2; 21,2; 0,0)
-21,0  Start=(5775,0; 0,0; 21,2)   End=(5796,2; 21,2; 0,0)
-```
-
-**Naprawa (nie zaimplementowana):** porównywać KIERUNEK POMIARU, nie tylko
-wartość. Uwaga: wyświetlana wartość to RZUT rozpiętości `StartPoint`→
-`EndPoint` na kierunek pomiaru, więc sama rozpiętość nie rozróżnia tych
-dwóch (rzut na `(1,0,0)` i na `(0,1,0)` daje to samo 21,2). Trop z
-refleksji nad `Tekla.Structures.Drawing.dll`: **istnieje `UpDirection`** -
-dokończyć sprawdzanie gdzie dokładnie (typ/klasa), dopisać do logu
-`[diag]`, zebrać dane z obu rysunków, DOPIERO potem pisać regułę.
-
-**`[35270]` musi dalej działać:** tam para to `24` i `12` (RÓŻNE wartości,
-plus są DWA wymiary `24`) - to prawdziwy duplikat, operator potwierdził
-wizualnie. Fix nie może tego zepsuć.
-
-Pełna historia i kroki: `CLAUDE.md`, "brama bezpieczeństwa" + "Następne
-kroki" pkt 5. Ten sam opis jest też jako
+pionowo (w poprzek). Reguła v4 (kasuj "duplikat", zostaw większą wartość)
+brała je za duplikat i kasowała jeden - ginęła cała jedna informacja.
+**Ta reguła już nie istnieje w kodzie** - v5 (2026-09-23) kasuje WSZYSTKIE
+wymiary do osi bez wyjątku, więc pytanie "czy to duplikat" w ogóle już nie
+występuje. Pełny opis zmiany: `CLAUDE.md`, sekcja "STAN NA 2026-09-23".
+Historia zostaje jako kontekst diagnostyczny (i jako
 [issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18)
-na GitHubie — zostaw tam komentarz z postępem, jeśli coś ustalisz, żeby
-kolejne narzędzie/sesja nie zaczynały od zera.
+na GitHubie), nie jako aktualne TODO.
+
+## Aktualny priorytet: wymiar wcięcia (cut fitting) — NIE ZAIMPLEMENTOWANE
+
+Program ma docelowo po skasowaniu wymiarów do osi dorysować nowy wymiar
+(zwykle poziomy) opisujący wcięcie profilu w złączu. Wymaga prawdziwej
+geometrii bryły cięcia z modelu (`Tekla.Structures.Model.Part.GetSolid()`),
+nie punktów usuwanych wymiarów (te leżą na osi - to ten sam problem, który
+ma zniknąć). **Nie zgaduj, która ściana bryły jest ścianą cięcia** - to
+dokładnie ten rodzaj błędu, który już raz skasował dobre dane w tym
+projekcie. Pierwszy bezpieczny krok zrobiony: `--diag-notch` (tylko odczyt)
+mostkuje rysunek→model i loguje realną geometrię bryły. Pełny opis i
+konkretne następne kroki: `CLAUDE.md`, sekcje "Wymiar wcięcia" i
+"Następne kroki".
+
+## Znany, zaakceptowany kompromis: wybór widoku w MainForm
+
+`Picker.PickPoint` (klik w Tekli) potrafi zawiesić proces w nieskończoność
+przy kliku w miejsce bez żadnej geometrii - zmierzone na żywo 2026-09-23,
+dwukrotnie, przez `tasklist`. Brak w publicznym API trybu "zaznacz
+obszarem", który by to obszedł. Operator zaakceptował kompromis: klik
+działa, gdy trafi w narysowaną geometrię (linię, wymiar, kontur partu);
+Esc w Tekli przerywa Picker i pokazuje listę widoków jako zapasową ścieżkę.
+**To świadoma decyzja operatora z 2026-09-23, nie coś do dalszego
+"naprawiania" bez nowego zgłoszenia.** Szczegóły: `CLAUDE.md`, sekcja
+"STAN NA 2026-09-23".
 
 ## Szybkie fakty
 
@@ -92,7 +102,10 @@ kolejne narzędzie/sesja nie zaczynały od zera.
 - Zamknij `RoAxisDimensionRemover.exe` (`taskkill /F /IM RoAxisDimensionRemover.exe`)
   przed przebudowaniem, jeśli działa - inaczej build się nie uda.
 - Testowanie bez GUI: `RoAxisDimensionRemover.exe --diag-active` (aktywny
-  rysunek w Tekli) - zawsze bezpieczne, `dryRun` na sztywno `true`.
+  rysunek w Tekli, wszystkie widoki) lub `--diag-notch` (tylko odczyt -
+  geometria bryły `Model.Part.GetSolid()`, grunt pod wymiar wcięcia) -
+  zawsze bezpieczne, `dryRun` na sztywno `true` (a `--diag-notch` w ogóle
+  nic nie usuwa/tworzy).
 - Branche: `dev` (domyślny, WIP) i `release` (ma trzymać potwierdzony kod).
   **STAN NA 2026-09-16 (po PR #17/#19-22): znowu identyczne, obie
   `dryRun: true` (bezpieczne)** - to już DRUGI raz w tym samym dniu, gdy
@@ -113,11 +126,13 @@ kolejne narzędzie/sesja nie zaczynały od zera.
   najpierw, wywołaj pełną ścieżką jeśli trzeba). Szczegóły i fallback
   (REST API przez `git credential fill`): `..\CLAUDE.md`, sekcja
   "Narzędzia wokół repozytorium".
-- Bieżąca wersja (na `dev`): `0.2.4`, `dryRun: true`. Opublikowana jako
-  GitHub Release
+- Bieżąca wersja (na `dev`): `0.2.4`, `dryRun: true`, ale kod reguły
+  detekcji na `dev` jest od 2026-09-23 NOWSZY niż to, co opisuje ten numer
+  wersji (v5, patrz wyżej) - numer nie był jeszcze podbity. Ostatnia
+  opublikowana wersja to nadal
   [v0.2.4](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/releases/tag/v0.2.4)
-  - żadna nowsza wersja nie została jeszcze wydana, bo PUŁAPKA 5 wciąż nie
-  jest naprawiona (patrz wyżej i issue #18).
+  (opisuje jeszcze regułę v4) - żadna nowsza wersja nie została wydana, bo
+  reguła v5 nie przeszła jeszcze bramy bezpieczeństwa.
 - Pliki `RoAxisDimensionService.cs`, `MainForm.cs`, `Program.cs`,
   `DiagRunner.cs`, `UpdateCheck.cs`, `TeklaWindowFocus.cs` - patrz
   `CLAUDE.md`, sekcja "Struktura plików", po opis każdego.

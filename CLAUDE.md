@@ -13,7 +13,69 @@ prostopadłych wymiarów o tej samej wartości"), nie po numerze. Ten plik
 (`CLAUDE.md`) i `AGENTS.md` nie mają tego ograniczenia — mają zostać
 szczegółowe, bo to one są bazą do diagnozy.
 
-## Zanim cokolwiek uruchomisz — brama bezpieczeństwa
+## STAN NA 2026-09-23 — reguła v5, brama znowu od zera
+
+**Reguła wykrywania została CAŁKOWICIE ZMIENIONA, nie tylko naprawiona.**
+Zamiast grupować wymiary do osi i kasować "duplikaty" (v4, PUŁAPKA 5 niżej),
+`RoAxisDimensionService.RemoveAxisDimensions` kasuje teraz **KAŻDY** wymiar
+dotykający osi w JEDNYM widoku wskazanym przez operatora, bez oceniania
+"który jest ważniejszy". Powód: docelowo wymiar do osi ma być zastąpiony
+osobnym wymiarem wcięcia (cut fitting, patrz sekcja niżej) — skoro znikają
+WSZYSTKIE, nie ma już decyzji "duplikat czy nie", więc **PUŁAPKA 5 (para
+prostopadłych wymiarów 45° o tej samej wartości) przestaje dotyczyć tej
+metody** - nie trzeba już rozróżniać duplikatu od pary prostopadłej, bo obie
+i tak są kasowane. Cała stara logika grupowania (`GroupByProximity`,
+`MinPointDistance`) została USUNIĘTA z kodu - historia niżej zostaje jako
+kontekst diagnostyczny, ale nie opisuje już bieżącego zachowania.
+
+**To i tak wymaga własnej bramy bezpieczeństwa od zera** (AGENTS.md, punkt
+5) - to NOWA reguła, nie naprawiona stara, i nie była jeszcze potwierdzona
+przez operatora na żywym rysunku z ustawionym `dryRun: false`.
+`dryRun: true` zostaje, dopóki operator wprost nie potwierdzi wyniku
+dry-run na żywym widoku.
+
+**Wybór widoku (nowe w v5):** przycisk w `MainForm.cs` woła
+`Picker.PickPoint`, żeby operator kliknął widok w Tekli. **ZMIERZONE NA
+ŻYWO (2026-09-23, dwukrotnie, potwierdzone przez `tasklist`):
+`Picker.PickPoint` w tym środowisku potrafi zawiesić proces w
+nieskończoność**, jeśli operator kliknie w widok bez trafienia w
+narysowaną geometrię (linię, wymiar, kontur partu) - dla profili RO
+rysowanych bez kreskowania spora część powierzchni widoku jest "martwa".
+Fokus Windows na oknie Tekli (`TeklaWindowFocus.BringToFront`) TUŻ PRZED
+startem pickera pogłębiał problem (podejrzenie: ingerencja w stan
+"uzbrajania" interaktywnej komendy Tekli) - usunięte, `BringToFront`
+zostaje tylko PO operacji (do Ctrl+Z, jak było). Obejście: **Esc w Tekli
+przerywa Picker** (`PickerInterruptedException`), a `MainForm` łapie ten
+wyjątek i pokazuje listę widoków z arkusza (`PickViewFromList`) jako
+gwarantowaną alternatywę. Operator zaakceptował ten stan 2026-09-23 ("klika
+tylko na parcie, zostaw tak") - **to znana, zaakceptowana wada UX, nie coś
+do "naprawienia" bez dalszych wskazówek operatora.**
+
+## Wymiar wcięcia (cut fitting) — NIE ZAIMPLEMENTOWANE
+
+Docelowo program ma po skasowaniu wymiarów do osi dorysować nowy wymiar
+(zwykle poziomy), opisujący wcięcie (cut fitting) profilu w miejscu
+złącza - żeby rysunek nie tracił informacji, tylko zmieniał jej formę.
+**Tego kroku jeszcze nie ma w kodzie.** Powód: wymaga prawdziwej geometrii
+bryły cięcia z modelu (`Tekla.Structures.Model.Part.GetSolid()`, analiza
+ścian), nie samych punktów usuwanych wymiarów (te leżą na osi - to
+dokładnie ten problem, który ma zniknąć). Zgadywanie, która z wielu ścian
+bryły jest "ścianą cięcia", byłoby dokładnie tym błędem, który już raz
+skasował dobre dane w tym projekcie (PUŁAPKA 5) - nie idzie się tą drogą
+bez zmierzonych danych.
+
+**Zrobiony pierwszy, bezpieczny krok:** `--diag-notch` (`DiagRunner.
+RunNotchDiag`, tylko odczyt, nic nie zmienia) mostkuje rysunek→model przez
+`Part.ModelIdentifier` → `Model.SelectModelObject` (wzorzec z oficjalnej
+dokumentacji Tekli, nie zgadany) i loguje `Profile`, `Class` oraz bryłę
+(`GetSolid()`: `MinimumPoint`/`MaximumPoint`, liczba ścian). Zmierzone na
+żywo na `[35021]`: `RO42.4*3.2`, bryła 26 ścian. To potwierdza, że most
+działa - **następny krok (nierozpoczęty): wybrać z tych ścian tę, która
+jest powierzchnią cięcia, i przeliczyć ją na 2D wymiar w widoku. Zanim to
+się napisze, trzeba zebrać dane z kilku różnych złączy (różne kąty cięcia),
+nie projektować reguły na jednym przypadku.**
+
+## Historia: PUŁAPKA 5 (dotyczyła reguły v4, zastąpionej przez v5 wyżej)
 
 - **BRAMA ZAMKNIĘTA. `dryRun: true` w [MainForm.cs](MainForm.cs).
   PUŁAPKA 5 OTWARTA, ale ZDIAGNOZOWANA (2026-09-04, późny wieczór).**
@@ -91,38 +153,34 @@ szczegółowe, bo to one są bazą do diagnozy.
   zdobądź realne współrzędne z dry-run (`--diag-active`/`--diag-mark`,
   patrz niżej), dopiero potem pisz kod.
 
-## Co robi program
+## Co robi program (v5, bieżące)
 
-Kasuje nadmiarowy wymiar prosty (`StraightDimension`) "do osi" na profilach
-RO (rura okrągła) w widokach przekroju/detalu miejsc łączenia. Tekla czasem
+Kasuje **każdy** wymiar prosty (`StraightDimension`) "do osi" na profilach
+RO (rura okrągła) w JEDNYM widoku wskazanym przez operatora — bez oceniania
+duplikatów, patrz "STAN NA 2026-09-23" na górze pliku. Tekla czasem
 auto-generuje taki wymiar zaczepiony o teoretyczną OŚ profilu (współrzędna
 promienia ≈ 0) zamiast o jego widoczną powierzchnię — typowo przy
-skosie/ucięciu pod kątem, gdzie powierzchnia nie ma jednego jednoznacznego
-punktu odniesienia. Czasem taki wymiar jest jedyny i potrzebny (opisuje
-długość profilu przy skosie), a czasem jest duplikatem innego wymiaru
-opisującego to samo miejsce — i tylko duplikat ma zniknąć.
+skosie/ucięciu pod kątem. Docelowo taki wymiar ma zostać zastąpiony nowym
+wymiarem wcięcia (patrz sekcja "Wymiar wcięcia" wyżej - niezaimplementowane).
 
-## Aktualna reguła (v4) — cała logika w RoAxisDimensionService.cs
+**Aktualna reguła — cała logika w `RoAxisDimensionService.RemoveAxisDimensions`:**
 
 1. **`TouchesAxis`**: wymiar "dotyka osi", jeśli współrzędna, która MIĘDZY
    jego końcami się różni (Y albo Z — inaczej płaski wymiar 2D fałszywie
    łapie się jako "na osi", patrz v1 niżej), jest bliska zeru na
    którymkolwiek końcu.
-2. **Filtr długości własnej** (v4, patrz niżej): wymiar dotykający osi, ale
-   dłuższy niż `SameJointDistanceMm` (300 mm) między własnym `StartPoint` a
-   `EndPoint`, jest wykluczany z kandydatów — dwuznaczność oś/powierzchnia
-   dotyczy z definicji tylko krótkiego, lokalnego wymiaru przy złączu, nie
-   całkowitej długości profilu.
-3. **`GroupByProximity`**: pozostali kandydaci w widoku grupują się po
-   bliskości geometrycznej (single-linkage, próg `SameJointDistanceMm`), nie
-   po przynależności do widoku — jeden widok może zawierać kilka
-   niepowiązanych złączy RO.
-4. W każdym klastrze z 2+ kandydatami zostaje ten o **największej
-   wyświetlanej wartości** (`Dimension.Value`, nie geometryczny dystans —
-   patrz PUŁAPKA 2 niżej), reszta jest kasowana (albo tylko logowana w
-   dry-run).
-5. Klaster z JEDNYM kandydatem nie jest ruszany — to nie duplikat, tylko
-   jedyny sposób opisania danego miejsca.
+2. **Filtr długości własnej**: wymiar dotykający osi, ale dłuższy niż
+   `SameJointDistanceMm` (300 mm) między własnym `StartPoint` a `EndPoint`,
+   jest wykluczany z kandydatów — dwuznaczność oś/powierzchnia dotyczy z
+   definicji tylko krótkiego, lokalnego wymiaru przy złączu, nie całkowitej
+   długości profilu.
+3. Każdy pozostały kandydat jest kasowany (albo tylko logowany w dry-run) -
+   **bez grupowania i bez wyboru "który zostaje"**, w przeciwieństwie do
+   historycznej v4 niżej.
+
+Historyczna reguła v4 (kroki `GroupByProximity`, wybór największej wartości
+w klastrze) jest **usunięta z kodu** - opis niżej to już tylko historia
+diagnostyczna, nie bieżące zachowanie.
 
 ## Historia nieudanych podejść (NIE powtarzać)
 
@@ -161,6 +219,23 @@ i profilu RO, nie ogólne dla Tekla Open API).
   warto pamiętać przy debugowaniu tego konkretnego serwisu, bo `Value` (mm
   na papierze) i współrzędne (mm modelu) żyją w tym samym wywołaniu obok
   siebie.
+- **`Picker.PickPoint` może zawiesić proces w nieskończoność** przy kliku w
+  miejsce widoku bez ŻADNEJ geometrii w tolerancji - zmierzone na żywo
+  2026-09-23, dwukrotnie, potwierdzone przez `tasklist` (proces siedział
+  zablokowany, nie zwracał sterowania). Nie jest to kwestia fokusu okna -
+  wymuszanie `SetForegroundWindow` na Tekli TUŻ PRZED startem pickera raczej
+  pogłębiało problem niż go rozwiązywało. Jedyne potwierdzone wyjście z
+  zawieszonego pickera to Esc w Tekli (`PickerInterruptedException`) - kod w
+  `MainForm.cs` łapie ten wyjątek i pokazuje listę widoków. `Picker`
+  ma prywatny konstruktor (zmierzone reflection-only load: `GetConstructors()`
+  publiczne zwraca 0, z `NonPublic` daje 1) - jedyna publiczna droga do
+  instancji to `DrawingHandler.GetPicker()`, nie `new Picker(drawing)`.
+- **`ViewBase.GetAllObjects()` działa na `ViewBase`, nie trzeba rzutować do
+  `View`.** `DetailView`/`SectionView` nie są `View` (rzutowanie
+  `pickedView as View` zawodziło dla widoków przekroju/detalu, mimo że
+  Picker poprawnie zwracał widok) - operować na `ViewBase` wszędzie, gdzie
+  to możliwe, rzutować w dół tylko gdy naprawdę trzeba coś specyficznego dla
+  `View` (np. `.Name`, którego `ViewBase` nie ma).
 
 ## Jak testować bez klikania w GUI
 
@@ -168,29 +243,40 @@ Automatyzacja (w tym Claude Code) nie klika w przycisk `MainForm`.
 [Program.cs](Program.cs) ma więc tryb konsolowy:
 
 ```
-RoAxisDimensionRemover.exe --diag-active          # aktywny rysunek w Tekli
+RoAxisDimensionRemover.exe --diag-active          # aktywny rysunek w Tekli, wszystkie widoki, reguła v5
 RoAxisDimensionRemover.exe --diag-mark "[3.5013]" # otwiera rysunek po Mark, potem diagnostyka
+RoAxisDimensionRemover.exe --diag-notch           # tylko odczyt: geometria bryły (Model.Part.GetSolid()) partów na aktywnym rysunku, grunt pod wymiar wcięcia
 ```
 
-`dryRun` jest w obu wywołaniach na sztywno `true` w
+`dryRun` jest we wszystkich trzech wywołaniach na sztywno `true` w
 [DiagRunner.cs](DiagRunner.cs) — nie da się tego przełączyć z linii poleceń.
-Log leci na `stdout` (przechwyć np. `> plik.txt 2>&1` albo uruchom w tle i
-przeczytaj output). `--diag-mark` woła `SetActiveDrawing(d, true)` — otwiera
-rysunek na ekranie, żeby operator mógł od razu spojrzeć na wynik.
+`--diag-notch` nawet nie ma pojęcia `dryRun` - nic nie usuwa ani nie
+tworzy, tylko czyta model przez `Tekla.Structures.Model.Model`. Log leci na
+`stdout` (przechwyć np. `> plik.txt 2>&1` albo uruchom w tle i przeczytaj
+output). `--diag-mark` woła `SetActiveDrawing(d, true)` — otwiera rysunek na
+ekranie, żeby operator mógł od razu spojrzeć na wynik.
+
+`--diag-active`/`--diag-mark` przechodzą po WSZYSTKICH widokach na arkuszu
+(Picker wymaga GUI, nie da się go odtworzyć z linii poleceń) — inaczej niż
+przycisk w `MainForm`, który działa na jednym widoku wybranym przez
+operatora (klik w Tekli lub, po Esc, lista w oknie programu — patrz "STAN
+NA 2026-09-23" na górze pliku).
 
 Przed przebudowaniem: `taskkill /F /IM RoAxisDimensionRemover.exe`, jeśli
-proces działa (patrz `..\CLAUDE.md`, zasada 4).
+proces działa (patrz `..\CLAUDE.md`, zasada 4) — **szczególnie ważne przy
+debugowaniu Pickera: zawieszony `PickPoint` blokuje proces, `taskkill` to
+jedyny sposób go zakończyć.**
 
 ## Struktura plików
 
 | Plik | Zawartość |
 |---|---|
-| `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI |
-| `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku (`dryRun: true` — NIE kasuje, PUŁAPKA 5 otwarta, patrz brama bezpieczeństwa wyżej) |
-| `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark` dla trybu konsolowego |
-| `DiagRunner.cs` | headless runner dry-run (patrz wyżej) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
+| `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI (reguła v5 - kasuje wszystko w widoku, patrz wyżej) |
+| `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku (`dryRun: true` — NIE kasuje, nowa reguła v5 nie przeszła jeszcze bramy). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie) |
+| `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark`/`--diag-notch` dla trybu konsolowego |
+| `DiagRunner.cs` | headless runner dry-run + `RunNotchDiag` (geometria bryły, grunt pod wymiar wcięcia) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) — wzorzec 1:1 z `Radius Dimention Mover` |
-| `TeklaWindowFocus.cs` | po realnym usunięciu przełącza fokus Windows na główne okno Tekla Structures (Win32 `SetForegroundWindow`, nie API Tekli - Open API nie ma metody do tego, zweryfikowane), żeby Ctrl+Z od razu trafił tam gdzie ma |
+| `TeklaWindowFocus.cs` | po realnym usunięciu przełącza fokus Windows na główne okno Tekla Structures (Win32 `SetForegroundWindow`, nie API Tekli - Open API nie ma metody do tego, zweryfikowane), żeby Ctrl+Z od razu trafił tam gdzie ma. **Nie wołać PRZED startem Pickera** — podejrzenie, że to psuje stan interaktywnej komendy Tekli, patrz "STAN NA 2026-09-23" |
 | `installer/setup.iss`, `installer/fetch-dependencies.ps1`, `installer/TeklaEULA.txt` | instalator Inno Setup — nie dołącza bibliotek Tekla, dociąga je z NuGet po instalacji, patrz komentarze w plikach |
 
 `Inspector.cs` (tymczasowy skaner kandydatów RO po całym modelu, użyty
@@ -268,41 +354,31 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
 
 ## Następne kroki
 
-**Historyczne kroki 1-4 (znalezienie obu rysunków testowych, pierwsze
-przejście bramy, pierwsze wydanie instalatora, usunięcie `Inspector.cs`)
-są zrobione i nieaktualne jako TODO - zobacz historię commitów, jeśli
-potrzebne. Jedyny aktualny priorytet:**
+**Historyczne kroki dotyczące PUŁAPKI 5 / reguły v4 (poniżej, w sekcji
+"Historia: PUŁAPKA 5") są NIEAKTUALNE jako TODO — reguła v4 została
+zastąpiona, nie naprawiona (patrz "STAN NA 2026-09-23" na górze pliku).
+Aktualne priorytety, w tej kolejności:**
 
-**PUŁAPKA 5 — OTWARTA, ZDIAGNOZOWANA, DO NAPRAWY.** Pełny opis w bramie
-bezpieczeństwa na początku pliku. Konkretne kroki, w tej kolejności:
-
-0. ~~Scalić PR #15 (i sync PR #16), żeby `release` dostało `dryRun: true`.~~
-   ~~Otworzyć issue #18 z pełną diagnozą, uporządkować README/CLAUDE.md/
-   AGENTS.md dla przekazania między narzędziami AI, scalić PR #17
-   (i sync PR #22).~~ **Wszystko zrobione 2026-09-16.** `dev` i `release`
-   są znowu identyczne - ale zawsze sprawdź to na nowo, nie ufaj temu
-   opisowi (patrz sekcja "Branche" wyżej). Jedyna rzecz, która NIE jest
-   zrobiona: sama naprawa reguły (punkty 1-4 niżej).
-1. Dokończyć refleksję nad `Tekla.Structures.Drawing.dll`: gdzie
-   dokładnie siedzi `UpDirection` (typ, klasa nadrzędna) i co jeszcze
-   opisuje orientację/kierunek pomiaru `StraightDimension`. (Poprzednia
-   sesja przerwała to w połowie - `UpDirection` znaleziono, ale nie
-   ustalono jego dokładnego typu/lokalizacji w hierarchii klas.)
-2. Dopisać te pola do logu `[diag]` w `RoAxisDimensionService.cs` (obok
-   `DescribeDimensionSet`) i zebrać dane z OBU rysunków:
-   `RoAxisDimensionRemover.exe --diag-mark "[35270]"` i
-   `--diag-mark "[3.5013]"`. Nic nie kasuje, w pełni bezpieczne niezależnie
-   od stanu `dryRun`.
-3. Dopiero na tych ZMIERZONYCH danych zaprojektować regułę: prostopadłe
-   wymiary nigdy nie są duplikatem, nawet przy identycznej wartości.
-   Sprawdzić, czy `[35270]` (`24`/`12`, różne wartości) to para
-   RÓWNOLEGŁA (ma dalej być kasowana - `12` to prawdziwy duplikat), a
-   `[3.5013]` (`21`/`21`, ta sama wartość) to para PROSTOPADŁA (nie
-   ruszać - to dwa różne wymiary skosu 45°).
-4. Brama od zera, dla TEJ konkretnej zmiany reguły: dry-run na obu
-   rysunkach → operator patrzy na żywy rysunek w Tekli w momencie
-   kliknięcia → pytanie do operatora zadane BEZ podpowiadania odpowiedzi
-   ("czy rysunek nadal opisuje wszystko, co musi opisywać?", NIE "czy to
-   poprawnie usunęło duplikat?") → dopiero wtedy `dryRun: false`.
-   **Nie licz potwierdzeń z poprzedniej (błędnej) bramy v4 - ta reguła
-   jest inna i wymaga własnego, pełnego przejścia.**
+1. **Brama bezpieczeństwa dla reguły v5** (kasuj wszystko w widoku, bez
+   dedupu). Dry-run na kilku różnych złączach → operator patrzy na żywy
+   rysunek w Tekli → pytanie zadane BEZ podpowiadania odpowiedzi ("czy
+   rysunek nadal opisuje wszystko, co musi opisywać, biorąc pod uwagę że
+   te wymiary i tak mają zniknąć na rzecz wymiaru wcięcia?") → dopiero
+   wtedy `dryRun: false`. Nie licz potwierdzeń z bramy v4 - inna reguła,
+   własne pełne przejście.
+2. **Wymiar wcięcia (cut fitting)** — pierwszy krok (`--diag-notch`,
+   geometria bryły przez `Model.Part.GetSolid()`) zrobiony, patrz sekcja
+   wyżej. Następny: zebrać dane z KILKU różnych złączy (różne kąty cięcia,
+   nie tylko `[35021]`) i dopiero na zmierzonych danych zaprojektować,
+   która ściana bryły jest ścianą cięcia i jak przeliczyć ją na 2D wymiar w
+   widoku (`StraightDimension` ma konstruktor `(targetView, startPoint,
+   endPoint, upDirection, distance)` - już zidentyfikowany, ale geometria
+   punktów wejściowych jeszcze nie).
+3. **UX wyboru widoku** — zaakceptowane 2026-09-23 jako "działa, gdy
+   klikniesz w geometrię partu; Esc → lista jako zapasowa ścieżka".
+   Operator świadomie zaakceptował ten kompromis (patrz "STAN NA
+   2026-09-23"). Nie próbować dalej "naprawiać" klikania bez nowego
+   wyraźnego zgłoszenia - `Picker.PickPoint` w tym środowisku ma
+   potwierdzoną (dwukrotnie, przez `tasklist`) skłonność do wieszania się
+   na klikach w puste miejsce, obejścia w publicznym API nie znaleziono
+   (brak trybu "zaznacz obszarem" w `Picker.PickerTypes`).

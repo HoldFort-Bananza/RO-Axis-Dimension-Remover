@@ -6,16 +6,18 @@ Samodzielny `.exe` dla Tekla Structures 2025. Ma kasować nadmiarowe wymiary
 
 ## Stan: `dryRun: true` — przycisk nic nie kasuje
 
-Reguła wykrywania (v4) ma znany, zdiagnozowany błąd: potrafi skasować
-poprawny wymiar zamiast duplikatu, gdy dwa PROSTOPADŁE wymiary tego samego
-skosu 45° pokazują przypadkiem tę samą wartość. Pełna diagnoza, przykład
-liczbowy i kierunek naprawy:
-[issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18).
+Reguła wykrywania została zmieniona: zamiast oceniać, które wymiary do osi
+są "duplikatami" (dawna reguła v1–v4, miała znany błąd na parach
+prostopadłych wymiarów o tej samej wartości — pełna diagnoza w
+[issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18)),
+program kasuje teraz **wszystkie** wymiary do osi w wybranym widoku, bez
+wyjątku — docelowo mają zostać zastąpione osobnym wymiarem opisującym
+wcięcie profilu (jeszcze niezaimplementowane). Ta nowa reguła jeszcze nie
+przeszła własnej "bramy bezpieczeństwa", więc `dryRun` zostaje `true`.
 
-Pełna historia wersji (v1–v4) i "brama bezpieczeństwa", przez którą musi
-przejść każda zmiana reguły przed włączeniem realnego kasowania, są w
-`CLAUDE.md` — to on jest bazą wiedzy tego projektu, to README to tylko
-skrót.
+Pełna historia wersji i "brama bezpieczeństwa", przez którą musi przejść
+każda zmiana reguły przed włączeniem realnego kasowania, są w `CLAUDE.md`
+— to on jest bazą wiedzy tego projektu, README to tylko skrót.
 
 Tryb konsolowy (`--diag-active`/`--diag-mark`, `DiagRunner.cs`) ma
 `dryRun: true` na sztywno, na zawsze — to ścieżka bez człowieka przy
@@ -40,6 +42,7 @@ Claude Code (i każda automatyzacja) nie klika w przycisk `MainForm`.
 ```
 RoAxisDimensionRemover.exe --diag-active        # aktywny rysunek w Tekli
 RoAxisDimensionRemover.exe --diag-mark "[Mark]" # otwiera rysunek po Mark
+RoAxisDimensionRemover.exe --diag-notch         # tylko odczyt: geometria bryły partów (grunt pod wymiar wcięcia)
 ```
 
 `dryRun` jest tam na sztywno `true` - nie da się tego przełączyć z linii
@@ -62,12 +65,11 @@ Kopiuje wzorzec z siostrzanego projektu w tym samym katalogu nadrzędnym
 
 ## Następne kroki
 
-Jedyny aktualny priorytet: naprawić regułę wykrywania tak, żeby prostopadłe
-wymiary o tej samej wartości nie były traktowane jako duplikat, bez psucia
-prawdziwego duplikatu. Szczegóły, trop (`UpDirection` w
-`Tekla.Structures.Drawing`) i wymagana procedura zatwierdzenia:
-[issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18)
-i `CLAUDE.md`.
+Dwa aktualne priorytety: (1) przeprowadzić nową regułę wykrywania przez
+bramę bezpieczeństwa, zanim realne kasowanie zostanie włączone; (2) dodać
+automatyczne tworzenie wymiaru wcięcia po skasowaniu wymiarów do osi —
+wymaga rzeczywistej geometrii bryły cięcia z modelu, nie zgadywania.
+Szczegóły i wymagana procedura zatwierdzenia: `CLAUDE.md`.
 
 Osobno, bez pośpiechu: rozważyć wiki (jak w siostrzanym projekcie) zamiast
 tego README, jeśli projekt urośnie.

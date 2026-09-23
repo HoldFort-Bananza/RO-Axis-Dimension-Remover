@@ -1,5 +1,6 @@
 using System;
 using Tekla.Structures.Drawing;
+using TSM = Tekla.Structures.Model;
 
 namespace RoAxisDimensionRemover
 {
@@ -69,12 +70,109 @@ namespace RoAxisDimensionRemover
             Log($"Nie znaleziono rysunku o Mark={mark}.");
         }
 
+        // Picker (wybór widoku przez kliknięcie w MainForm) wymaga GUI, więc
+        // z linii komend nie da się go odtworzyć - diag przechodzi więc po
+        // WSZYSTKICH widokach na arkuszu, w przeciwieństwie do przycisku w
+        // MainForm, który działa na jednym widoku wskazanym przez operatora.
         private static void RunOn(Drawing drawing, Action<string> log)
         {
             log($"Aktywny rysunek: {drawing.Mark} / {drawing.Name}");
             var service = new RoAxisDimensionService();
-            var result = service.RemoveRedundantAxisDimensions(drawing, log, dryRun: true);
-            log($"Gotowe. Widoków: {result.ViewsChecked}, znalezionych kandydatów do usunięcia: {result.RemovedCount}.");
+            int viewsChecked = 0, found = 0;
+            var top = drawing.GetSheet().GetAllObjects();
+            while (top.MoveNext())
+            {
+                if (!(top.Current is View view))
+                {
+                    continue;
+                }
+                viewsChecked++;
+                var result = service.RemoveAxisDimensions(drawing, view, log, dryRun: true);
+                found += result.RemovedCount;
+            }
+            log($"Gotowe. Widoków: {viewsChecked}, znalezionych kandydatów do usunięcia: {found}.");
+        }
+
+        /// <summary>
+        /// Czysto do odczytu (bez modyfikacji) - zbiera realną geometrię
+        /// bryły (Model.Part.GetSolid()) partów widocznych na aktywnym
+        /// rysunku, żeby zaprojektować regułę tworzenia wymiaru wcięcia
+        /// (cut fitting) na PRAWDZIWYCH danych, a nie na zgadywanym
+        /// kształcie - zgodnie z AGENTS.md, sekcja "Najważniejsze zanim
+        /// cokolwiek zrobisz", pkt 4.
+        /// </summary>
+        public static void RunNotchDiag()
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+            var drawing = dh.GetActiveDrawing();
+            if (drawing == null)
+            {
+                Log("Brak otwartego rysunku.");
+                return;
+            }
+
+            var model = new TSM.Model();
+            if (!model.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Model).");
+                return;
+            }
+
+            Log($"[notch] Aktywny rysunek: {drawing.Mark} / {drawing.Name}");
+            var top = drawing.GetSheet().GetAllObjects();
+            while (top.MoveNext())
+            {
+                if (!(top.Current is View view))
+                {
+                    continue;
+                }
+
+                var partsEnum = view.GetAllObjects(new[] { typeof(Part) });
+                while (partsEnum.MoveNext())
+                {
+                    if (!(partsEnum.Current is Part drawingPart))
+                    {
+                        continue;
+                    }
+
+                    var modelObj = model.SelectModelObject(drawingPart.ModelIdentifier);
+                    if (!(modelObj is TSM.Part modelPart))
+                    {
+                        Log($"[notch] {view.GetType().Name}: ModelIdentifier {drawingPart.ModelIdentifier} nie wskazuje na Part ({modelObj?.GetType().Name ?? "null"}).");
+                        continue;
+                    }
+
+                    Log($"[notch] {view.GetType().Name}: Part Profile={modelPart.Profile?.ProfileString} Class={modelPart.Class} PartNumber={modelPart.Identifier?.ID}");
+
+                    TSM.Solid solid;
+                    try
+                    {
+                        solid = modelPart.GetSolid();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log("[notch]   GetSolid() błąd: " + ex.GetType().Name + ": " + ex.Message);
+                        continue;
+                    }
+
+                    Log($"[notch]   bryła (jednostki modelu): Min=({solid.MinimumPoint.X:F1};{solid.MinimumPoint.Y:F1};{solid.MinimumPoint.Z:F1}) Max=({solid.MaximumPoint.X:F1};{solid.MaximumPoint.Y:F1};{solid.MaximumPoint.Z:F1})");
+
+                    int faceCount = 0;
+                    var faces = solid.GetFaceEnumerator();
+                    while (faces.MoveNext())
+                    {
+                        faceCount++;
+                    }
+                    Log($"[notch]   ścian bryły: {faceCount}");
+                }
+            }
         }
     }
 }
