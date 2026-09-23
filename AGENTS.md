@@ -51,7 +51,7 @@ ograniczenia, ma zostać szczegółowy, bo to baza do diagnozy).
    włączyć realne kasowanie/tworzenie" retorycznie — naprawdę czekaj na
    wyraźne "tak" od człowieka, konkretnie na TO pytanie.
 
-## STAN NA 2026-09-23 — reguła v5, brama przeszła
+## STAN NA 2026-09-23 — reguła v6 (poprawka TouchesAxis), brama przeszła DRUGI RAZ tego dnia
 
 **Reguła wykrywania została CAŁKOWICIE ZASTĄPIONA, nie tylko naprawiona.**
 Zamiast grupować wymiary do osi i kasować "duplikaty" (v4, PUŁAPKA 5 niżej),
@@ -66,10 +66,14 @@ metody**. Cała stara logika grupowania (`GroupByProximity`,
 
 **Aktualna reguła — cała logika w `RoAxisDimensionService.RemoveAxisDimensions`:**
 
-1. **`TouchesAxis`**: wymiar "dotyka osi", jeśli współrzędna, która MIĘDZY
-   jego końcami się różni (Y albo Z — inaczej płaski wymiar 2D fałszywie
-   łapie się jako "na osi", patrz v1 w historii niżej), jest bliska zeru na
-   którymkolwiek końcu.
+1. **`TouchesAxis`** (v6, POPRAWIONA 2026-09-23 - patrz "PUŁAPKA 6" niżej):
+   wymiar "dotyka osi" tylko jeśli (a) ma REALNĄ GŁĘBIĘ - współrzędna Z
+   faktycznie się różni między jego końcami, ORAZ (b) współrzędna, która
+   MIĘDZY jego końcami się różni (Y albo Z), jest bliska zeru na
+   którymkolwiek końcu. Warunek (b) sam w sobie to jeszcze v5 (i miał
+   PUŁAPKĘ 6) - warunek (a) jest nowy i odróżnia faktyczny artefakt
+   skośnego cięcia od zwykłego, płaskiego wymiaru 2D (promień, pozycja),
+   który tylko PRZYPADKIEM dotyka zera w Y.
 2. **Filtr długości własnej**: wymiar dotykający osi, ale dłuższy niż
    `SameJointDistanceMm` (300 mm) między własnym `StartPoint` a `EndPoint`,
    jest wykluczany z kandydatów — dwuznaczność oś/powierzchnia dotyczy z
@@ -78,12 +82,73 @@ metody**. Cała stara logika grupowania (`GroupByProximity`,
 3. Każdy pozostały kandydat jest kasowany (albo tylko logowany w dry-run) —
    bez grupowania i bez wyboru "który zostaje".
 
-**BRAMA DLA REGUŁY v5 PRZESZŁA 2026-09-23.** Operator zobaczył dry-run na
-żywym `[35021]` (poprawnie znalazł `8 mm` i `21 mm`, zero fałszywych
-trafień — dokładnie ten sam widok co w PUŁAPCE 5, teraz bez dedupu), i
-wprost potwierdził na pytanie o realne kasowanie ("tak dryrun false").
-Program realnie skasował oba wymiary na żywym rysunku, operator potwierdził
-wizualnie (zrzut ekranu), że wygląda poprawnie.
+**BRAMA DLA REGUŁY v5 PRZESZŁA 2026-09-23 (pierwsza runda).** Operator
+zobaczył dry-run na żywym `[35021]` (poprawnie znalazł `8 mm` i `21 mm`,
+zero fałszywych trafień — dokładnie ten sam widok co w PUŁAPCE 5, teraz bez
+dedupu), i wprost potwierdził na pytanie o realne kasowanie ("tak dryrun
+false"). Program realnie skasował oba wymiary na żywym rysunku, operator
+potwierdził wizualnie (zrzut ekranu), że wygląda poprawnie.
+
+### PUŁAPKA 6 (v5, ten sam dzień): `21 mm` (promień rury) niepotrzebnie kasowany
+
+Zaraz PO przejściu bramy dla v5, operator użył programu na żywo na
+`[35021]` i zgłosił: program skasował `21 mm` - **wymiar promienia rury,
+potrzebny na budowie ("skąd oni będą wiedzieć jakiej średnicy ma być
+rura")**. To NIE była kwestia brakującego zamiennika (wymiar wcięcia wciąż
+nie jest wpięty do głównego przycisku) - `21 mm` to w ogóle NIE jest
+artefakt złącza, tylko normalny, płaski wymiar 2D promienia profilu
+okrągłego, który przypadkiem "dotyka osi" (lokalny punkt referencyjny rury
+leży na osi z definicji - patrz "Pułapki API" niżej), dokładnie jak w
+zdaniu ostrzegawczym, które już tam było, zanim ten bug wystąpił.
+
+**Diagnoza przez `--diag-dimension-style` (Wartość+Start+End w jednym
+logu, dodane w tej sesji specjalnie do tej diagnozy) na żywym `[35021]`:**
+
+```
+"21 mm": Start=(0;-21,20;0) End=(7,68;0;0)      - Z=0 na OBU końcach (płaski)
+"8 mm":  Start=(0;-21,20;0) End=(7,68;0;21,20)  - Z zmienia się 0 -> 21,2
+```
+
+Obie mają `Y=0` na jednym końcu (dlatego v5 łapała obie), ale tylko `8 mm`
+ma realną głębię `Z` - to znak, że jej koniec leży na SKOŚNYM cięciu (stąd
+faktyczny artefakt złącza). `21 mm` jest w całości płaska (`Z=0` zawsze) -
+zwykły wymiar promienia, nie ma nic wspólnego ze skosem.
+
+**Potwierdzone na `[3.5013]` (regresyjnie, oba końce osobno):** ten sam
+wzorzec powtarza się na KAŻDYM końcu tego elementu - para dwóch wymiarów
+`21mm`/`21mm` (nie do odróżnienia po samej wyświetlanej wartości!), jeden
+płaski (Z=0 zawsze, zostaje), jeden ze skosem (Z się zmienia, artefakt,
+kasowany). **To doprecyzowuje starą "PUŁAPKĘ 5"**: para `21`/`21` na
+`[3.5013]` to nie były "dwa prostopadłe pomiary tego samego skosu" (jak
+zgadywano wcześniej), tylko dokładnie ta sama para "promień (płaski) +
+artefakt (skośny)" co na `[35021]`, tylko powielona na obu końcach.
+
+**Naprawa (`RoAxisDimensionService.TouchesAxis`):** dodany wymóg, że `Z`
+musi faktycznie różnić się między końcami wymiaru (`zDiffers`), zanim
+w ogóle rozważamy, czy któraś współrzędna dotyka zera. Płaskie wymiary
+(`Z` stałe, typowo `0`) są od razu wykluczone - niezależnie od tego, czy
+ich `Y` przypadkiem trafia w zero.
+
+**Znana granica tej poprawki** (NIE zmierzona, do sprawdzenia przy
+kolejnym złączu): gdyby skos leżał tak, że artefakt wychodzi płaski w `Z`
+(cała rozpiętość w `Y`), ten warunek błędnie by go NIE złapał. Nie
+zaobserwowane na `[35021]`/`[3.5013]` - oba mają skos, który daje realną
+głębię `Z` na artefakcie.
+
+**Operator poprosił dodatkowo:** `21 mm` (promień) docelowo warto ręcznie
+rozciągnąć na pełną szerokość rury (`42 mm`, średnica) - POKAZANE na żywo
+w Tekli (ręczne przeciągnięcie uchwytu wymiaru), NIE zautomatyzowane w
+kodzie - to osobna, przyszła praca, nie część tej naprawy.
+
+**BRAMA DLA POPRAWIONEJ REGUŁY PRZESZŁA 2026-09-23 (druga runda,
+tego samego dnia).** `dryRun` cofnięty na `true` na czas weryfikacji.
+Operator sprawdził dry-run żywym przyciskiem `MainForm` na obu końcach
+`[3.5013]` (każdy koniec dał dokładnie 1 kandydata, `21 mm` zachowany w
+logu), obejrzał widoki w Tekli, i na pytanie "czy rysunek nadal opisuje
+wszystko co musi opisywać?" (zadane bez podpowiadania) odpowiedział "tak".
+Na wprost zadane pytanie o `dryRun: false` odpowiedział "tak". Realne
+kasowanie NIE zostało jeszcze użyte na żywo z tą regułą (tylko dry-run) -
+do potwierdzenia przy najbliższym realnym użyciu.
 
 **Wybór widoku:** przycisk w `MainForm.cs` woła `Picker.PickPoint`, żeby
 operator kliknął widok w Tekli. **ZMIERZONE NA ŻYWO (2026-09-23,
@@ -311,13 +376,21 @@ nieskrócone, mimo że reguła wygląda obiecująco na obu przykładach.
 
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
-Para `21`/`21` na `[3.5013]` to NIE była duplikat, a dwa **PROSTOPADŁE**
-wymiary tego samego skosu 45° — jeden mierzył offset poziomo (wzdłuż rury),
-drugi pionowo (w poprzek). Oba pokazywały `21` tylko dlatego, że kąt to
-dokładnie 45°. Reguła v4 (kasuj "duplikat", zostaw większą wartość) brała
-je za duplikat i kasowała jeden — ginęła cała jedna informacja. **Ta reguła
-już nie istnieje w kodzie** — v5 kasuje WSZYSTKIE wymiary do osi bez
-wyjątku, więc pytanie "czy to duplikat" w ogóle już nie występuje.
+Para `21`/`21` na `[3.5013]` to NIE była duplikat. Reguła v4 (kasuj
+"duplikat", zostaw większą wartość) brała ją za duplikat i kasowała jeden —
+ginęła cała jedna informacja. **Ta reguła już nie istnieje w kodzie** — v5
+kasuje WSZYSTKIE wymiary do osi bez wyjątku, więc pytanie "czy to duplikat"
+w ogóle już nie występuje.
+
+**DOPRECYZOWANE przez PUŁAPKĘ 6 (patrz "STAN NA 2026-09-23" wyżej):**
+pierwotnie sądzono (ZAPIS HISTORYCZNY, błędny co do mechanizmu), że to dwa
+**PROSTOPADŁE** wymiary tego samego skosu 45° — jeden mierzący offset
+poziomo (wzdłuż rury), drugi pionowo (w poprzek), oba pokazujące `21` tylko
+dlatego że kąt to dokładnie 45°. W rzeczywistości to ten sam wzorzec co na
+`[35021]`: jeden `21` to zwykły płaski wymiar promienia rury (musi zostać),
+drugi to faktyczny artefakt skośnego cięcia (ma głębię w Z, słusznie
+kasowany). Wniosek sprzed poprawki ("to nie duplikat, nie kasować obu przez
+wartość") pozostaje trafny, tylko powód był inny niż sądzono.
 
 **Najważniejsza lekcja z tamtej sesji, wciąż aktualna:** trzy "czyste"
 testy nie złapały błędu, bo sprawdzały, czy realne kasowanie zgadza się z
@@ -341,6 +414,7 @@ na GitHubie), nie jako aktualne TODO.
 | v3 | Po poprawce v2 `[3.5013]` nadal traciło WSZYSTKIE wymiary do osi. | Zdiagnozowane w v4 przez odczyt logu diagnostycznego, nie przez zgadywanie. |
 | v4, próba 1 (odrzucona) | Klaster bliskości mieszał 2 prawdziwe duplikaty (21 mm) z wymiarem całkowitej długości profilu (5796 mm), który też "dotyka osi" (lokalny początek układu współrzędnych rury leży na osi z definicji). Próba poprawki: kasować tylko wymiary o IDENTYCZNEJ wartości — zepsuło `[35270]` (tam para to 24/12 mm, RÓŻNE wartości, `12` był prawdziwym duplikatem). | Odrzucone — "różne wartości" samo w sobie nic nie mówi o duplikacie. |
 | v4 | Filtr długości własnej naprawił [3.5013], ale reguła bazowa miała PUŁAPKĘ 5 (wyżej) — para prostopadłych wymiarów o identycznej wartości. Przeszedł bramę trzy razy (błędnie, patrz "najważniejsza lekcja" wyżej). | Zastąpione przez v5 (kasuj wszystko, bez dedupu) — patrz "STAN NA 2026-09-23". |
+| v5 | PUŁAPKA 6: `TouchesAxis` sprawdzał Y i Z niezależnie, na dowolnym końcu — łapał zwykłe płaskie wymiary promienia (Z=0 zawsze), które przypadkiem miały Y=0 na jednym końcu. Skasował realnie `21 mm` (promień rury) na żywym [35021]. | Dodany wymóg realnej głębi Z (`zDiffers`) jako warunek konieczny — patrz "PUŁAPKA 6" w "STAN NA 2026-09-23". |
 
 PUŁAPKA 2 (osobna, nie wersja): "krótszy" nie znaczy mniejszy surowy dystans
 3D między `StartPoint`/`EndPoint` — `Dimension.Value` to RZUT rozpiętości na

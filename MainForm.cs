@@ -264,13 +264,19 @@ namespace RoAxisDimensionRemover
                 }
                 string viewLabel = view.GetType().Name;
 
-                // dryRun: false - brama bezpieczeństwa dla reguły v5
-                // (kasuj każdy wymiar do osi w widoku) PRZESZŁA 2026-09-23:
-                // operator zobaczył dry-run na żywym [35021] (poprawnie
-                // znalazł 8 mm i 21 mm, zero fałszywych trafień) i wprost
-                // potwierdził real kasowanie ("tak dryrun false"). Nie
-                // przywracać na true bez powodu - to nie jest to samo co
-                // PUŁAPKA 5 (v4), która tego potwierdzenia nigdy nie miała.
+                // dryRun: false - brama bezpieczeństwa dla POPRAWIONEJ
+                // reguły TouchesAxis PRZESZŁA 2026-09-23 (ten sam dzień co
+                // gate v5, druga runda tego dnia). Poprzednia reguła
+                // niepotrzebnie kasowała "21 mm" (płaski wymiar promienia
+                // rury, nie artefakt złącza) - operator zgłosił to na
+                // żywym [35021]. Naprawiona TouchesAxis (patrz komentarz
+                // przy niej w RoAxisDimensionService.cs: wymaga realnej
+                // głębi Z, nie tylko Y=0) zweryfikowana dry-runem na żywo na
+                // [35021] i NA OBU końcach [3.5013] (każdy koniec dał
+                // dokładnie 1 kandydata, "21 mm" zachowany). Operator
+                // obejrzał wynik w Tekli i wprost potwierdził na pytanie
+                // "czy rysunek nadal opisuje wszystko co musi" (tak) oraz na
+                // pytanie o realne kasowanie ("tak").
                 const bool dryRun = false;
                 var result = _service.RemoveAxisDimensions(drawing, view, Log, dryRun);
                 _statusLabel.Text = dryRun

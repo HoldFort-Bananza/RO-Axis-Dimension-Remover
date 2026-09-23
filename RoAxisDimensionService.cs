@@ -123,16 +123,45 @@ namespace RoAxisDimensionRemover
         // internal: reużywane przez DiagRunner (--diag-notch-match), żeby
         // dopasowanie ściany cięcia do wymiaru bazowało na TEJ SAMEJ regule
         // wykrywania "dotyka osi", zamiast duplikować ją niezależnie.
+        //
+        // ZMIERZONE na żywym [35021] (operator zgłosił: program niepotrzebnie
+        // kasuje "21 mm" - promień rury, potrzebny na budowie). Odczyt
+        // Wartość+Start+End dla WSZYSTKICH wymiarów w widoku (--diag-dimension-style)
+        // pokazał:
+        //   "21 mm": Start=(0;-21,20;0) End=(7,68;0;0)     - Z=0 na OBU końcach (płaski)
+        //   "8 mm":  Start=(0;-21,20;0) End=(7,68;0;21,20) - Z zmienia się 0->21,2
+        // "21 mm" to zwykły, płaski (2D) wymiar promienia profilu okrągłego -
+        // dokładnie przypadek z punktu "Pułapki API": lokalny punkt
+        // referencyjny rury leży na osi Z DEFINICJI, więc wymiar do niego
+        // "dotyka osi" mimo że jest całkowicie poprawny i nie ma nic
+        // wspólnego ze skośnym cięciem. "8 mm" ma realną głębię (Z różni się
+        // między końcami) - to znak, że jeden z jego końców leży na SKOŚNYM
+        // cięciu (nie leży płasko w widoku), czyli faktycznie jest lokalnym
+        // artefaktem złącza. Rozróżnienie: artefakt złącza ma realną
+        // rozpiętość w Z, zwykły płaski wymiar (promień, długość, pozycja) -
+        // nie, nawet jeśli przypadkiem "dotyka" zera we współrzędnej Y.
+        //
+        // Nie zmierzone jeszcze: złącze, gdzie skos leży tak, że artefakt
+        // wychodzi płaski w Z (nie zaobserwowane na [35021]/[3.5013]) -
+        // gdyby się pojawiło, ten warunek błędnie by go NIE złapał.
         internal static bool TouchesAxis(StraightDimension sd)
         {
             bool yDiffers = Math.Abs(sd.StartPoint.Y - sd.EndPoint.Y) > CoordDiffersToleranceMm;
             bool zDiffers = Math.Abs(sd.StartPoint.Z - sd.EndPoint.Z) > CoordDiffersToleranceMm;
 
+            if (!zDiffers)
+            {
+                // Płaski wymiar (Z stałe na całej długości) - zwykła
+                // geometria widoku 2D (promień, pozycja, długość), nie
+                // artefakt skośnego cięcia. Patrz komentarz wyżej.
+                return false;
+            }
+
             if (yDiffers && (NearZero(sd.StartPoint.Y) || NearZero(sd.EndPoint.Y)))
             {
                 return true;
             }
-            if (zDiffers && (NearZero(sd.StartPoint.Z) || NearZero(sd.EndPoint.Z)))
+            if (NearZero(sd.StartPoint.Z) || NearZero(sd.EndPoint.Z))
             {
                 return true;
             }
@@ -147,7 +176,7 @@ namespace RoAxisDimensionRemover
         /// pierwszego elementu z właściwością "Value" dającą się sparsować
         /// jako liczba - zmierzone na [35270] przez zrzut refleksją.
         /// </summary>
-        private static double? GetDisplayedValue(StraightDimension sd)
+        internal static double? GetDisplayedValue(StraightDimension sd)
         {
             if (!(sd.Value is IEnumerable en))
             {
