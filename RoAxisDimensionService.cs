@@ -7,48 +7,49 @@ using Tekla.Structures.Drawing;
 namespace RoAxisDimensionRemover
 {
     /// <summary>
-    /// Cała logika, zero wiedzy o UI. Kasuje nadmiarowy wymiar prosty "do
-    /// osi" na profilach RO: w widoku przekroju/detalu miejsca łączenia
-    /// Tekla czasem auto-generuje wymiar zaczepiony o teoretyczną OŚ profilu
-    /// (współrzędna promienia ≈ 0) zamiast o jego widoczną powierzchnię -
-    /// typowo przy skosie/ucięciu pod kątem. Jeśli takich wymiarów jest w
-    /// jednym złączu więcej niż jeden, zostaje tylko ten o największej
-    /// wyświetlanej wartości (patrz `Dimension.Value`, PUŁAPKA niżej) - reszta
-    /// to duplikaty.
+    /// Cała logika, zero wiedzy o UI. Kasuje wymiar prosty "do osi" na
+    /// profilach RO: w widoku przekroju/detalu miejsca łączenia Tekla czasem
+    /// auto-generuje wymiar zaczepiony o teoretyczną OŚ profilu (współrzędna
+    /// promienia ≈ 0) zamiast o jego widoczną powierzchnię - typowo przy
+    /// skosie/ucięciu pod kątem. Takie wymiary są niepotrzebne (informację o
+    /// wcięciu ma nosić osobny wymiar wcięcia, nie wymiar do osi), więc
+    /// zasada jest teraz prosta: usuń KAŻDY wymiar dotykający osi w
+    /// wybranym widoku, bez oceniania, który z nich "jest ważniejszy".
     ///
-    /// Reguła NIE jest zgadywana - każda stała ma pochodzenie w komentarzu
-    /// obok niej. Pełna historia (4 wersje, w tym dwie, które realnie
-    /// skasowały dobre wymiary na żywym modelu) i odrzucone podejścia są w
-    /// `CLAUDE.md` w tym repo - przeczytaj przed zmianą tej klasy.
-    ///
-    /// PUŁAPKA: `Dimension.Value` to rzut na kierunek wymiaru, nie odległość
-    /// euklidesowa między `StartPoint`/`EndPoint` - "krótszy" trzeba oceniać
-    /// po wyświetlanej wartości, nie po surowej geometrii.
+    /// Wcześniejsza wersja (do PR poprzedzającego ten commit) zamiast tego
+    /// grupowała wymiary do osi i kasowała "duplikaty", zostawiając ten o
+    /// większej wartości - to miało PUŁAPKĘ 5 (patrz AGENTS.md): para
+    /// PROSTOPADŁYCH wymiarów tego samego skosu 45° ma identyczną wyświetlaną
+    /// wartość i była błędnie brana za duplikat, więc ginęła jedna z dwóch
+    /// niezależnych informacji (poziom albo pion). Skoro teraz kasujemy
+    /// wszystkie wymiary do osi bez wyjątku (i doceluje w to miejsce nowy
+    /// wymiar wcięcia), problem odróżniania duplikatu od pary prostopadłej
+    /// znika - nie ma już decyzji "który zostaje".
     /// </summary>
     public class RoAxisDimensionService
     {
         // mm na papierze. Promień profilu RO nigdy nie schodzi blisko zera,
         // więc ten margines bezpiecznie odróżnia "dokładnie na osi" od
         // "na powierzchni" nawet dla najcieńszych rur.
-        private const double AxisToleranceMm = 0.5;
+        internal const double AxisToleranceMm = 0.5;
 
         // Próg, powyżej którego współrzędna MIĘDZY końcami wymiaru uznajemy
         // za "różną" (czyli tę oś w ogóle bierzemy pod uwagę przy szukaniu
         // zera). Bez tego wymiar płaski w widoku (dla którego jedna
         // współrzędna, typowo Z, jest 0 dla OBU końców, bo widok jest 2D, nie
         // dlatego że to oś) łapałby się jako "na osi" - zdarzyło się na
-        // [35270] w v1, patrz CLAUDE.md.
-        private const double CoordDiffersToleranceMm = 0.01;
+        // [35270] w v1, patrz AGENTS.md.
+        internal const double CoordDiffersToleranceMm = 0.01;
 
         // Jednostki modelu (mm), NIE mm na papierze - StartPoint/EndPoint są
-        // w jednostkach modelu (patrz ../CLAUDE.md, pułapka jednostek).
+        // w jednostkach modelu (patrz ../AGENTS.md, pułapka jednostek).
         // Szacunek, nie pomiar: dwa punkty tego samego złącza RO leżą w
         // odległości rzędu promienia profilu (dziesiątki mm), a osobne
         // złącza na jednym rysunku balustrady dzieli zwykle metr i więcej.
         // 300 mm to margines bezpieczeństwa między tymi skalami - do
         // zweryfikowania na kolejnych rysunkach z wieloma złączami w jednym
         // widoku.
-        private const double SameJointDistanceMm = 300.0;
+        internal const double SameJointDistanceMm = 300.0;
 
         public class Result
         {
@@ -56,99 +57,53 @@ namespace RoAxisDimensionRemover
             public int RemovedCount;
         }
 
-        public Result RemoveRedundantAxisDimensions(Drawing drawing, Action<string> log, bool dryRun = false)
+        /// <summary>
+        /// Kasuje wszystkie wymiary "do osi" w JEDNYM widoku (ten, który
+        /// operator wybrał Pickerem w MainForm - patrz PUŁAPKA 5 wyżej,
+        /// dlaczego to musi być per widok, nie cały arkusz naraz).
+        /// </summary>
+        public Result RemoveAxisDimensions(Drawing drawing, ViewBase view, Action<string> log, bool dryRun = false)
         {
-            var result = new Result();
-            var top = drawing.GetSheet().GetAllObjects();
-            while (top.MoveNext())
+            var result = new Result { ViewsChecked = 1 };
+
+            var objs = view.GetAllObjects();
+            while (objs.MoveNext())
             {
-                if (!(top.Current is View view))
+                if (!(objs.Current is StraightDimension sd) || !TouchesAxis(sd))
                 {
                     continue;
                 }
-                result.ViewsChecked++;
 
-                var candidates = new List<(StraightDimension Dim, double Value)>();
-                var objs = view.GetAllObjects();
-                while (objs.MoveNext())
-                {
-                    if (!(objs.Current is StraightDimension sd) || !TouchesAxis(sd))
-                    {
-                        continue;
-                    }
-
-                    // Dwuznaczność oś/powierzchnia dotyczy tylko krótkiego,
-                    // lokalnego wymiaru przy złączu. Wymiar całkowitej
-                    // długości profilu też "dotyka osi" (jego punkt startowy
-                    // jest w definicji na osi - lokalny początek układu
-                    // współrzędnych rury), ale to nie jest ten sam przypadek -
-                    // odsiewamy go po własnej długości, zanim w ogóle trafi do
-                    // kandydatów. Zdiagnozowane na [3.5013] w v4, patrz CLAUDE.md.
-                    double ownLength = PointDistance(sd.StartPoint, sd.EndPoint);
-                    if (ownLength > SameJointDistanceMm)
-                    {
-                        if (dryRun)
-                        {
-                            log($"[diag] wymiar dotyka osi, ale ma {ownLength:F0} mm własnej długości (>{SameJointDistanceMm:F0} mm) - to nie lokalny artefakt złącza, pomijam jako kandydata.");
-                        }
-                        continue;
-                    }
-
-                    double? value = GetDisplayedValue(sd);
-                    if (value == null)
-                    {
-                        log("UWAGA: wymiar dotyka osi, ale nie udało się odczytać wyświetlanej wartości - pomijam go, żeby niczego nie zgadywać.");
-                        continue;
-                    }
-                    candidates.Add((sd, value.Value));
-                }
-
-                if (candidates.Count < 2)
-                {
-                    continue; // jedyny wymiar do osi w tym widoku - nie duplikat
-                }
-
-                if (dryRun)
-                {
-                    log($"[diag] widok, kandydatów do osi: {candidates.Count}");
-                    foreach (var c in candidates)
-                    {
-                        log($"[diag]   wartość={c.Value:F1}  Start=({c.Dim.StartPoint.X:F1};{c.Dim.StartPoint.Y:F1};{c.Dim.StartPoint.Z:F1})  End=({c.Dim.EndPoint.X:F1};{c.Dim.EndPoint.Y:F1};{c.Dim.EndPoint.Z:F1})  {DescribeDimensionSet(c.Dim)}");
-                    }
-                }
-
-                var clusters = GroupByProximity(candidates);
-                if (dryRun)
-                {
-                    log($"[diag] klastrów po grupowaniu: {clusters.Count} (progi {SameJointDistanceMm} mm)");
-                }
-
-                foreach (var cluster in clusters)
+                // Dwuznaczność oś/powierzchnia dotyczy tylko krótkiego,
+                // lokalnego wymiaru przy złączu. Wymiar całkowitej długości
+                // profilu też "dotyka osi" (jego punkt startowy jest w
+                // definicji na osi - lokalny początek układu współrzędnych
+                // rury), ale to nie jest ten sam przypadek - odsiewamy go po
+                // własnej długości. Zdiagnozowane na [3.5013] w v4, patrz
+                // AGENTS.md.
+                double ownLength = PointDistance(sd.StartPoint, sd.EndPoint);
+                if (ownLength > SameJointDistanceMm)
                 {
                     if (dryRun)
                     {
-                        log($"[diag]   klaster rozmiar={cluster.Count}  wartości=[{string.Join(", ", cluster.Select(c => c.Value.ToString("F1")))}]");
+                        log($"[diag] wymiar dotyka osi, ale ma {ownLength:F0} mm własnej długości (>{SameJointDistanceMm:F0} mm) - to nie lokalny artefakt złącza, pomijam.");
                     }
-                    if (cluster.Count < 2)
-                    {
-                        continue; // pojedyncze złącze - nie duplikat
-                    }
-
-                    var keep = cluster.OrderByDescending(c => c.Value).First();
-                    foreach (var c in cluster)
-                    {
-                        if (ReferenceEquals(c.Dim, keep.Dim))
-                        {
-                            continue;
-                        }
-                        log($"Złącze: {(dryRun ? "znaleziono" : "kasuję")} nadmiarowy wymiar do osi ({c.Value:F0} mm), zostaje ({keep.Value:F0} mm).");
-                        result.RemovedCount++;
-                        if (!dryRun)
-                        {
-                            c.Dim.Delete();
-                        }
-                    }
+                    continue;
                 }
+
+                double? value = GetDisplayedValue(sd);
+                string valueText = value.HasValue ? $"{value.Value:F0} mm" : "? (nie udało się odczytać wartości)";
+                log($"{(dryRun ? "Znaleziono" : "Kasuję")} wymiar do osi ({valueText}).  {DescribeDimensionSet(sd)}");
+                result.RemovedCount++;
+                if (!dryRun)
+                {
+                    sd.Delete();
+                }
+            }
+
+            if (result.RemovedCount == 0)
+            {
+                log("Brak wymiarów do osi w tym widoku - nic do usunięcia.");
             }
 
             if (result.RemovedCount > 0 && !dryRun)
@@ -159,66 +114,16 @@ namespace RoAxisDimensionRemover
             return result;
         }
 
-        /// <summary>
-        /// Grupuje wymiary "do osi" po bliskości geometrycznej (to samo
-        /// złącze), a nie po przynależności do widoku - jeden widok może
-        /// zawierać kilka niepowiązanych złączy RO (zdarzyło się na
-        /// [3.5013] w v2, patrz CLAUDE.md). Single-linkage: dwa wymiary
-        /// trafiają do tej samej grupy, jeśli KTÓRYKOLWIEK z ich punktów
-        /// końcowych leży bliżej niż SameJointDistanceMm od punktu drugiego
-        /// wymiaru.
-        /// </summary>
-        private static List<List<(StraightDimension Dim, double Value)>> GroupByProximity(
-            List<(StraightDimension Dim, double Value)> candidates)
-        {
-            int n = candidates.Count;
-            var parent = new int[n];
-            for (int i = 0; i < n; i++) parent[i] = i;
-
-            int Find(int i) => parent[i] == i ? i : (parent[i] = Find(parent[i]));
-            void Union(int a, int b) { a = Find(a); b = Find(b); if (a != b) parent[a] = b; }
-
-            for (int i = 0; i < n; i++)
-            {
-                for (int j = i + 1; j < n; j++)
-                {
-                    if (MinPointDistance(candidates[i].Dim, candidates[j].Dim) < SameJointDistanceMm)
-                    {
-                        Union(i, j);
-                    }
-                }
-            }
-
-            var groups = new Dictionary<int, List<(StraightDimension, double)>>();
-            for (int i = 0; i < n; i++)
-            {
-                int root = Find(i);
-                if (!groups.TryGetValue(root, out var list))
-                {
-                    list = new List<(StraightDimension, double)>();
-                    groups[root] = list;
-                }
-                list.Add(candidates[i]);
-            }
-            return groups.Values.ToList();
-        }
-
-        private static double MinPointDistance(StraightDimension a, StraightDimension b)
-        {
-            double d1 = PointDistance(a.StartPoint, b.StartPoint);
-            double d2 = PointDistance(a.StartPoint, b.EndPoint);
-            double d3 = PointDistance(a.EndPoint, b.StartPoint);
-            double d4 = PointDistance(a.EndPoint, b.EndPoint);
-            return Math.Min(Math.Min(d1, d2), Math.Min(d3, d4));
-        }
-
         private static double PointDistance(Tekla.Structures.Geometry3d.Point p1, Tekla.Structures.Geometry3d.Point p2)
         {
             double dx = p1.X - p2.X, dy = p1.Y - p2.Y, dz = p1.Z - p2.Z;
             return Math.Sqrt(dx * dx + dy * dy + dz * dz);
         }
 
-        private static bool TouchesAxis(StraightDimension sd)
+        // internal: reużywane przez DiagRunner (--diag-notch-match), żeby
+        // dopasowanie ściany cięcia do wymiaru bazowało na TEJ SAMEJ regule
+        // wykrywania "dotyka osi", zamiast duplikować ją niezależnie.
+        internal static bool TouchesAxis(StraightDimension sd)
         {
             bool yDiffers = Math.Abs(sd.StartPoint.Y - sd.EndPoint.Y) > CoordDiffersToleranceMm;
             bool zDiffers = Math.Abs(sd.StartPoint.Z - sd.EndPoint.Z) > CoordDiffersToleranceMm;

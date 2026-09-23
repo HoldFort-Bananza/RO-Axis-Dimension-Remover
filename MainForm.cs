@@ -15,6 +15,8 @@ namespace RoAxisDimensionRemover
         private bool _busy;
 
         private Button _runButton;
+        private Button _notchTestButton;
+        private Button _notchLengthTestButton;
         private TextBox _logBox;
         private Label _statusLabel;
 
@@ -35,7 +37,7 @@ namespace RoAxisDimensionRemover
 
             _runButton = new Button
             {
-                Text = "Usuń nadmiarowe wymiary do osi (profile RO)",
+                Text = "Usuń wymiary do osi na wybranym widoku (profile RO)",
                 Left = 15,
                 Top = 15,
                 Width = 470,
@@ -43,10 +45,30 @@ namespace RoAxisDimensionRemover
             };
             _runButton.Click += RunButton_Click;
 
+            _notchTestButton = new Button
+            {
+                Text = "TEST: wstaw szerokość wcięcia 42,4 mm ([35021])",
+                Left = 15,
+                Top = 60,
+                Width = 470,
+                Height = 30
+            };
+            _notchTestButton.Click += NotchTestButton_Click;
+
+            _notchLengthTestButton = new Button
+            {
+                Text = "TEST: wstaw długość wcięcia 45,09 mm ([35021])",
+                Left = 15,
+                Top = 95,
+                Width = 470,
+                Height = 30
+            };
+            _notchLengthTestButton.Click += NotchLengthTestButton_Click;
+
             _statusLabel = new Label
             {
                 Left = 15,
-                Top = 64,
+                Top = 131,
                 Width = 470,
                 Height = 20,
                 ForeColor = Color.DarkSlateGray
@@ -55,7 +77,7 @@ namespace RoAxisDimensionRemover
             _logBox = new TextBox
             {
                 Left = 15,
-                Top = 89,
+                Top = 156,
                 Width = 470,
                 Height = 260,
                 Multiline = true,
@@ -91,6 +113,8 @@ namespace RoAxisDimensionRemover
 
             Controls.Add(_updateBanner);
             Controls.Add(_runButton);
+            Controls.Add(_notchTestButton);
+            Controls.Add(_notchLengthTestButton);
             Controls.Add(_statusLabel);
             Controls.Add(_logBox);
 
@@ -184,7 +208,7 @@ namespace RoAxisDimensionRemover
             if (_busy) return;
 
             _logBox.Clear();
-            Log($"===== {DateTime.Now:HH:mm:ss} USUŃ NADMIAROWE WYMIARY =====");
+            Log($"===== {DateTime.Now:HH:mm:ss} USUŃ WYMIARY DO OSI =====");
             _busy = true;
             _runButton.Enabled = false;
 
@@ -203,34 +227,64 @@ namespace RoAxisDimensionRemover
                     return;
                 }
 
-                // dryRun: true - PUŁAPKA 5 ZDIAGNOZOWANA 2026-09-04 (późny
-                // wieczór) i NIE jest zamknięta: operator zgłosił "usuwa
-                // jeden poziomy, jeden pionowy". Para 21/21 na [3.5013] to
-                // NIE duplikat - to dwa PROSTOPADŁE wymiary tego samego
-                // skosu 45° (poziomy offset wzdłuż rury i pionowy w
-                // poprzek), które mają IDENTYCZNĄ wartość właśnie dlatego,
-                // że kąt to 45°. Reguła kasuje jeden z nich, więc ginie cała
-                // jedna informacja - dokładnie to, co operator opisał od
-                // początku jako "usuwa całą szerokość albo całą długość".
-                // Trzy "czyste" testy wcześniej były testowane wobec
-                // przewidywania dry-run, a nie wobec poprawności
-                // inżynierskiej - stąd fałszywe zaliczenie bramy.
-                //
-                // dryRun wyciągnięty do zmiennej (zamiast literału w wywołaniu),
-                // żeby komunikat w pasku stanu poniżej nie mógł się z nim
-                // rozjechać - wcześniej pasek na sztywno pisał "usunięto X
-                // wymiarów" nawet w dry-run, czyli kłamał, że coś realnie
-                // skasowano.
-                const bool dryRun = true;
-                var result = _service.RemoveRedundantAxisDimensions(drawing, Log, dryRun);
-                _statusLabel.Text = dryRun
-                    ? $"Gotowe (dry-run). Sprawdzono {result.ViewsChecked} widoków, znaleziono {result.RemovedCount} wymiarów do usunięcia - nic nie skasowano. Sprawdź log, czy wygląda poprawnie."
-                    : $"Gotowe. Sprawdzono {result.ViewsChecked} widoków, usunięto {result.RemovedCount} wymiarów. Sprawdź wizualnie w Tekli (Ctrl+Z cofa, jeśli coś jest nie tak).";
+                // Podejrzenie: zawieszenie zaczęło się po dodaniu
+                // TeklaWindowFocus.BringToFront() TUŻ PRZED startem pickera -
+                // wcześniejsze testy (bez tego wywołania) kończyły się
+                // poprawnie. Wymuszanie fokusu w trakcie uzbrajania pickera
+                // mogło zakłócić stan Tekli. Cofamy to - Hide() zostaje (żeby
+                // to okno nie zasłaniało kliku), ale bez SetForegroundWindow
+                // przed PickPoint.
+                Hide();
+                ViewBase view;
+                try
+                {
+                    var picker = dh.GetPicker();
+                    picker.PickPoint("Kliknij widok (Esc = wybierz z listy)", out _, out view);
+                }
+                catch (PickerInterruptedException)
+                {
+                    view = null;
+                }
+                finally
+                {
+                    Show();
+                    BringToFront();
+                    Activate();
+                }
 
-                // Fokus wraca na Teklę, żeby Ctrl+Z od razu poszedł tam, gdzie
-                // ma pójść - bez tego zostałby na tym oknie i nic by się nie
-                // stało.
-                TeklaWindowFocus.BringToFront(Log);
+                if (view == null)
+                {
+                    view = PickViewFromList(drawing);
+                }
+
+                if (view == null)
+                {
+                    _statusLabel.Text = "Nie wybrano widoku.";
+                    return;
+                }
+                string viewLabel = view.GetType().Name;
+
+                // dryRun: false - brama bezpieczeństwa dla reguły v5
+                // (kasuj każdy wymiar do osi w widoku) PRZESZŁA 2026-09-23:
+                // operator zobaczył dry-run na żywym [35021] (poprawnie
+                // znalazł 8 mm i 21 mm, zero fałszywych trafień) i wprost
+                // potwierdził real kasowanie ("tak dryrun false"). Nie
+                // przywracać na true bez powodu - to nie jest to samo co
+                // PUŁAPKA 5 (v4), która tego potwierdzenia nigdy nie miała.
+                const bool dryRun = false;
+                var result = _service.RemoveAxisDimensions(drawing, view, Log, dryRun);
+                _statusLabel.Text = dryRun
+                    ? $"Gotowe (dry-run). Widok: {viewLabel}. Znaleziono {result.RemovedCount} wymiarów do usunięcia - nic nie skasowano. Sprawdź log, czy wygląda poprawnie."
+                    : $"Gotowe. Widok: {viewLabel}. Usunięto {result.RemovedCount} wymiarów. Sprawdź wizualnie w Tekli (Ctrl+Z cofa, jeśli coś jest nie tak).";
+
+                // Fokus na Teklę (do Ctrl+Z) ma sens TYLKO gdy coś realnie
+                // skasowano - w dry-run (obecny stan na sztywno) nie ma czego
+                // cofać, a przenoszenie fokusu na Teklę zabierało operatorowi
+                // z oczu wynik, który właśnie się pojawił w tym oknie.
+                if (!dryRun)
+                {
+                    TeklaWindowFocus.BringToFront(Log);
+                }
             }
             catch (Exception ex)
             {
@@ -242,6 +296,167 @@ namespace RoAxisDimensionRemover
             {
                 _busy = false;
                 _runButton.Enabled = true;
+            }
+        }
+
+        private void NotchTestButton_Click(object sender, EventArgs e)
+        {
+            if (_busy) return;
+            if (MessageBox.Show(this,
+                "Wstawić jeden testowy wymiar szerokości wcięcia na [35021]?\n\nCtrl+Z w Tekli go cofa.",
+                "Test wymiaru wcięcia", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
+            {
+                return;
+            }
+
+            _logBox.Clear();
+            Log($"===== {DateTime.Now:HH:mm:ss} TEST SZEROKOŚCI WCIĘCIA =====");
+            _busy = true;
+            _notchTestButton.Enabled = false;
+            try
+            {
+                var handler = new DrawingHandler();
+                if (!handler.GetConnectionStatus())
+                {
+                    _statusLabel.Text = "Brak połączenia z Teklą.";
+                    return;
+                }
+                var drawing = handler.GetActiveDrawing();
+                if (drawing == null)
+                {
+                    _statusLabel.Text = "Brak otwartego rysunku.";
+                    return;
+                }
+
+                bool inserted = NotchPilot.InsertWidthTest(drawing, Log);
+                _statusLabel.Text = inserted
+                    ? "Wstawiono test szerokości. Sprawdź go w Tekli (Ctrl+Z cofa)."
+                    : "Test nie wstawił wymiaru — zobacz log.";
+                if (inserted) TeklaWindowFocus.BringToFront(Log);
+            }
+            catch (Exception ex)
+            {
+                _statusLabel.Text = "Błąd testu — zobacz log.";
+                Log("BŁĄD: " + ex.Message);
+                Log(ex.StackTrace);
+            }
+            finally
+            {
+                _busy = false;
+            }
+        }
+
+        private void NotchLengthTestButton_Click(object sender, EventArgs e)
+        {
+            if (_busy) return;
+            if (MessageBox.Show(this,
+                "Wstawić jeden testowy wymiar długości wcięcia na [35021]?\n\nCtrl+Z w Tekli go cofa.",
+                "Test wymiaru wcięcia", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
+            {
+                return;
+            }
+
+            _logBox.Clear();
+            Log($"===== {DateTime.Now:HH:mm:ss} TEST DŁUGOŚCI WCIĘCIA =====");
+            _busy = true;
+            _notchLengthTestButton.Enabled = false;
+            try
+            {
+                var handler = new DrawingHandler();
+                if (!handler.GetConnectionStatus())
+                {
+                    _statusLabel.Text = "Brak połączenia z Teklą.";
+                    return;
+                }
+                var drawing = handler.GetActiveDrawing();
+                if (drawing == null)
+                {
+                    _statusLabel.Text = "Brak otwartego rysunku.";
+                    return;
+                }
+
+                bool inserted = NotchPilot.InsertLengthTest(drawing, Log);
+                _statusLabel.Text = inserted
+                    ? "Wstawiono test długości. Sprawdź go w Tekli (Ctrl+Z cofa)."
+                    : "Test nie wstawił wymiaru — zobacz log.";
+                if (inserted) TeklaWindowFocus.BringToFront(Log);
+            }
+            catch (Exception ex)
+            {
+                _statusLabel.Text = "Błąd testu — zobacz log.";
+                Log("BŁĄD: " + ex.Message);
+                Log(ex.StackTrace);
+            }
+            finally
+            {
+                _busy = false;
+            }
+        }
+
+        /// <summary>
+        /// Zapasowa ścieżka wyboru widoku, gdy operator naciśnie Esc w
+        /// Tekli zamiast klikać (PickPoint potrafi zawiesić się bez końca
+        /// na kliku w pustkę - patrz komentarz w RunButton_Click). Etykieta
+        /// to typ widoku + rozmiar w mm na papierze
+        /// (GetAxisAlignedBoundingBox - PUŁAPKA jednostek z AGENTS.md: to
+        /// mm na papierze, nie jednostki modelu).
+        /// </summary>
+        private ViewBase PickViewFromList(Drawing drawing)
+        {
+            var views = new System.Collections.Generic.List<ViewBase>();
+            var top = drawing.GetSheet().GetAllObjects();
+            while (top.MoveNext())
+            {
+                if (top.Current is ViewBase vb)
+                {
+                    views.Add(vb);
+                }
+            }
+
+            if (views.Count == 0)
+            {
+                MessageBox.Show(this, "Na arkuszu nie znaleziono żadnego widoku.", "Brak widoków");
+                return null;
+            }
+
+            using (var dialog = new Form
+            {
+                Text = "Wybierz widok",
+                Width = 420,
+                Height = 320,
+                StartPosition = FormStartPosition.CenterScreen,
+                MinimizeBox = false,
+                MaximizeBox = false
+            })
+            {
+                var list = new ListBox { Left = 10, Top = 10, Width = 384, Height = 220 };
+                for (int i = 0; i < views.Count; i++)
+                {
+                    string size;
+                    try
+                    {
+                        var box = views[i].GetAxisAlignedBoundingBox();
+                        size = $"{box.MaxPoint.X - box.MinPoint.X:F0}×{box.MaxPoint.Y - box.MinPoint.Y:F0} mm";
+                    }
+                    catch (Exception ex)
+                    {
+                        size = "rozmiar nieznany (" + ex.GetType().Name + ")";
+                    }
+                    list.Items.Add($"{i + 1}. {views[i].GetType().Name} - {size}");
+                }
+                list.SelectedIndex = 0;
+
+                var okButton = new Button { Text = "OK", Left = 220, Top = 240, Width = 80, DialogResult = DialogResult.OK };
+                var cancelButton = new Button { Text = "Anuluj", Left = 310, Top = 240, Width = 80, DialogResult = DialogResult.Cancel };
+                dialog.Controls.Add(list);
+                dialog.Controls.Add(okButton);
+                dialog.Controls.Add(cancelButton);
+                dialog.AcceptButton = okButton;
+                dialog.CancelButton = cancelButton;
+
+                return dialog.ShowDialog(this) == DialogResult.OK && list.SelectedIndex >= 0
+                    ? views[list.SelectedIndex]
+                    : null;
             }
         }
 
