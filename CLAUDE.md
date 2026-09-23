@@ -237,6 +237,24 @@ i profilu RO, nie ogólne dla Tekla Open API).
   to możliwe, rzutować w dół tylko gdy naprawdę trzeba coś specyficznego dla
   `View` (np. `.Name`, którego `ViewBase` nie ma).
 
+## Skrót na pulpicie operatora (stan lokalny, nie w repo)
+
+**2026-09-23: skrót `RO Axis Dimension Remover.lnk` na pulpicie
+przekierowany na `bin\x64\Debug\net48\RoAxisDimensionRemover.exe`
+(build z tego repo), NIE na zainstalowaną kopię
+(`%LOCALAPPDATA%\Programs\RoAxisDimensionRemover\`).** Powód: instalator
+budowany z 16 września miał starą regułę v4 (klastrowanie/duplikaty),
+operator testował przez skrót i widział nieaktualne zachowanie - klasyczna
+pułapka "zainstalowana kopia to nie zbudowana" z `..\CLAUDE.md`, ale w
+drugą stronę (skrót zamiast instalatora wskazuje teraz na build). **To
+oznacza, że dopóki ten stan się nie zmieni, przebudowanie projektu
+(`dotnet build ... -p:Platform=x64`) od razu aktualizuje to, co operator
+odpala z pulpitu** - wygodne w tej fazie rozwoju (częste zmiany reguły),
+ale gdy reguła przejdzie bramę bezpieczeństwa i będzie gotowa do
+dystrybycji, warto rozważyć przywrócenie skrótu na zainstalowaną kopię
+(przez świeżo zbudowany instalator) - to lokalna zmiana na tym komputerze,
+nie ma śladu w plikach repo.
+
 ## Jak testować bez klikania w GUI
 
 Automatyzacja (w tym Claude Code) nie klika w przycisk `MainForm`.

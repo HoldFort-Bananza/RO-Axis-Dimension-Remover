@@ -1,5 +1,6 @@
 using System;
 using Tekla.Structures.Drawing;
+using Tekla.Structures.Solid;
 using TSM = Tekla.Structures.Model;
 
 namespace RoAxisDimensionRemover
@@ -164,13 +165,45 @@ namespace RoAxisDimensionRemover
 
                     Log($"[notch]   bryła (jednostki modelu): Min=({solid.MinimumPoint.X:F1};{solid.MinimumPoint.Y:F1};{solid.MinimumPoint.Z:F1}) Max=({solid.MaximumPoint.X:F1};{solid.MaximumPoint.Y:F1};{solid.MaximumPoint.Z:F1})");
 
-                    int faceCount = 0;
+                    // Wzorzec z oficjalnej dokumentacji Tekli (przykład przy
+                    // Solid): Face.Normal + GetLoopEnumerator ->
+                    // Loop.GetVertexEnumerator -> punkty. Cel: znaleźć wśród
+                    // ścian bryły tę, która jest powierzchnią cięcia (nie
+                    // zgadywać - patrzeć na realne normalne i liczby
+                    // wierzchołków, zanim cokolwiek się założy o regule).
+                    int faceIndex = 0;
                     var faces = solid.GetFaceEnumerator();
                     while (faces.MoveNext())
                     {
-                        faceCount++;
+                        faceIndex++;
+                        if (!(faces.Current is Face face))
+                        {
+                            continue;
+                        }
+
+                        int vertexCount = 0;
+                        double minX = double.MaxValue, maxX = double.MinValue;
+                        var loops = face.GetLoopEnumerator();
+                        while (loops.MoveNext())
+                        {
+                            if (!(loops.Current is Loop loop))
+                            {
+                                continue;
+                            }
+                            var vertices = loop.GetVertexEnumerator();
+                            while (vertices.MoveNext())
+                            {
+                                if (!(vertices.Current is Tekla.Structures.Geometry3d.Point v))
+                                {
+                                    continue;
+                                }
+                                vertexCount++;
+                                minX = Math.Min(minX, v.X);
+                                maxX = Math.Max(maxX, v.X);
+                            }
+                        }
+                        Log($"[notch]   ściana {faceIndex}: Normal=({face.Normal.X:F2};{face.Normal.Y:F2};{face.Normal.Z:F2}) wierzchołków={vertexCount} X-zakres=[{minX:F1};{maxX:F1}]");
                     }
-                    Log($"[notch]   ścian bryły: {faceCount}");
                 }
             }
         }

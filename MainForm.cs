@@ -254,10 +254,14 @@ namespace RoAxisDimensionRemover
                     ? $"Gotowe (dry-run). Widok: {viewLabel}. Znaleziono {result.RemovedCount} wymiarów do usunięcia - nic nie skasowano. Sprawdź log, czy wygląda poprawnie."
                     : $"Gotowe. Widok: {viewLabel}. Usunięto {result.RemovedCount} wymiarów. Sprawdź wizualnie w Tekli (Ctrl+Z cofa, jeśli coś jest nie tak).";
 
-                // Fokus wraca na Teklę, żeby Ctrl+Z od razu poszedł tam, gdzie
-                // ma pójść - bez tego zostałby na tym oknie i nic by się nie
-                // stało.
-                TeklaWindowFocus.BringToFront(Log);
+                // Fokus na Teklę (do Ctrl+Z) ma sens TYLKO gdy coś realnie
+                // skasowano - w dry-run (obecny stan na sztywno) nie ma czego
+                // cofać, a przenoszenie fokusu na Teklę zabierało operatorowi
+                // z oczu wynik, który właśnie się pojawił w tym oknie.
+                if (!dryRun)
+                {
+                    TeklaWindowFocus.BringToFront(Log);
+                }
             }
             catch (Exception ex)
             {
