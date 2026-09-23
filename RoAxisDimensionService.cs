@@ -31,7 +31,7 @@ namespace RoAxisDimensionRemover
         // mm na papierze. Promień profilu RO nigdy nie schodzi blisko zera,
         // więc ten margines bezpiecznie odróżnia "dokładnie na osi" od
         // "na powierzchni" nawet dla najcieńszych rur.
-        private const double AxisToleranceMm = 0.5;
+        internal const double AxisToleranceMm = 0.5;
 
         // Próg, powyżej którego współrzędna MIĘDZY końcami wymiaru uznajemy
         // za "różną" (czyli tę oś w ogóle bierzemy pod uwagę przy szukaniu
@@ -39,7 +39,7 @@ namespace RoAxisDimensionRemover
         // współrzędna, typowo Z, jest 0 dla OBU końców, bo widok jest 2D, nie
         // dlatego że to oś) łapałby się jako "na osi" - zdarzyło się na
         // [35270] w v1, patrz AGENTS.md.
-        private const double CoordDiffersToleranceMm = 0.01;
+        internal const double CoordDiffersToleranceMm = 0.01;
 
         // Jednostki modelu (mm), NIE mm na papierze - StartPoint/EndPoint są
         // w jednostkach modelu (patrz ../AGENTS.md, pułapka jednostek).
@@ -49,7 +49,7 @@ namespace RoAxisDimensionRemover
         // 300 mm to margines bezpieczeństwa między tymi skalami - do
         // zweryfikowania na kolejnych rysunkach z wieloma złączami w jednym
         // widoku.
-        private const double SameJointDistanceMm = 300.0;
+        internal const double SameJointDistanceMm = 300.0;
 
         public class Result
         {
@@ -120,7 +120,10 @@ namespace RoAxisDimensionRemover
             return Math.Sqrt(dx * dx + dy * dy + dz * dz);
         }
 
-        private static bool TouchesAxis(StraightDimension sd)
+        // internal: reużywane przez DiagRunner (--diag-notch-match), żeby
+        // dopasowanie ściany cięcia do wymiaru bazowało na TEJ SAMEJ regule
+        // wykrywania "dotyka osi", zamiast duplikować ją niezależnie.
+        internal static bool TouchesAxis(StraightDimension sd)
         {
             bool yDiffers = Math.Abs(sd.StartPoint.Y - sd.EndPoint.Y) > CoordDiffersToleranceMm;
             bool zDiffers = Math.Abs(sd.StartPoint.Z - sd.EndPoint.Z) > CoordDiffersToleranceMm;

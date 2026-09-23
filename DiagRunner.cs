@@ -308,6 +308,33 @@ namespace RoAxisDimensionRemover
             // osobno i logujemy każdą - decyzja "która odpowiada temu
             // złączu" zostaje jawnie nierozwiązana, zamiast być ukrytym
             // efektem ubocznym sortowania.
+            var candidateFaces = CollectCandidateFaces(solid, axisDir);
+
+            if (candidateFaces.Count == 0)
+            {
+                log("[notch]   brak kandydata na ścianę cięcia w tej bryle (być może prosty koniec bez ukośnego złącza).");
+                return;
+            }
+
+            if (candidateFaces.Count > 1)
+            {
+                log($"[notch]   UWAGA: {candidateFaces.Count} kwalifikujących się ścian cięcia w tej bryle - który odpowiada temu złączu, NIE jest jeszcze rozstrzygnięte. Logowane wszystkie:");
+            }
+
+            foreach (var (cutFace, outerLoop) in candidateFaces)
+            {
+                LogCandidateFace(view, cutFace, outerLoop, log);
+            }
+        }
+
+        // Wspólne dla TryLogNotchCandidate i RunNotchMatchDiag: znajduje
+        // wszystkie ściany cięcia bryły (>1 pętla = pierścień, normalna nie
+        // równoległa do osi belki jeśli ją znamy). Nie wybiera "tej
+        // właściwej" - to jest właśnie nierozwiązana reguła dopasowania,
+        // patrz AGENTS.md "Następne kroki" pkt 1.
+        private static List<(Face Face, List<Tekla.Structures.Geometry3d.Point> OuterLoop)> CollectCandidateFaces(
+            TSM.Solid solid, Tekla.Structures.Geometry3d.Vector axisDir)
+        {
             var candidateFaces = new List<(Face Face, List<Tekla.Structures.Geometry3d.Point> OuterLoop)>();
             var faces = solid.GetFaceEnumerator();
             while (faces.MoveNext())
@@ -317,10 +344,6 @@ namespace RoAxisDimensionRemover
                     continue;
                 }
 
-                // Ściana cięcia ma >1 pętlę (profil pusty w środku) i - jeśli
-                // znamy oś belki - normalna NIE jest równoległa do osi (to
-                // odróżnia ukośne cięcie w złączu od prostego przycięcia na
-                // końcu, patrz [35021]: ściana 25 kontra 26).
                 var loopsInFace = new List<List<Tekla.Structures.Geometry3d.Point>>();
                 var loops = face.GetLoopEnumerator();
                 while (loops.MoveNext())
@@ -358,10 +381,6 @@ namespace RoAxisDimensionRemover
                     }
                 }
 
-                // Zewnętrzny obrys tej JEDNEJ ściany = pętla o większym
-                // "rozstawie" (odporne na to, która pętla jest zwrócona
-                // jako pierwsza) - to porównanie zostaje LOKALNE do ściany,
-                // nie globalne do całej bryły.
                 List<Tekla.Structures.Geometry3d.Point> faceOuterLoop = null;
                 foreach (var loop in loopsInFace)
                 {
@@ -372,21 +391,141 @@ namespace RoAxisDimensionRemover
                 }
                 candidateFaces.Add((face, faceOuterLoop));
             }
+            return candidateFaces;
+        }
 
-            if (candidateFaces.Count == 0)
+        /// <summary>
+        /// Tylko odczyt: dopasowuje każdy wymiar "do osi" (ten sam warunek co
+        /// RoAxisDimensionService.RemoveAxisDimensions - reużyty wprost, nie
+        /// duplikowany) do najbliższej ściany cięcia w TYM SAMYM widoku.
+        /// Reguła: StraightDimension.StartPoint/EndPoint i punkty ściany po
+        /// ToViewSpace żyją w TYM SAMYM lokalnym układzie widoku (patrz
+        /// AGENTS.md, sekcja "Wymiar wcięcia") - więc "najbliższa ściana do
+        /// środka wymiaru" jest prostym, sprawdzalnym kandydatem na regułę z
+        /// "Następne kroki" pkt 1. Nic nie usuwa ani nie wstawia - loguje
+        /// tylko dopasowanie do oceny na [35021] (1 ściana) i [3.5013]
+        /// (2 ściany).
+        /// </summary>
+        public static void RunNotchMatchDiag(string mark)
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
             {
-                log("[notch]   brak kandydata na ścianę cięcia w tej bryle (być może prosty koniec bez ukośnego złącza).");
+                Log("Brak połączenia z Teklą (Drawing).");
                 return;
             }
 
-            if (candidateFaces.Count > 1)
+            Drawing drawing = null;
+            var drawings = dh.GetDrawings();
+            while (drawings.MoveNext())
             {
-                log($"[notch]   UWAGA: {candidateFaces.Count} kwalifikujących się ścian cięcia w tej bryle - który odpowiada temu złączu, NIE jest jeszcze rozstrzygnięte. Logowane wszystkie:");
+                if (string.Equals(drawings.Current.Mark, mark, StringComparison.OrdinalIgnoreCase))
+                {
+                    drawing = drawings.Current;
+                    break;
+                }
+            }
+            if (drawing == null)
+            {
+                Log($"Nie znaleziono rysunku o Mark={mark}.");
+                return;
+            }
+            dh.SetActiveDrawing(drawing, true);
+
+            var model = new TSM.Model();
+            if (!model.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Model).");
+                return;
             }
 
-            foreach (var (cutFace, outerLoop) in candidateFaces)
+            Log($"[notch-match] Rysunek: {drawing.Mark} / {drawing.Name}");
+            var top = drawing.GetSheet().GetAllObjects();
+            while (top.MoveNext())
             {
-                LogCandidateFace(view, cutFace, outerLoop, log);
+                if (!(top.Current is View view))
+                {
+                    continue;
+                }
+
+                var axisDimensionMids = new List<Tekla.Structures.Geometry3d.Point>();
+                var dims = view.GetAllObjects(new[] { typeof(StraightDimension) });
+                while (dims.MoveNext())
+                {
+                    if (!(dims.Current is StraightDimension sd) || !RoAxisDimensionService.TouchesAxis(sd))
+                    {
+                        continue;
+                    }
+                    double ownLength = Distance(sd.StartPoint, sd.EndPoint);
+                    if (ownLength > RoAxisDimensionService.SameJointDistanceMm)
+                    {
+                        continue;
+                    }
+                    var mid = new Tekla.Structures.Geometry3d.Point(
+                        (sd.StartPoint.X + sd.EndPoint.X) / 2, (sd.StartPoint.Y + sd.EndPoint.Y) / 2, (sd.StartPoint.Z + sd.EndPoint.Z) / 2);
+                    axisDimensionMids.Add(mid);
+                    Log($"[notch-match]   wymiar do osi: mid(widok)={PointStr(mid)} własna_długość={ownLength:F1} mm");
+                }
+                if (axisDimensionMids.Count == 0)
+                {
+                    continue;
+                }
+
+                var faceCandidates = new List<(Tekla.Structures.Geometry3d.Point ViewMid, double MajorLen, double MinorLen, Tekla.Structures.Geometry3d.Vector Normal)>();
+                var partsEnum = view.GetAllObjects(new[] { typeof(Part) });
+                while (partsEnum.MoveNext())
+                {
+                    if (!(partsEnum.Current is Part drawingPart)) continue;
+                    if (!(model.SelectModelObject(drawingPart.ModelIdentifier) is TSM.Part modelPart)) continue;
+
+                    Tekla.Structures.Geometry3d.Vector axisDir = null;
+                    if (modelPart is TSM.Beam beam)
+                    {
+                        var delta = beam.EndPoint - beam.StartPoint;
+                        axisDir = new Tekla.Structures.Geometry3d.Vector(delta.X, delta.Y, delta.Z).GetNormal();
+                    }
+
+                    TSM.Solid solid;
+                    try { solid = modelPart.GetSolid(); }
+                    catch { continue; }
+
+                    var cs = view.DisplayCoordinateSystem;
+                    foreach (var (face, outerLoop) in CollectCandidateFaces(solid, axisDir))
+                    {
+                        var centroid = Centroid(outerLoop);
+                        var major = FindChord(outerLoop, centroid, longest: true);
+                        var minor = FindChord(outerLoop, centroid, longest: false);
+                        faceCandidates.Add((
+                            ToViewSpace(centroid, cs),
+                            Distance(major.Item1, major.Item2),
+                            Distance(minor.Item1, minor.Item2),
+                            new Tekla.Structures.Geometry3d.Vector(face.Normal)));
+                    }
+                }
+
+                if (faceCandidates.Count == 0)
+                {
+                    Log("[notch-match]   brak kandydatów na ścianę cięcia w tym widoku - nie ma czego dopasować.");
+                    continue;
+                }
+
+                foreach (var mid in axisDimensionMids)
+                {
+                    var best = faceCandidates[0];
+                    double bestDist = Distance(mid, best.ViewMid);
+                    foreach (var candidate in faceCandidates)
+                    {
+                        double d = Distance(mid, candidate.ViewMid);
+                        if (d < bestDist)
+                        {
+                            bestDist = d;
+                            best = candidate;
+                        }
+                    }
+                    Log($"[notch-match]   DOPASOWANIE: wymiar mid={PointStr(mid)} -> ściana Normal=({best.Normal.X:F2};{best.Normal.Y:F2};{best.Normal.Z:F2}) długość={best.MajorLen:F2} mm szerokość={best.MinorLen:F2} mm odległość_do_środka={bestDist:F2} mm (widok)");
+                }
             }
         }
 

@@ -271,6 +271,44 @@ złączu"** — obecny kod (i `NotchPilot.TryFindChord`, który ma tę samą
 ma jeszcze tej reguły. To nierozwiązane, potwierdzone na żywo, NIE
 hipoteza — patrz "Następne kroki" niżej.
 
+### Reguła dopasowania ściana↔wymiar — ZAPROJEKTOWANA I ZWERYFIKOWANA (2026-09-23), NIE WPIĘTA JESZCZE do `NotchPilot`
+
+Zaprojektowana na danych z `[35021]` (1 ściana) i `[3.5013]` (2 ściany) —
+bez trzeciego przykładu, na wyraźną decyzję operatora ("te co wiemy z 35021
+i 3.5013"), więc AGENTS.md pkt 4 (nie zgadywać reguły) jest spełniony przez
+dane, które już mieliśmy, nie przez pominięcie kroku.
+
+**Kluczowy fakt, który to umożliwia:** `StraightDimension.StartPoint`/
+`EndPoint` (wymiar do osi, do usunięcia) i punkty ściany cięcia po
+`View.DisplayCoordinateSystem`/`ToViewSpace` żyją w TYM SAMYM lokalnym
+układzie widoku — więc "który kandydat jest bliżej" to bezpośrednie
+porównanie odległości, nie coś wymagającego dodatkowej transformacji.
+
+**Reguła:** dla usuwanego wymiaru do osi weź środek jego `StartPoint`/
+`EndPoint`; dla każdej kandydującej ściany cięcia weź centroid jej
+zewnętrznej pętli, przeliczony do układu widoku; wybierz ścianę o
+najmniejszym dystansie środek-wymiaru↔centroid-ściany.
+
+**Zweryfikowane nowym trybem diagnostycznym `--diag-notch-match "[Mark]"`**
+(`DiagRunner.RunNotchMatchDiag`, tylko odczyt, jak cała reszta `--diag-*`):
+
+- `[3.5013]`: dwa końce tego samego kawałka są ~5775 mm od siebie w
+  układzie widoku. Każdy z 4 wymiarów do osi (po 2 na koniec) trafił we
+  właściwą, BLISKĄ ścianę (odległość 15,0-18,4 mm), nie w drugą, odległą o
+  ~5775 mm — separacja jest więc jednoznaczna, nie przypadkowa.
+- `[35021]`: wszystkie 3 znalezione wymiary do osi trafiły w jedyną
+  istniejącą ścianę (odległości 11,3-78,5 mm) — zgodne z oczekiwaniem
+  (jest tylko jeden kandydat, więc "dopasowanie" jest trywialne, ale
+  potwierdza, że reguła nie psuje prostego przypadku).
+
+**Nadal NIE wpięte do `NotchPilot`/głównego przycisku.** To jest
+zweryfikowane ODCZYTOWO (log, brak modyfikacji rysunku) - następny krok to
+użycie tej reguły w `NotchPilot.FindChordCandidates` (żeby przyjmował
+punkt referencyjny usuwanego wymiaru i wybierał najbliższą ścianę zamiast
+wymagać dokładnie 1 kandydata w całym rysunku), a DOPIERO POTEM przejście
+pełnej bramy bezpieczeństwa dla tworzenia (patrz "Następne kroki" pkt 3) -
+nieskrócone, mimo że reguła wygląda obiecująco na obu przykładach.
+
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
 Para `21`/`21` na `[3.5013]` to NIE była duplikat, a dwa **PROSTOPADŁE**
@@ -372,6 +410,7 @@ RoAxisDimensionRemover.exe --diag-active           # aktywny rysunek w Tekli, ws
 RoAxisDimensionRemover.exe --diag-mark "[3.5013]"  # otwiera rysunek po Mark, potem diagnostyka
 RoAxisDimensionRemover.exe --diag-notch            # tylko odczyt: geometria bryły + kandydat na wymiar wcięcia
 RoAxisDimensionRemover.exe --diag-dimension-style  # tylko odczyt: styl (Attributes/UpDirection/Distance) istniejących wymiarów
+RoAxisDimensionRemover.exe --diag-notch-match "[3.5013]"  # tylko odczyt: dopasowanie wymiar do osi -> najbliższa ściana cięcia
 ```
 
 `dryRun` jest we wszystkich na sztywno `true` w `DiagRunner.cs` — nie da się
@@ -399,7 +438,7 @@ blokuje proces, `taskkill` to jedyny sposób go zakończyć.**
 | `MainForm.cs` | UI: główny przycisk kasowania, log do okna i do pliku (`dryRun: false` od 2026-09-23 — brama v5 przeszła). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie). Fokus na Teklę po operacji tylko gdy `!dryRun`. Plus DWA przyciski testowe (`NotchTestButton_Click`/`NotchLengthTestButton_Click`) wołające `NotchPilot` — z potwierdzeniem w MessageBox, celowo poza głównym flow |
 | `NotchPilot.cs` | pilot TWORZENIA wymiaru wcięcia — twardo zablokowany do `[35021]` (`PilotDrawingMark`), realnie wstawia `StraightDimension` na żywy rysunek. Potwierdzony wizualnie przez operatora 2026-09-23. Patrz sekcja "Wymiar wcięcia" wyżej po pełny opis ograniczeń |
 | `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark`/`--diag-notch`/`--diag-dimension-style` dla trybu konsolowego |
-| `DiagRunner.cs` | headless runner dry-run + `RunNotchDiag`/`TryLogNotchCandidate` (research geometrii wcięcia) + `RunDimensionStyleDiag` (styl istniejących wymiarów, źródło danych dla `NotchPilot`) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
+| `DiagRunner.cs` | headless runner dry-run + `RunNotchDiag`/`TryLogNotchCandidate` (research geometrii wcięcia) + `RunDimensionStyleDiag` (styl istniejących wymiarów, źródło danych dla `NotchPilot`) + `RunNotchMatchDiag` (dopasowanie wymiar↔ściana cięcia po najbliższości w układzie widoku, patrz "Reguła dopasowania ściana↔wymiar") — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) |
 | `TeklaWindowFocus.cs` | przełącza fokus Windows na główne okno Tekla Structures (Win32 `SetForegroundWindow`, nie API Tekli). **Nie wołać PRZED startem Pickera** — podejrzenie, że to psuje stan interaktywnej komendy Tekli |
 | `installer/setup.iss`, `installer/fetch-dependencies.ps1`, `installer/TeklaEULA.txt` | instalator Inno Setup — nie dołącza bibliotek Tekla, dociąga je z NuGet po instalacji |
@@ -454,17 +493,14 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
 ## Następne kroki
 
 1. **Reguła "który kandydat odpowiada któremu złączu/wymiarowi" —
-   NIEROZWIĄZANA, teraz z realnym przykładem do projektowania na nim.**
-   `[3.5013]` ma bryłę z dwiema ścianami cięcia (patrz sekcja wyżej) — nim
-   `NotchPilot` ruszy na to złącze, trzeba dopisać regułę wyboru: prawdopodobnie
-   dopasowanie po bliskości do KONKRETNEGO usuwanego wymiaru do osi (mamy
-   już jego `StartPoint`/`EndPoint` w momencie kasowania w
-   `RoAxisDimensionService.RemoveAxisDimensions` — można by przekazać tę
-   informację do reguły wyboru ściany zamiast szukać niezależnie od zera).
-   Nie zgadywać tej reguły — zebrać dane z jeszcze jednego złącza z
-   pojedynczą ścianą cięcia (żeby potwierdzić, że reguła nie psuje
-   prostego przypadku) i z `[3.5013]` (dwie ściany) razem, dopiero
-   projektować.
+   ZAPROJEKTOWANA I ZWERYFIKOWANA ODCZYTOWO 2026-09-23** (patrz sekcja
+   "Reguła dopasowania ściana↔wymiar" wyżej): najbliższa ściana cięcia
+   (centroid w układzie widoku) do środka usuwanego wymiaru. Potwierdzona
+   przez `--diag-notch-match` na `[35021]` (1 ściana) i `[3.5013]` (2
+   ściany, jednoznaczna separacja ~5775 mm vs 15-18 mm). Pozostaje: wpiąć
+   tę regułę do `NotchPilot.FindChordCandidates` zamiast wymogu "dokładnie
+   1 kandydat w całym rysunku", potem przejść bramę dla tworzenia od nowa
+   (pkt 3 niżej) — sama weryfikacja diagnostyczna NIE zwalnia z bramy.
 2. **Wymiar wcięcia — pilot potwierdzony na `[35021]` (jedna ściana
    cięcia), NIE przetestowany na złączu z wieloma ścianami.** `NotchPilot`
    zadziałał wizualnie poprawnie (operator: "ta na koniec połozenia były
