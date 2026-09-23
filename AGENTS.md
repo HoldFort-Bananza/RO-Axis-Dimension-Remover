@@ -235,6 +235,42 @@ faktycznie daje wizualnie poprawny wynik, nie tylko liczbowo spójny.
   aktywnym rysunku — to źródło danych, z którego `NotchPilot` bierze
   realny styl zamiast zgadywać.
 
+### POTWIERDZONY NA ŻYWO nowy gap: bryła może mieć WIĘCEJ NIŻ JEDNĄ ścianę cięcia
+
+Test na drugim złączu (`--diag-mark "[3.5013]"` + `--diag-notch`,
+2026-09-23, dokładnie to, co pkt 1 "Następnych kroków" kazał zrobić przed
+odblokowaniem pilota) pokazał realny przypadek: bryła tego złącza ma
+**DWIE** ściany cięcia (obie pierścienie z 2 pętlami, obie 24
+wierzchołki), nie jedną jak na `[35021]`:
+
+```
+[notch]   UWAGA: 2 kwalifikujących się ścian cięcia w tej bryle
+[notch]   KANDYDAT (Normal=(-0,71;0,71;0,00)): długość=59,96 mm szerokość=42,40 mm
+[notch]   KANDYDAT (Normal=(0,71;0,00;-0,71)):  długość=59,96 mm szerokość=42,40 mm
+```
+
+To dwa RÓŻNE końce tego samego krótkiego kawałka, każdy przycięty pod 45°
+do innego sąsiedniego elementu (`42,4/cos(45°)=59,96` — zgadza się).
+**Poprzednia wersja `TryLogNotchCandidate` cicho wybierała tylko ścianę o
+większym `LoopSpan` w CAŁEJ bryle i gubiła drugą** — to była niesprawdzona,
+zgadywana reguła (dokładnie to, przed czym ostrzega AGENTS.md pkt 4).
+Naprawione: funkcja teraz zbiera i loguje WSZYSTKIE kwalifikujące się
+ściany osobno (`candidateFaces`), zamiast automatycznie wybierać jedną.
+
+**To doprecyzowuje starą historię PUŁAPKI 5** (para `21`/`21` na tym samym
+`[3.5013]`): pasujące dwa razy dwa (4 kandydaty do usunięcia = po 2 na
+każdy koniec) sugeruje, że to mogły być dwa RÓŻNE cięcia z każdej strony
+złącza, niekoniecznie tylko "dwa prostopadłe pomiary jednego skosu" jak
+opisano wcześniej. Nie zmieniono opisu PUŁAPKI 5 niżej (wciąż trafny co do
+WNIOSKU: to nie duplikat), ale mechanizm mógł być prostszy niż sądzono.
+
+**Konsekwencja dla `NotchPilot`/produkcyjnej reguły: potrzebna jest reguła
+"która ściana cięcia odpowiada któremu usuwanemu wymiarowi/któremu
+złączu"** — obecny kod (i `NotchPilot.TryFindChord`, który ma tę samą
+"weź największy `LoopSpan` w całej bryle" logikę co stara wersja diagu) NIE
+ma jeszcze tej reguły. To nierozwiązane, potwierdzone na żywo, NIE
+hipoteza — patrz "Następne kroki" niżej.
+
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
 Para `21`/`21` na `[3.5013]` to NIE była duplikat, a dwa **PROSTOPADŁE**
@@ -417,25 +453,32 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
 
 ## Następne kroki
 
-1. **Wymiar wcięcia — pilot potwierdzony na `[35021]`, teraz trzeba
-   powtórzyć na INNYCH złączach.** `NotchPilot` zadziałał wizualnie
-   poprawnie (operator: "ta na koniec połozenia były poprawne") dla obu
-   wymiarów (szerokość 42,4 mm, długość 45,09 mm) na jednym złączu. Znaleźć
-   drugi/trzeci przykład złącza RO ciętego pod kątem (inny rysunek albo
-   inne miejsce na tym samym), zdjąć tymczasowo ograniczenie
-   `PilotDrawingMark` (albo dodać go jako drugą dozwoloną wartość) i
-   powtórzyć test — patrząc, czy: (a) heurystyka ściany cięcia (>1 pętla +
-   normalna nierównoległa do osi belki) nadal trafia poprawnie, (b) problem
-   głębi Z (opisany w sekcji "Wymiar wcięcia" wyżej) nie blokuje insertu
-   inaczej niż na `[35021]`, (c) branie stylu z "pierwszego napotkanego
-   innego wymiaru w widoku" (`FindReferenceDimension`) nadal daje sensowny
-   wynik, gdy w widoku jest więcej niż jeden inny wymiar o różnych stylach.
-2. **Dopiero po kilku potwierdzonych złączach:** zdjąć blokadę
-   `PilotDrawingMark`, połączyć z głównym przyciskiem kasowania (żeby
-   kasowanie wymiarów do osi i wstawianie wymiaru wcięcia było jedną
-   operacją na tym samym, wybranym przez operatora widoku), i przeprowadzić
-   to przez pełną bramę bezpieczeństwa (dry-run/podgląd → operator patrzy
-   na żywy rysunek → potwierdza → dopiero wtedy na stałe).
-3. **UX wyboru widoku** — zaakceptowane 2026-09-23 jako "działa po
+1. **Reguła "który kandydat odpowiada któremu złączu/wymiarowi" —
+   NIEROZWIĄZANA, teraz z realnym przykładem do projektowania na nim.**
+   `[3.5013]` ma bryłę z dwiema ścianami cięcia (patrz sekcja wyżej) — nim
+   `NotchPilot` ruszy na to złącze, trzeba dopisać regułę wyboru: prawdopodobnie
+   dopasowanie po bliskości do KONKRETNEGO usuwanego wymiaru do osi (mamy
+   już jego `StartPoint`/`EndPoint` w momencie kasowania w
+   `RoAxisDimensionService.RemoveAxisDimensions` — można by przekazać tę
+   informację do reguły wyboru ściany zamiast szukać niezależnie od zera).
+   Nie zgadywać tej reguły — zebrać dane z jeszcze jednego złącza z
+   pojedynczą ścianą cięcia (żeby potwierdzić, że reguła nie psuje
+   prostego przypadku) i z `[3.5013]` (dwie ściany) razem, dopiero
+   projektować.
+2. **Wymiar wcięcia — pilot potwierdzony na `[35021]` (jedna ściana
+   cięcia), NIE przetestowany na złączu z wieloma ścianami.** `NotchPilot`
+   zadziałał wizualnie poprawnie (operator: "ta na koniec połozenia były
+   poprawne") dla obu wymiarów (szerokość 42,4 mm, długość 45,09 mm).
+   `FindChordCandidates`/`TryLogNotchCandidate` naprawione, żeby nie gubić
+   milcząco dodatkowych kandydatów (patrz wyżej) — ale sama reguła wyboru
+   "który jest właściwy" (pkt 1) wciąż nie istnieje, więc próba na
+   `[3.5013]` z obecnym kodem po prostu odmówi (2 kandydaty zamiast 1),
+   co jest bezpiecznym, ale nieukończonym stanem.
+3. **Dopiero po rozwiązaniu pkt 1 i potwierdzeniu na kilku złączach
+   (w tym z wieloma ścianami):** zdjąć blokadę `PilotDrawingMark`, połączyć
+   z głównym przyciskiem kasowania, przeprowadzić przez pełną bramę
+   bezpieczeństwa (dry-run/podgląd → operator patrzy na żywy rysunek →
+   potwierdza → dopiero wtedy na stałe).
+4. **UX wyboru widoku** — zaakceptowane 2026-09-23 jako "działa po
    kliknięciu w geometrię partu; Esc → lista jako zapasowa ścieżka". Nie
    próbować dalej "naprawiać" bez nowego wyraźnego zgłoszenia operatora.

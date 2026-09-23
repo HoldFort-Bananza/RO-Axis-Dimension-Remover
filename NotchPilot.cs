@@ -49,13 +49,25 @@ namespace RoAxisDimensionRemover
                 {
                     if (!(parts.Current is Part drawingPart)) continue;
                     if (!(model.SelectModelObject(drawingPart.ModelIdentifier) is TSM.Part modelPart)) continue;
-                    if (TryFindChord(view, modelPart, longest, out Candidate candidate)
+                    // ZMIERZONE na [3.5013] (drugie złącze, poza blokadą
+                    // pilota): jedna bryła może mieć WIĘCEJ NIŻ JEDNĄ
+                    // kwalifikującą się ścianę cięcia (dwa różne końce tego
+                    // samego kawałka). Wcześniej ta funkcja cicho brała tylko
+                    // ścianę o największym LoopSpan w całej bryle - to była
+                    // niezmierzona, zgadywana reguła. Teraz zbieramy
+                    // wszystkie kandydatów z tej części i liczymy każdą - a
+                    // istniejący wymóg "dokładnie 1 płaski kandydat w CAŁYM
+                    // rysunku" niżej sam odrzuci sytuację, w której jest ich
+                    // więcej, zamiast po cichu wybrać jedną.
+                    foreach (var candidate in FindChordCandidates(view, modelPart, longest))
+                    {
                         // To jedynie tolerancja błędu numerycznego projekcji,
                         // nie próg geometrii: zmierzone punkty pilota mają Z=0.
-                        && Math.Abs(candidate.Start.Z) <= NumericalZero
-                        && Math.Abs(candidate.End.Z) <= NumericalZero)
-                    {
-                        candidates.Add(candidate);
+                        if (Math.Abs(candidate.Start.Z) <= NumericalZero
+                            && Math.Abs(candidate.End.Z) <= NumericalZero)
+                        {
+                            candidates.Add(candidate);
+                        }
                     }
                 }
             }
@@ -102,9 +114,9 @@ namespace RoAxisDimensionRemover
             return true;
         }
 
-        private static bool TryFindChord(View view, TSM.Part part, bool longest, out Candidate candidate)
+        private static List<Candidate> FindChordCandidates(View view, TSM.Part part, bool longest)
         {
-            candidate = null;
+            var result = new List<Candidate>();
             TSG.Vector axis = null;
             if (part is TSM.Beam beam)
             {
@@ -112,7 +124,6 @@ namespace RoAxisDimensionRemover
                 axis = new TSG.Vector(delta.X, delta.Y, delta.Z).GetNormal();
             }
 
-            List<TSG.Point> outerLoop = null;
             var faces = part.GetSolid().GetFaceEnumerator();
             while (faces.MoveNext())
             {
@@ -129,15 +140,19 @@ namespace RoAxisDimensionRemover
                 }
                 if (loops.Count < 2) continue;
                 if (axis != null && Math.Abs(new TSG.Vector(face.Normal).GetNormal().Dot(axis)) > 0.999) continue;
-                foreach (var loop in loops)
-                    if (outerLoop == null || LoopSpan(loop) > LoopSpan(outerLoop)) outerLoop = loop;
-            }
-            if (outerLoop == null) return false;
 
-            var pair = FindChord(outerLoop, Centroid(outerLoop), longest);
-            var cs = view.DisplayCoordinateSystem;
-            candidate = new Candidate { View = view, Start = ToViewSpace(pair.A, cs), End = ToViewSpace(pair.B, cs) };
-            return true;
+                // Zewnętrzny obrys TEJ JEDNEJ ściany = pętla o większym
+                // rozstawie - porównanie zostaje lokalne do ściany, nie do
+                // całej bryły (patrz komentarz w InsertTest).
+                List<TSG.Point> faceOuterLoop = null;
+                foreach (var loop in loops)
+                    if (faceOuterLoop == null || LoopSpan(loop) > LoopSpan(faceOuterLoop)) faceOuterLoop = loop;
+
+                var pair = FindChord(faceOuterLoop, Centroid(faceOuterLoop), longest);
+                var cs = view.DisplayCoordinateSystem;
+                result.Add(new Candidate { View = view, Start = ToViewSpace(pair.A, cs), End = ToViewSpace(pair.B, cs) });
+            }
+            return result;
         }
 
         private static bool HasSameDimension(View view, TSG.Point start, TSG.Point end)

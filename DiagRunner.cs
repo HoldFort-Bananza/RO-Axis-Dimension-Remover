@@ -298,8 +298,17 @@ namespace RoAxisDimensionRemover
                 axisDir = new Tekla.Structures.Geometry3d.Vector(delta.X, delta.Y, delta.Z).GetNormal();
             }
 
-            Face cutFace = null;
-            List<Tekla.Structures.Geometry3d.Point> outerLoop = null;
+            // ZMIERZONE na [3.5013]: część może mieć WIĘCEJ NIŻ JEDNĄ
+            // kwalifikującą się ścianę cięcia (dwa różne ukośne końce tego
+            // samego krótkiego kawałka). Wcześniejsza wersja tej funkcji
+            // milcząco zostawiała tylko ścianę o największym LoopSpan w
+            // CAŁEJ bryle - na [35021] nie było to widoczne (tylko jedna
+            // pasowała), ale to była niesprawdzona zgadywana reguła, nie
+            // zmierzona. Teraz zbieramy WSZYSTKIE kwalifikujące się ściany
+            // osobno i logujemy każdą - decyzja "która odpowiada temu
+            // złączu" zostaje jawnie nierozwiązana, zamiast być ukrytym
+            // efektem ubocznym sortowania.
+            var candidateFaces = new List<(Face Face, List<Tekla.Structures.Geometry3d.Point> OuterLoop)>();
             var faces = solid.GetFaceEnumerator();
             while (faces.MoveNext())
             {
@@ -349,24 +358,40 @@ namespace RoAxisDimensionRemover
                     }
                 }
 
-                // Zewnętrzny obrys = ten o większym "rozstawie" (odporne na
-                // to, która pętla jest zwrócona jako pierwsza).
+                // Zewnętrzny obrys tej JEDNEJ ściany = pętla o większym
+                // "rozstawie" (odporne na to, która pętla jest zwrócona
+                // jako pierwsza) - to porównanie zostaje LOKALNE do ściany,
+                // nie globalne do całej bryły.
+                List<Tekla.Structures.Geometry3d.Point> faceOuterLoop = null;
                 foreach (var loop in loopsInFace)
                 {
-                    if (outerLoop == null || LoopSpan(loop) > LoopSpan(outerLoop))
+                    if (faceOuterLoop == null || LoopSpan(loop) > LoopSpan(faceOuterLoop))
                     {
-                        outerLoop = loop;
-                        cutFace = face;
+                        faceOuterLoop = loop;
                     }
                 }
+                candidateFaces.Add((face, faceOuterLoop));
             }
 
-            if (cutFace == null || outerLoop == null)
+            if (candidateFaces.Count == 0)
             {
                 log("[notch]   brak kandydata na ścianę cięcia w tej bryle (być może prosty koniec bez ukośnego złącza).");
                 return;
             }
 
+            if (candidateFaces.Count > 1)
+            {
+                log($"[notch]   UWAGA: {candidateFaces.Count} kwalifikujących się ścian cięcia w tej bryle - który odpowiada temu złączu, NIE jest jeszcze rozstrzygnięte. Logowane wszystkie:");
+            }
+
+            foreach (var (cutFace, outerLoop) in candidateFaces)
+            {
+                LogCandidateFace(view, cutFace, outerLoop, log);
+            }
+        }
+
+        private static void LogCandidateFace(View view, Face cutFace, List<Tekla.Structures.Geometry3d.Point> outerLoop, Action<string> log)
+        {
             var centroid = Centroid(outerLoop);
             // Najdłuższa cięciwa = długość cięcia.
             (Tekla.Structures.Geometry3d.Point A, Tekla.Structures.Geometry3d.Point B) major = FindChord(outerLoop, centroid, longest: true);
@@ -375,7 +400,7 @@ namespace RoAxisDimensionRemover
 
             double majorLen = Distance(major.A, major.B);
             double minorLen = Distance(minor.A, minor.B);
-            log($"[notch]   KANDYDAT ściana cięcia: długość={majorLen:F2} mm (model) szerokość={minorLen:F2} mm (model)");
+            log($"[notch]   KANDYDAT ściana cięcia (Normal=({cutFace.Normal.X:F2};{cutFace.Normal.Y:F2};{cutFace.Normal.Z:F2})): długość={majorLen:F2} mm (model) szerokość={minorLen:F2} mm (model)");
             log($"[notch]     długość: {PointStr(major.A)} -> {PointStr(major.B)}");
             log($"[notch]     szerokość: {PointStr(minor.A)} -> {PointStr(minor.B)}");
 
