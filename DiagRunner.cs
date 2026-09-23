@@ -267,7 +267,9 @@ namespace RoAxisDimensionRemover
                     dimensionIndex++;
                     var set = dimension.GetDimensionSet() as StraightDimensionSet;
                     var attributes = set?.Attributes;
+                    double? value = RoAxisDimensionService.GetDisplayedValue(dimension);
                     Log($"[dim-style] widok {viewIndex}, wymiar {dimensionIndex}: " +
+                        $"Wartość={(value.HasValue ? value.Value.ToString("F2") : "?")} " +
                         $"Start={PointStr(dimension.StartPoint)} End={PointStr(dimension.EndPoint)} " +
                         $"Up=({dimension.UpDirection.X:F2};{dimension.UpDirection.Y:F2};{dimension.UpDirection.Z:F2}) " +
                         $"Distance={dimension.Distance:F2} Attributes={attributes}");
