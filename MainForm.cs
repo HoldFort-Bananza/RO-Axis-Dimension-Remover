@@ -280,7 +280,7 @@ namespace RoAxisDimensionRemover
         /// Tekli zamiast klikać (PickPoint potrafi zawiesić się bez końca
         /// na kliku w pustkę - patrz komentarz w RunButton_Click). Etykieta
         /// to typ widoku + rozmiar w mm na papierze
-        /// (GetAxisAlignedBoundingBox - PUŁAPKA jednostek z CLAUDE.md: to
+        /// (GetAxisAlignedBoundingBox - PUŁAPKA jednostek z AGENTS.md: to
         /// mm na papierze, nie jednostki modelu).
         /// </summary>
         private ViewBase PickViewFromList(Drawing drawing)

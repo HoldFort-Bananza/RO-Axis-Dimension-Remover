@@ -18,7 +18,7 @@ namespace RoAxisDimensionRemover
     ///
     /// Wcześniejsza wersja (do PR poprzedzającego ten commit) zamiast tego
     /// grupowała wymiary do osi i kasowała "duplikaty", zostawiając ten o
-    /// większej wartości - to miało PUŁAPKĘ 5 (patrz CLAUDE.md): para
+    /// większej wartości - to miało PUŁAPKĘ 5 (patrz AGENTS.md): para
     /// PROSTOPADŁYCH wymiarów tego samego skosu 45° ma identyczną wyświetlaną
     /// wartość i była błędnie brana za duplikat, więc ginęła jedna z dwóch
     /// niezależnych informacji (poziom albo pion). Skoro teraz kasujemy
@@ -38,11 +38,11 @@ namespace RoAxisDimensionRemover
         // zera). Bez tego wymiar płaski w widoku (dla którego jedna
         // współrzędna, typowo Z, jest 0 dla OBU końców, bo widok jest 2D, nie
         // dlatego że to oś) łapałby się jako "na osi" - zdarzyło się na
-        // [35270] w v1, patrz CLAUDE.md.
+        // [35270] w v1, patrz AGENTS.md.
         private const double CoordDiffersToleranceMm = 0.01;
 
         // Jednostki modelu (mm), NIE mm na papierze - StartPoint/EndPoint są
-        // w jednostkach modelu (patrz ../CLAUDE.md, pułapka jednostek).
+        // w jednostkach modelu (patrz ../AGENTS.md, pułapka jednostek).
         // Szacunek, nie pomiar: dwa punkty tego samego złącza RO leżą w
         // odległości rzędu promienia profilu (dziesiątki mm), a osobne
         // złącza na jednym rysunku balustrady dzieli zwykle metr i więcej.
@@ -80,7 +80,7 @@ namespace RoAxisDimensionRemover
                 // definicji na osi - lokalny początek układu współrzędnych
                 // rury), ale to nie jest ten sam przypadek - odsiewamy go po
                 // własnej długości. Zdiagnozowane na [3.5013] w v4, patrz
-                // CLAUDE.md.
+                // AGENTS.md.
                 double ownLength = PointDistance(sd.StartPoint, sd.EndPoint);
                 if (ownLength > SameJointDistanceMm)
                 {

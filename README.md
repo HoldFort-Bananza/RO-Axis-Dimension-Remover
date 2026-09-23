@@ -17,7 +17,7 @@ własną "bramę bezpieczeństwa" 2026-09-23 (operator potwierdził realne
 kasowanie po obejrzeniu dry-run na żywym rysunku).
 
 Pełna historia wersji i "brama bezpieczeństwa", przez którą musi przejść
-każda zmiana reguły przed włączeniem realnego kasowania, są w `CLAUDE.md`
+każda zmiana reguły przed włączeniem realnego kasowania, są w `AGENTS.md`
 — to on jest bazą wiedzy tego projektu, README to tylko skrót.
 
 Tryb konsolowy (`--diag-active`/`--diag-mark`, `DiagRunner.cs`) ma
@@ -52,7 +52,7 @@ komend. Log leci na `stdout`.
 ## Architektura
 
 Kopiuje wzorzec z siostrzanego projektu w tym samym katalogu nadrzędnym
-(`..\CLAUDE.md` obowiązuje tu też):
+(`..\AGENTS.md` obowiązuje tu też):
 
 | Plik | Zawartość |
 |---|---|
@@ -70,7 +70,7 @@ Dwa aktualne priorytety: (1) przeprowadzić nową regułę wykrywania przez
 bramę bezpieczeństwa, zanim realne kasowanie zostanie włączone; (2) dodać
 automatyczne tworzenie wymiaru wcięcia po skasowaniu wymiarów do osi —
 wymaga rzeczywistej geometrii bryły cięcia z modelu, nie zgadywania.
-Szczegóły i wymagana procedura zatwierdzenia: `CLAUDE.md`.
+Szczegóły i wymagana procedura zatwierdzenia: `AGENTS.md`.
 
 Osobno, bez pośpiechu: rozważyć wiki (jak w siostrzanym projekcie) zamiast
 tego README, jeśli projekt urośnie.
