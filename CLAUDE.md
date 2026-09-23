@@ -28,11 +28,14 @@ i tak są kasowane. Cała stara logika grupowania (`GroupByProximity`,
 `MinPointDistance`) została USUNIĘTA z kodu - historia niżej zostaje jako
 kontekst diagnostyczny, ale nie opisuje już bieżącego zachowania.
 
-**To i tak wymaga własnej bramy bezpieczeństwa od zera** (AGENTS.md, punkt
-5) - to NOWA reguła, nie naprawiona stara, i nie była jeszcze potwierdzona
-przez operatora na żywym rysunku z ustawionym `dryRun: false`.
-`dryRun: true` zostaje, dopóki operator wprost nie potwierdzi wyniku
-dry-run na żywym widoku.
+**BRAMA DLA REGUŁY v5 PRZESZŁA 2026-09-23.** Operator zobaczył dry-run na
+żywym `[35021]` (poprawnie znalazł `8 mm` i `21 mm`, zero fałszywych
+trafień - dokładnie ten sam widok co w PUŁAPCE 5, teraz bez dedupu), i
+wprost potwierdził na pytanie o realne kasowanie ("tak dryrun false").
+**`MainForm.cs` ma teraz `dryRun: false` - przycisk NAPRAWDĘ kasuje.**
+`DiagRunner.cs` (`--diag-active`/`--diag-mark`/`--diag-notch`) ma `dryRun`
+na sztywno `true` NA ZAWSZE, niezależnie od stanu bramy - patrz sekcja
+"Jak testować" niżej, to się nie zmienia nigdy.
 
 **Wybór widoku (nowe w v5):** przycisk w `MainForm.cs` woła
 `Picker.PickPoint`, żeby operator kliknął widok w Tekli. **ZMIERZONE NA
@@ -290,7 +293,7 @@ jedyny sposób go zakończyć.**
 | Plik | Zawartość |
 |---|---|
 | `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI (reguła v5 - kasuje wszystko w widoku, patrz wyżej) |
-| `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku (`dryRun: true` — NIE kasuje, nowa reguła v5 nie przeszła jeszcze bramy). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie) |
+| `MainForm.cs` | UI: jeden przycisk, log do okna i do pliku (`dryRun: false` od 2026-09-23 — brama v5 przeszła, przycisk NAPRAWDĘ kasuje). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie) |
 | `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark`/`--diag-notch` dla trybu konsolowego |
 | `DiagRunner.cs` | headless runner dry-run + `RunNotchDiag` (geometria bryły, grunt pod wymiar wcięcia) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) — wzorzec 1:1 z `Radius Dimention Mover` |

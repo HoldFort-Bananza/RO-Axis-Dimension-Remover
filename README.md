@@ -4,7 +4,7 @@ Samodzielny `.exe` dla Tekla Structures 2025. Ma kasować nadmiarowe wymiary
 "do osi" na profilach RO (rura okrągła) w widokach przekroju/detalu miejsc
 łączenia.
 
-## Stan: `dryRun: true` — przycisk nic nie kasuje
+## Stan: `dryRun: false` — przycisk NAPRAWDĘ kasuje
 
 Reguła wykrywania została zmieniona: zamiast oceniać, które wymiary do osi
 są "duplikatami" (dawna reguła v1–v4, miała znany błąd na parach
@@ -12,8 +12,9 @@ prostopadłych wymiarów o tej samej wartości — pełna diagnoza w
 [issue #18](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/issues/18)),
 program kasuje teraz **wszystkie** wymiary do osi w wybranym widoku, bez
 wyjątku — docelowo mają zostać zastąpione osobnym wymiarem opisującym
-wcięcie profilu (jeszcze niezaimplementowane). Ta nowa reguła jeszcze nie
-przeszła własnej "bramy bezpieczeństwa", więc `dryRun` zostaje `true`.
+wcięcie profilu (jeszcze niezaimplementowane). Ta nowa reguła przeszła
+własną "bramę bezpieczeństwa" 2026-09-23 (operator potwierdził realne
+kasowanie po obejrzeniu dry-run na żywym rysunku).
 
 Pełna historia wersji i "brama bezpieczeństwa", przez którą musi przejść
 każda zmiana reguły przed włączeniem realnego kasowania, są w `CLAUDE.md`

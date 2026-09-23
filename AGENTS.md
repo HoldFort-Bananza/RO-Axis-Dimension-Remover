@@ -24,17 +24,19 @@ krytycznego nie zginęło przy zmianie narzędzia.
    skasowały dobre wymiary na żywym modelu. **Reguła detekcji została
    2026-09-23 CAŁKOWICIE ZASTĄPIONA (v5)** - zamiast kasować "duplikaty"
    (v4, PUŁAPKA 5 niżej - historia, nie bieżący stan), program kasuje
-   TERAZ każdy wymiar do osi w wybranym widoku, bez wyjątku. To NOWA
-   reguła i NIE przeszła jeszcze bramy bezpieczeństwa - nie włączaj
-   realnego kasowania. Pełny opis: `CLAUDE.md`, sekcja "STAN NA
-   2026-09-23".
+   TERAZ każdy wymiar do osi w wybranym widoku, bez wyjątku. **Brama
+   bezpieczeństwa dla v5 PRZESZŁA tego samego dnia** - operator zobaczył
+   dry-run na żywym `[35021]` i wprost potwierdził realne kasowanie.
+   `MainForm.cs` ma teraz `dryRun: false`. Pełny opis: `CLAUDE.md`, sekcja
+   "STAN NA 2026-09-23".
 2. **Sprawdź `dryRun` w `MainForm.cs` (`RunButton_Click`) WPROST W PLIKU,
    nie z tego opisu, i sprawdź go NA BRANCHU, z którego faktycznie
    korzystasz** — `dev` i `release` mogą mieć w tej chwili RÓŻNY stan
    (patrz "Branche" niżej, to nie jest tylko teoretyczne ostrzeżenie).
-   Stan na 2026-09-23, na `dev`: `dryRun: true` — program NIE kasuje,
-   tylko loguje. Tak ma zostać, dopóki reguła v5 nie przejdzie bramy od
-   zera (nowa reguła, nie kontynuacja PUŁAPKI 5).
+   Stan na 2026-09-23 (po potwierdzeniu operatora), na `dev`:
+   `dryRun: false` — przycisk NAPRAWDĘ kasuje. `DiagRunner.cs` (tryb
+   konsolowy) ma `dryRun` na sztywno `true` NA ZAWSZE, niezależnie od tego
+   stanu - to się nigdy nie zmienia.
 3. **NIE WALIDUJ REGUŁY PRZEZ JEJ WŁASNY DRY-RUN.** To najważniejsza
    lekcja z tego projektu i powód, dla którego błąd przeżył trzy "czyste"
    testy: dry-run i realne kasowanie używają tego samego kodu, więc zawsze

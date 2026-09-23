@@ -240,15 +240,14 @@ namespace RoAxisDimensionRemover
                 }
                 string viewLabel = view.GetType().Name;
 
-                // dryRun: true - reguła zmieniona z "kasuj duplikat, zostaw
-                // większy" na "kasuj każdy wymiar do osi w widoku" (patrz
-                // komentarz na górze RoAxisDimensionService.cs, dlaczego to
-                // zamyka PUŁAPKĘ 5). To NOWA reguła, więc zgodnie z
-                // AGENTS.md/CLAUDE.md wymaga przejścia bramy bezpieczeństwa
-                // OD ZERA - operator patrzy na żywy rysunek po dry-run,
-                // zanim ktokolwiek przestawi to na false. Nie przestawiać
-                // bez wyraźnego "tak" operatora na TO pytanie.
-                const bool dryRun = true;
+                // dryRun: false - brama bezpieczeństwa dla reguły v5
+                // (kasuj każdy wymiar do osi w widoku) PRZESZŁA 2026-09-23:
+                // operator zobaczył dry-run na żywym [35021] (poprawnie
+                // znalazł 8 mm i 21 mm, zero fałszywych trafień) i wprost
+                // potwierdził real kasowanie ("tak dryrun false"). Nie
+                // przywracać na true bez powodu - to nie jest to samo co
+                // PUŁAPKA 5 (v4), która tego potwierdzenia nigdy nie miała.
+                const bool dryRun = false;
                 var result = _service.RemoveAxisDimensions(drawing, view, Log, dryRun);
                 _statusLabel.Text = dryRun
                     ? $"Gotowe (dry-run). Widok: {viewLabel}. Znaleziono {result.RemovedCount} wymiarów do usunięcia - nic nie skasowano. Sprawdź log, czy wygląda poprawnie."
