@@ -12,6 +12,16 @@ namespace RoAxisDimensionRemover
     internal static class NotchPilot
     {
         private const string PilotDrawingMark = "[35021]";
+
+        // Tymczasowo (2026-09-24) dopuszczone do REALNEGO insertu - druga
+        // runda bramy bezpieczeństwa dla reguły dopasowania ściana↔wymiar,
+        // konkretnie na złączu z WIELOMA ścianami cięcia (patrz AGENTS.md,
+        // "Następne kroki" pkt 2: dry-run już potwierdził poprawne liczby
+        // na [3.5013], brakuje realnego insertu + wizualnego potwierdzenia
+        // operatora). Nie usuwać PilotDrawingMark - to jest DODATKOWE
+        // dopuszczenie, nie zastąpienie blokady.
+        private static readonly string[] AllowedRealInsertMarks = { PilotDrawingMark, "[3.5013]" };
+
         private const double NumericalZero = 0.000001;
 
         public static bool InsertWidthTest(Drawing drawing, Action<string> log, TSG.Point referencePoint = null, bool dryRun = false)
@@ -28,11 +38,12 @@ namespace RoAxisDimensionRemover
         {
             // Blokada marki dotyczy tylko REALNEGO wstawienia - dry-run
             // nic nie modyfikuje, więc to bezpieczne do sprawdzenia reguły
-            // dopasowania na innych złączach (np. [3.5013], wiele ścian
-            // cięcia) bez zdejmowania blokady dla prawdziwego insertu.
-            if (!dryRun && !string.Equals(drawing.Mark, PilotDrawingMark, StringComparison.OrdinalIgnoreCase))
+            // dopasowania na innych złączach bez zdejmowania blokady.
+            bool markAllowed = dryRun || Array.Exists(AllowedRealInsertMarks,
+                m => string.Equals(drawing.Mark, m, StringComparison.OrdinalIgnoreCase));
+            if (!markAllowed)
             {
-                log("TEST WSTRZYMANY: pilot jest ograniczony do rysunku " + PilotDrawingMark + ".");
+                log("TEST WSTRZYMANY: pilot jest ograniczony do rysunków " + string.Join(", ", AllowedRealInsertMarks) + ".");
                 return false;
             }
 
@@ -126,18 +137,48 @@ namespace RoAxisDimensionRemover
                 return false;
             }
 
+            // ZMIERZONE 2026-09-24 na [3.5013], DWA błędne podejścia po kolei:
+            // 1) kopiowanie UpDirection z przypadkowego istniejącego wymiaru
+            //    dało wymiarowi długości (cięciwa UKOŚNA) rzut na zły
+            //    kierunek - PUŁAPKA 2 (AGENTS.md): StraightDimension pokazuje
+            //    RZUT na kierunek prostopadły do Up, nie surowy dystans.
+            // 2) Poprawka "licz Up z kierunku samej cięciwy" dawała wymiar
+            //    PO SKOSIE (rzut = pełna, prawdziwa długość cięciwy) - operator
+            //    (2026-09-24, na żywo) to odrzucił: "wymiaru nie daje się po
+            //    skosie, zawsze prostopadle lub równolegle do parta".
+            // Poprawka: kierunek liczony z OSI BELKI (już mamy z
+            // TSM.Beam.StartPoint/EndPoint, przeliczonej do układu widoku),
+            // nie z cięciwy ani z cudzego wymiaru. Długość wcięcia = rzut na
+            // kierunek RÓWNOLEGŁY do osi (linia wymiarowa biegnie wzdłuż
+            // profilu); szerokość = rzut na kierunek PROSTOPADŁY (w poprzek).
+            // Dla złącza pod DOKŁADNIE 45° oba rzuty tej samej przekątnej
+            // cięciwy wychodzą sobie równe (operator to potwierdził na żywo:
+            // "no jest 42 tak jak powinno być") - to nie błąd, taka jest
+            // geometria tego konkretnego kąta, nie każdego złącza.
+            if (width.AxisView == null)
+            {
+                log("TEST WSTRZYMANY: nie znam kierunku osi belki (część nie jest TSM.Beam?) - nie da się policzyć wymiaru równoległego/prostopadłego bez zgadywania.");
+                return false;
+            }
+            var axisView = width.AxisView;
+            var perpView = new TSG.Vector(-axisView.Y, axisView.X, 0);
+            var side = longest ? perpView : axisView;
+            // Wartość, którą Tekla NAPRAWDĘ wyświetli - rzut (Start->End) na
+            // kierunek POMIARU (prostopadły do side), NIE surowy dystans
+            // (patrz PUŁAPKA 2 wyżej - log ma pokazywać to, co faktycznie
+            // wyjdzie na rysunku, nie geometrię).
+            var chord = new TSG.Vector(width.End.X - width.Start.X, width.End.Y - width.Start.Y, width.End.Z - width.Start.Z);
+            var measureDir = longest ? axisView : perpView;
+            double displayedValue = Math.Abs(chord.Dot(measureDir));
+
             if (dryRun)
             {
-                log($"[dry-run] {label} wcięcia: wstawiłbym {Distance(width.Start, width.End):F2} mm, " +
+                log($"[dry-run] {label} wcięcia: wstawiłbym {displayedValue:F2} mm (rzut, nie surowy dystans cięciwy {Distance(width.Start, width.End):F2} mm), " +
                     $"Start=({width.Start.X:F2};{width.Start.Y:F2};{width.Start.Z:F2}) " +
                     $"End=({width.End.X:F2};{width.End.Y:F2};{width.End.Z:F2}) - styl wzięty z istniejącego wymiaru w widoku. Nic nie zmieniono.");
                 return true;
             }
 
-            // Przejmujemy faktyczny styl i odsunięcie z rysunku. Obrót
-            // kierunku (góra -> lewo) kładzie pionowy wymiar z boku rury.
-            var up = reference.UpDirection;
-            var side = new TSG.Vector(-up.Y, up.X, 0);
             var dimension = new StraightDimension(
                 width.View, width.Start, width.End, side, reference.Distance, referenceSet.Attributes);
             if (!dimension.Insert())
@@ -151,7 +192,19 @@ namespace RoAxisDimensionRemover
                 return false;
             }
 
-            log($"TEST: wstawiono {label} wcięcia {Distance(width.Start, width.End):F2} mm. Obejrzyj rysunek w Tekli; Ctrl+Z cofa.");
+            // ZMIERZONE 2026-09-24 na [3.5013]: Insert()+CommitChanges() oba
+            // zwróciły true, ale niezależny odczyt (nowy proces,
+            // --diag-dimension-style) NIE znalazł wstawionego wymiaru -
+            // fałszywy "sukces" w logu. Nie ufać samym wartościom zwrotnym -
+            // odczytać widok jeszcze raz i sprawdzić, czy wymiar NAPRAWDĘ
+            // tam jest, zanim log powie "wstawiono".
+            if (!HasSameDimension(width.View, width.Start, width.End))
+            {
+                log($"TEST: Insert()/CommitChanges() zwróciły true, ale ponowny odczyt widoku NIE znalazł wstawionego wymiaru {label} - nic się NIE utrwaliło. Nie ufaj temu insertowi.");
+                return false;
+            }
+
+            log($"TEST: wstawiono {label} wcięcia {displayedValue:F2} mm, potwierdzone ponownym odczytem widoku. Obejrzyj rysunek w Tekli; Ctrl+Z cofa.");
             return true;
         }
 
@@ -164,6 +217,7 @@ namespace RoAxisDimensionRemover
                 var delta = beam.EndPoint - beam.StartPoint;
                 axis = new TSG.Vector(delta.X, delta.Y, delta.Z).GetNormal();
             }
+            TSG.Vector axisView = axis == null ? null : ToViewSpaceVector(axis, view.DisplayCoordinateSystem);
 
             var faces = part.GetSolid().GetFaceEnumerator();
             while (faces.MoveNext())
@@ -191,7 +245,7 @@ namespace RoAxisDimensionRemover
 
                 var pair = FindChord(faceOuterLoop, Centroid(faceOuterLoop), longest);
                 var cs = view.DisplayCoordinateSystem;
-                result.Add(new Candidate { View = view, Start = ToViewSpace(pair.A, cs), End = ToViewSpace(pair.B, cs) });
+                result.Add(new Candidate { View = view, Start = ToViewSpace(pair.A, cs), End = ToViewSpace(pair.B, cs), AxisView = axisView });
             }
             return result;
         }
@@ -222,7 +276,7 @@ namespace RoAxisDimensionRemover
             return null;
         }
 
-        private sealed class Candidate { public View View; public TSG.Point Start; public TSG.Point End; }
+        private sealed class Candidate { public View View; public TSG.Point Start; public TSG.Point End; public TSG.Vector AxisView; }
 
         private static double LoopSpan(List<TSG.Point> loop)
         {
@@ -273,6 +327,19 @@ namespace RoAxisDimensionRemover
             var z = TSG.Vector.Cross(x, y);
             var vector = new TSG.Vector(relative.X, relative.Y, relative.Z);
             return new TSG.Point(vector.Dot(x), vector.Dot(y), vector.Dot(z));
+        }
+
+        // Jak ToViewSpace, ale dla KIERUNKU (wektora), nie punktu - bez
+        // odejmowania Origin (kierunek nie ma pozycji). Używane do
+        // przeliczenia osi belki (z modelu) na układ widoku, żeby wymiar
+        // wcięcia dało się narysować równolegle/prostopadle do PRAWDZIWEJ
+        // osi profilu, nie do przypadkowego kierunku.
+        private static TSG.Vector ToViewSpaceVector(TSG.Vector v, TSG.CoordinateSystem cs)
+        {
+            var x = new TSG.Vector(cs.AxisX); x.Normalize();
+            var y = new TSG.Vector(cs.AxisY); y.Normalize();
+            var z = TSG.Vector.Cross(x, y);
+            return new TSG.Vector(v.Dot(x), v.Dot(y), v.Dot(z));
         }
     }
 }

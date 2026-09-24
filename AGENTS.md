@@ -393,21 +393,85 @@ dla KAŻDEGO wymiaru do osi w rysunku (tego samego, który
 `RemoveAxisDimensions` by skasował) woła `NotchPilot` z jego środkiem jako
 `referencePoint` - dokładnie scenariusz produkcyjny, tylko bez ryzyka.
 
-**Wynik na żywym `[3.5013]` (2026-09-24):** oba końce złącza (odległe
-~5775 mm) dały spójne, poprawne wartości: szerokość `42,40 mm` (średnica
-profilu, zgadza się z wcześniejszym pomiarem), długość `59,96 mm` (zgadza
-się z wyliczeniem trygonometrycznym `42,4/cos(45°)=59,96` z sesji
-badającej geometrię wcięcia). Dopasowanie wybrało właściwego kandydata za
-każdym razem (odległość `18,36 mm`, ten sam rząd wielkości co w
-`--diag-notch-match` wczoraj). **To pierwsze potwierdzenie, że reguła
-dopasowania wpięta W SAM `NotchPilot` (nie tylko w niezależnej
-reimplementacji w `DiagRunner`) daje poprawny wynik na złączu z wieloma
-ścianami cięcia** - adresuje lukę z "Następne kroki" pkt 2. Wciąż NIE
-przeszło pełnej bramy: żaden realny insert się nie odbył, operator nic nie
-zobaczył wizualnie w Tekli - dry-run pokazuje tylko liczby, nie wygląd.
-Blokada `PilotDrawingMark = "[35021]"` dla REALNEGO insertu nadal
-NIETKNIĘTA - patrz "Następne kroki" pkt 3, zdjąć dopiero po realnym
-insercie i wizualnym potwierdzeniu operatora na kilku złączach.
+**Wynik dry-run na żywym `[3.5013]` (2026-09-24, przed realnym testem):**
+oba końce złącza (odległe ~5775 mm) dały spójne liczby: szerokość
+`42,40 mm`, "długość" `59,96 mm` (rzut RAW distance, patrz niżej dlaczego
+to się okazało mylące). Dopasowanie wybrało właściwego kandydata za każdym
+razem (odległość `18,36 mm`).
+
+### REALNY test na `[3.5013]` (2026-09-24) - trzy kolejne poprawki, jeden nierozwiązany problem domenowy
+
+Operator tymczasowo dopuścił `[3.5013]` do realnego insertu
+(`AllowedRealInsertMarks` w `NotchPilot.cs`, OBOK `PilotDrawingMark`, nie
+zamiast). Realny test ujawnił po kolei TRZY błędy, których żaden dry-run
+by nie złapał (dry-run tylko liczy geometrię, nie sprawdza co się NAPRAWDĘ
+dzieje po `Insert()`/`CommitChanges()` ani jak Tekla to renderuje):
+
+1. **Przyciski blokowały się na stałe** (`Enabled = false` bez powrotnego
+   `= true` w `finally`) - operator nie mógł kliknąć drugi raz. Naprawione:
+   usunięte blokowanie w ogóle (guard zostaje tylko `_busy`).
+2. **`Insert()`+`CommitChanges()` zwróciły `true`, ale niezależny odczyt
+   (osobny proces, `--diag-dimension-style`) NIE znalazł wstawionego
+   wymiaru** - fałszywy "sukces" w logu. Naprawione: `InsertTest` teraz
+   odczytuje widok PONOWNIE po insercie (`HasSameDimension`) i dopiero
+   wtedy loguje sukces - jeśli się nie utrwaliło, log mówi to wprost.
+   Przy okazji: reużycie TEGO SAMEGO uchwytu `Drawing` na drugi insert
+   (szerokość, potem długość) po `CommitChanges()` dawało błędną blokadę
+   marki (`drawing.Mark` przestawał się zgadzać) - `MainForm` odświeża
+   uchwyt (`handler.GetActiveDrawing()`) między wywołaniami.
+3. **Kierunek wymiaru - DWIE złe wersje po kolei:**
+   - Kopiowanie `UpDirection` z przypadkowego istniejącego wymiaru w
+     widoku dało wymiarowi długości (cięciwa UKOŚNA) rzut na zły kierunek -
+     wyświetliło "42" zamiast prawdziwych 59,96 mm (PUŁAPKA 2: `Straight
+     Dimension` pokazuje RZUT na kierunek prostopadły do `Up`, nie surowy
+     dystans).
+   - Poprawka "licz kierunek z samej cięciwy" (Start→End) DAWAŁA poprawną
+     liczbę (59,96 mm), ale wymiar wychodził **PO SKOSIE** - operator to
+     odrzucił na żywo: "wymiaru nie daje się po skosie, zawsze prostopadle
+     lub równolegle do parta". To twarda zasada tego biura rysunkowego, nie
+     kwestia gustu.
+   - Poprawka finalna: kierunek liczony z **OSI BELKI** (`TSM.Beam.
+     StartPoint/EndPoint`, przeliczonej do układu widoku przez nowy
+     `ToViewSpaceVector` - jak `ToViewSpace`, ale dla wektora/kierunku, bez
+     odejmowania `Origin`). Długość wcięcia = rzut cięciwy na kierunek
+     RÓWNOLEGŁY do osi; szerokość = rzut na kierunek PROSTOPADŁY. Log też
+     poprawiony - liczy tę samą rzutowaną wartość, nie surowy
+     `Distance(Start, End)` (który wcześniej kłamał identycznie jak sama
+     Tekla, tylko w drugą stronę).
+   - **Dla złącza pod DOKŁADNIE 45° oba rzuty (równoległy i prostopadły)
+     tej samej przekątnej cięciwy wychodzą sobie równe** (`42,40 mm` obie).
+     Operator potwierdził to na żywo jako POPRAWNE ("no jest 42 tak jak
+     powinno być") - to geometria tego konkretnego kąta, nie błąd. Na
+     innym kącie (np. `19,9°` na `[35021]`) wyjdą różne liczby.
+
+**Przycisk testowy też naprawiony, żeby próbował WSZYSTKICH znalezionych
+wymiarów do osi w jednym kliknięciu** (wcześniej brał tylko pierwszy -
+drugi klik zawsze trafiał w ten sam, już wstawiony wymiar i mówił "już
+istnieje", nigdy nie docierając do drugiego końca złącza).
+
+**NIEROZWIĄZANY PROBLEM DOMENOWY (nowy, 2026-09-24, NIE kodowy):** po
+wstawieniu wymiarów na OBU końcach `[3.5013]`, operator obejrzał wynik i
+stwierdził, że drugi koniec (geometrycznie MA drugą ścianę cięcia,
+potwierdzoną wcześniej przez `--diag-notch` - patrz sekcja wyżej) **nie
+powinien dostać wymiaru wcięcia** - w tym konkretnym widoku wygląda jak
+zwykłe, proste (okrągłe) zakończenie profilu, nie jak widoczny skos.
+Operator: "to ma ścięcia jakby, ale nie powinno tu być tego chyba... tylko
+żeby na skosach było, wystarczy z jednej strony." Czyli: **"ściana cięcia
+istnieje w bryle" (`FindChordCandidates`/`--diag-notch`) NIE jest tym samym
+co "to złącze potrzebuje wymiaru wcięcia w TYM rysunku"** - to jest
+zupełnie nowe rozróżnienie, którego obecny kod nie robi WCALE (insertuje
+dla każdego geometrycznego kandydata, bez pytania, czy to złącze jest
+tym, które operator faktycznie chce opisać). Nie zgadywać reguły - do
+zaprojektowania z operatorem, prawdopodobnie na podstawie: czy w widoku
+jest już adnotacja kąta (`"45°"`/`"19,90°"`) blisko tego końca (sygnał, że
+skos jest tam widoczny/ważny), a nie tylko czy bryła ma tam drugą ścianę.
+**Test na `[3.5013]` zakończony przez operatora zamknięciem rysunku bez
+zapisu** (nie Ctrl+Z) - rysunek z powrotem w stanie sprzed testu
+(potwierdzone `--diag-dimension-style`: 5 oryginalnych wymiarów, zero
+śladów testu). Blokada `PilotDrawingMark`/`AllowedRealInsertMarks` dla
+REALNEGO insertu NIE przeszła jeszcze pełnej bramy - patrz "Następne
+kroki" pkt 2/3, wymaga rozwiązania powyższego problemu domenowego
+najpierw.
 
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
@@ -614,18 +678,20 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
    2026-09-24) - do zrobienia przy najbliższej okazji z działającą Teklą,
    potem dopiero brama dla tworzenia od nowa (pkt 3 niżej).
 2. **Wymiar wcięcia — pilot potwierdzony WIZUALNIE na `[35021]` (jedna
-   ściana cięcia), potwierdzony DRY-RUNEM (liczby, nie wygląd) na
-   `[3.5013]` (dwie ściany, 2026-09-24).** Na `[35021]` operator zobaczył
-   wynik w Tekli ("ta na koniec połozenia były poprawne"). Na `[3.5013]`
-   `--diag-notch-insert-dryrun` pokazał poprawne, spójne liczby na obu
-   końcach (szerokość 42,40 mm, długość 59,96 mm, zgadza się z
-   wcześniejszymi pomiarami/wyliczeniami) - ale NIKT tego jeszcze nie
-   zobaczył na żywym rysunku, bo dry-run nic nie wstawia. Brakuje: realny
-   insert na `[3.5013]` (i najlepiej jeszcze jednym złączu) + wizualne
-   potwierdzenie operatora, zanim to przejdzie pkt 3.
-3. **Dopiero po realnym insercie i wizualnym potwierdzeniu na kilku
-   złączach (w tym z wieloma ścianami):** zdjąć blokadę
-   `PilotDrawingMark`, połączyć z głównym przyciskiem kasowania,
+   ściana cięcia) I na PIERWSZYM końcu `[3.5013]` (2026-09-24, po trzech
+   poprawkach - patrz sekcja "REALNY test na [3.5013]" wyżej: przyciski
+   blokujące się, fałszywy sukces bez weryfikacji, i zły kierunek wymiaru
+   dwa razy z rzędu, zanim wyszło poprawnie).** DRUGI koniec `[3.5013]`
+   też dostał poprawnie policzone `42,40 mm`/`42,40 mm`, ale operator
+   ocenił, że TEN KONKRETNY koniec nie powinien w ogóle dostać wymiaru
+   wcięcia - odkrył NOWY, nierozwiązany problem: "ma ścianę cięcia w
+   bryle" ≠ "potrzebuje wymiaru wcięcia w rysunku". To musi zostać
+   rozwiązane PRZED jakąkolwiek próbą zdjęcia blokady - patrz ta sekcja po
+   szczegóły.
+3. **Dopiero po rozwiązaniu problemu "które złącze faktycznie potrzebuje
+   wymiaru wcięcia" (pkt 2) i wizualnym potwierdzeniu na kilku złączach
+   (w tym z wieloma ścianami):** zdjąć blokadę `PilotDrawingMark`/
+   `AllowedRealInsertMarks`, połączyć z głównym przyciskiem kasowania,
    przeprowadzić przez pełną bramę bezpieczeństwa (dry-run/podgląd →
    operator patrzy na żywy rysunek → potwierdza → dopiero wtedy na stałe).
 4. **UX wyboru widoku** — zaakceptowane 2026-09-23 jako "działa po

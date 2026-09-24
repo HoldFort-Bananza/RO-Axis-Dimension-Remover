@@ -17,6 +17,7 @@ namespace RoAxisDimensionRemover
         private Button _runButton;
         private Button _notchTestButton;
         private Button _notchLengthTestButton;
+        private Button _notchMultiFaceTestButton;
         private TextBox _logBox;
         private Label _statusLabel;
 
@@ -32,7 +33,7 @@ namespace RoAxisDimensionRemover
         {
             Text = "RO Axis Dimension Remover – Tekla 2025";
             Width = 520;
-            Height = 420;
+            Height = 455;
             StartPosition = FormStartPosition.CenterScreen;
 
             _runButton = new Button
@@ -65,10 +66,20 @@ namespace RoAxisDimensionRemover
             };
             _notchLengthTestButton.Click += NotchLengthTestButton_Click;
 
+            _notchMultiFaceTestButton = new Button
+            {
+                Text = "TEST: wstaw wcięcie dla pierwszego wymiaru do osi (multi-face, [35021]/[3.5013])",
+                Left = 15,
+                Top = 130,
+                Width = 470,
+                Height = 30
+            };
+            _notchMultiFaceTestButton.Click += NotchMultiFaceTestButton_Click;
+
             _statusLabel = new Label
             {
                 Left = 15,
-                Top = 131,
+                Top = 166,
                 Width = 470,
                 Height = 20,
                 ForeColor = Color.DarkSlateGray
@@ -77,9 +88,9 @@ namespace RoAxisDimensionRemover
             _logBox = new TextBox
             {
                 Left = 15,
-                Top = 156,
+                Top = 191,
                 Width = 470,
-                Height = 260,
+                Height = 225,
                 Multiline = true,
                 ScrollBars = ScrollBars.Vertical,
                 ReadOnly = true,
@@ -115,6 +126,7 @@ namespace RoAxisDimensionRemover
             Controls.Add(_runButton);
             Controls.Add(_notchTestButton);
             Controls.Add(_notchLengthTestButton);
+            Controls.Add(_notchMultiFaceTestButton);
             Controls.Add(_statusLabel);
             Controls.Add(_logBox);
 
@@ -318,7 +330,6 @@ namespace RoAxisDimensionRemover
             _logBox.Clear();
             Log($"===== {DateTime.Now:HH:mm:ss} TEST SZEROKOŚCI WCIĘCIA =====");
             _busy = true;
-            _notchTestButton.Enabled = false;
             try
             {
                 var handler = new DrawingHandler();
@@ -365,7 +376,6 @@ namespace RoAxisDimensionRemover
             _logBox.Clear();
             Log($"===== {DateTime.Now:HH:mm:ss} TEST DŁUGOŚCI WCIĘCIA =====");
             _busy = true;
-            _notchLengthTestButton.Enabled = false;
             try
             {
                 var handler = new DrawingHandler();
@@ -397,6 +407,118 @@ namespace RoAxisDimensionRemover
             {
                 _busy = false;
             }
+        }
+
+        /// <summary>
+        /// Test bramy bezpieczeństwa dla reguły dopasowania ściana↔wymiar na
+        /// złączu z WIELOMA ścianami cięcia (np. [3.5013]) - dry-run już
+        /// potwierdził poprawne liczby (--diag-notch-insert-dryrun), tu
+        /// robimy REALNY insert, żeby operator mógł ocenić wizualnie w
+        /// Tekli. Znajduje PIERWSZY wymiar do osi (ten sam warunek co
+        /// RoAxisDimensionService.RemoveAxisDimensions) w CAŁYM rysunku,
+        /// bierze jego środek jako punkt referencyjny dla NotchPilot -
+        /// dokładnie scenariusz produkcyjny (skasowany wymiar -> wstawiony
+        /// wymiar wcięcia w jego miejsce), tylko że nic tu nie kasuje.
+        /// </summary>
+        private void NotchMultiFaceTestButton_Click(object sender, EventArgs e)
+        {
+            if (_busy) return;
+            if (MessageBox.Show(this,
+                "Wstawić testowo wymiary wcięcia (szerokość + długość) dla PIERWSZEGO znalezionego wymiaru do osi na aktywnym rysunku?\n\nCtrl+Z w Tekli cofa.",
+                "Test wymiaru wcięcia (multi-face)", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
+            {
+                return;
+            }
+
+            _logBox.Clear();
+            Log($"===== {DateTime.Now:HH:mm:ss} TEST WCIĘCIA (MULTI-FACE) =====");
+            _busy = true;
+            try
+            {
+                var handler = new DrawingHandler();
+                if (!handler.GetConnectionStatus())
+                {
+                    _statusLabel.Text = "Brak połączenia z Teklą.";
+                    return;
+                }
+                var drawing = handler.GetActiveDrawing();
+                if (drawing == null)
+                {
+                    _statusLabel.Text = "Brak otwartego rysunku.";
+                    return;
+                }
+
+                // ZMIERZONE 2026-09-24: wcześniejsza wersja brała TYLKO
+                // pierwszy znaleziony wymiar do osi (break po trafieniu) -
+                // na [3.5013] (dwa złącza) to zawsze łapało to samo pierwsze
+                // złącze, a drugi klik tylko mówił "już istnieje". Teraz
+                // zbieramy WSZYSTKIE i próbujemy wstawić dla każdego -
+                // NotchPilot i tak bezpiecznie pomija te, które już są.
+                var referencePoints = new System.Collections.Generic.List<Tekla.Structures.Geometry3d.Point>();
+                var top = drawing.GetSheet().GetAllObjects();
+                while (top.MoveNext())
+                {
+                    if (!(top.Current is ViewBase view)) continue;
+                    var dims = view.GetAllObjects(new[] { typeof(StraightDimension) });
+                    while (dims.MoveNext())
+                    {
+                        if (!(dims.Current is StraightDimension sd) || !RoAxisDimensionService.TouchesAxis(sd))
+                        {
+                            continue;
+                        }
+                        double ownLength = Distance(sd.StartPoint, sd.EndPoint);
+                        if (ownLength > RoAxisDimensionService.SameJointDistanceMm)
+                        {
+                            continue;
+                        }
+                        var mid = new Tekla.Structures.Geometry3d.Point(
+                            (sd.StartPoint.X + sd.EndPoint.X) / 2, (sd.StartPoint.Y + sd.EndPoint.Y) / 2, (sd.StartPoint.Z + sd.EndPoint.Z) / 2);
+                        referencePoints.Add(mid);
+                    }
+                }
+
+                if (referencePoints.Count == 0)
+                {
+                    _statusLabel.Text = "Nie znaleziono wymiaru do osi na tym rysunku — zobacz log.";
+                    Log("Brak kandydata.");
+                    return;
+                }
+
+                bool anyInserted = false;
+                foreach (var referencePoint in referencePoints)
+                {
+                    Log($"Wymiar do osi, środek=({referencePoint.X:F2};{referencePoint.Y:F2};{referencePoint.Z:F2}):");
+                    bool widthInserted = NotchPilot.InsertWidthTest(drawing, Log, referencePoint);
+                    // ZMIERZONE 2026-09-24: po CommitChanges() ponowne użycie
+                    // TEGO SAMEGO uchwytu Drawing na kolejny insert dawało
+                    // błędną blokadę marki (drawing.Mark przestawał się
+                    // zgadzać) - odświeżamy uchwyt na wszelki wypadek.
+                    drawing = handler.GetActiveDrawing() ?? drawing;
+                    bool lengthInserted = NotchPilot.InsertLengthTest(drawing, Log, referencePoint);
+                    drawing = handler.GetActiveDrawing() ?? drawing;
+                    anyInserted = anyInserted || widthInserted || lengthInserted;
+                }
+                _statusLabel.Text = anyInserted
+                    ? "Wstawiono test wcięcia. Sprawdź go w Tekli (Ctrl+Z cofa)."
+                    : "Test nie wstawił nowego wymiaru — zobacz log.";
+                if (anyInserted) TeklaWindowFocus.BringToFront(Log);
+            }
+            catch (Exception ex)
+            {
+                _statusLabel.Text = "Błąd testu — zobacz log.";
+                Log("BŁĄD: " + ex.Message);
+                Log(ex.StackTrace);
+            }
+            finally
+            {
+                _busy = false;
+            }
+        }
+
+        private static double Distance(Tekla.Structures.Geometry3d.Point a, Tekla.Structures.Geometry3d.Point b)
+        {
+            double x = a.X - b.X, y = a.Y - b.Y, z = a.Z - b.Z;
+            return Math.Sqrt(x * x + y * y + z * z);
         }
 
         /// <summary>
