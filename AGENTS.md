@@ -473,6 +473,29 @@ REALNEGO insertu NIE przeszła jeszcze pełnej bramy - patrz "Następne
 kroki" pkt 2/3, wymaga rozwiązania powyższego problemu domenowego
 najpierw.
 
+**Próba rozwiązania problemu domenowego (2026-09-24, ODŁOŻONA - dwie
+hipotezy obalone danymi, operator zdecydował nie kopać dalej teraz):**
+dopisano `--diag-view-objects "[Mark]"` (`DiagRunner.RunViewObjectsDiag`,
+tylko odczyt - zrzuca typy WSZYSTKICH obiektów w każdym widoku, nie tylko
+wymiarów). Sprawdzone na `[3.5013]`:
+- Hipoteza 1 (obecność `AngleDimension` - obiektu "45°" - jako sygnał "to
+  złącze trzeba opisać"): OBALONA. Oba widoki (dobry koniec i ten, który
+  operator odrzucił) mają dokładnie `AngleDimension x1` każdy - nie
+  odróżnia.
+- Hipoteza 2 (typ widoku - `DetailView` vs zwykły `View`): OBALONA. Oba
+  widoki to zwykły `View`.
+- Oba widoki mają też identyczny zestaw typów obiektów poza tym
+  (`Connection x1`, `Part x1`, różne tylko liczbą `StraightDimension`/
+  `Mark`/`LeaderLine`) - żaden prosty sygnał typu obiektu nie odróżnia.
+**Wniosek: to rozróżnienie NIE wynika z prostego inwentarza typów obiektów
+w widoku - albo trzeba by zajrzeć głębiej w konkretne właściwości
+`Connection` (np. relację do sąsiedniego elementu `31056` widocznego na
+zrzutach operatora), albo to faktycznie wymaga oceny wizualnej człowieka,
+której nie da się łatwo zredukować do reguły API.** Operator zdecydował
+(2026-09-24) odłożyć to na razie, zamiast kopać dalej "na wyczucie" -
+zgodnie z AGENTS.md pkt 4. `--diag-view-objects` zostaje w kodzie jako
+narzędzie do ewentualnego podjęcia tematu później.
+
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
 Para `21`/`21` na `[3.5013]` to NIE była duplikat. Reguła v4 (kasuj
@@ -585,6 +608,7 @@ RoAxisDimensionRemover.exe --diag-notch            # tylko odczyt: geometria bry
 RoAxisDimensionRemover.exe --diag-dimension-style  # tylko odczyt: styl (Attributes/UpDirection/Distance) istniejących wymiarów
 RoAxisDimensionRemover.exe --diag-notch-match "[3.5013]"  # tylko odczyt: dopasowanie wymiar do osi -> najbliższa ściana cięcia
 RoAxisDimensionRemover.exe --diag-notch-insert-dryrun "[3.5013]"  # tylko odczyt: NotchPilot w dry-run dla każdego wymiaru do osi
+RoAxisDimensionRemover.exe --diag-view-objects "[3.5013]"  # tylko odczyt: typy wszystkich obiektów w widoku (research nad regułą "które złącze pokazać")
 ```
 
 `dryRun` jest we wszystkich na sztywno `true` w `DiagRunner.cs` — nie da się
@@ -685,9 +709,13 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
    też dostał poprawnie policzone `42,40 mm`/`42,40 mm`, ale operator
    ocenił, że TEN KONKRETNY koniec nie powinien w ogóle dostać wymiaru
    wcięcia - odkrył NOWY, nierozwiązany problem: "ma ścianę cięcia w
-   bryle" ≠ "potrzebuje wymiaru wcięcia w rysunku". To musi zostać
-   rozwiązane PRZED jakąkolwiek próbą zdjęcia blokady - patrz ta sekcja po
-   szczegóły.
+   bryle" ≠ "potrzebuje wymiaru wcięcia w rysunku". Dwie hipotezy na regułę
+   rozróżniającą (obecność `AngleDimension`, typ widoku) sprawdzone i
+   OBALONE `--diag-view-objects` (patrz sekcja wyżej). **ODŁOŻONE na
+   życzenie operatora 2026-09-24** - nie kopać dalej bez nowego pomysłu
+   albo wyraźnego zgłoszenia. Praca nad wieloma ścianami wstrzymana; pilot
+   zostaje ograniczony jak było (`PilotDrawingMark`, realnie tylko
+   `[35021]`).
 3. **Dopiero po rozwiązaniu problemu "które złącze faktycznie potrzebuje
    wymiaru wcięcia" (pkt 2) i wizualnym potwierdzeniu na kilku złączach
    (w tym z wieloma ścianami):** zdjąć blokadę `PilotDrawingMark`/

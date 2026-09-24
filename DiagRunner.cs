@@ -599,6 +599,107 @@ namespace RoAxisDimensionRemover
             }
         }
 
+        /// <summary>
+        /// Tylko odczyt: zrzuca WSZYSTKIE obiekty w każdym widoku (nie tylko
+        /// wymiary) - typ i podstawowe dane. Cel: sprawdzić, czym w Open API
+        /// jest adnotacja kąta ("45°"/"19,90°") widoczna na rysunku przy
+        /// skośnym cięciu - operator (2026-09-24) zauważył, że bryła może
+        /// mieć geometryczną ścianę cięcia bez potrzeby wymiaru wcięcia w
+        /// rysunku, a obecność takiej adnotacji może być sygnałem "to
+        /// złącze faktycznie trzeba opisać". Patrz AGENTS.md, "Następne
+        /// kroki" pkt 2 - to research pod tę regułę, nie gotowa reguła.
+        /// </summary>
+        public static void RunViewObjectsDiag(string mark)
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+
+            Drawing drawing = null;
+            var drawings = dh.GetDrawings();
+            while (drawings.MoveNext())
+            {
+                if (string.Equals(drawings.Current.Mark, mark, StringComparison.OrdinalIgnoreCase))
+                {
+                    drawing = drawings.Current;
+                    break;
+                }
+            }
+            if (drawing == null)
+            {
+                Log($"Nie znaleziono rysunku o Mark={mark}.");
+                return;
+            }
+            dh.SetActiveDrawing(drawing, true);
+
+            Log($"[view-objects] Rysunek: {drawing.Mark} / {drawing.Name}");
+            int viewIndex = 0;
+            var top = drawing.GetSheet().GetAllObjects();
+            while (top.MoveNext())
+            {
+                if (!(top.Current is ViewBase view)) continue;
+                viewIndex++;
+                Log($"[view-objects] widok {viewIndex}: typ widoku={view.GetType().Name}");
+                var objects = view.GetAllObjects();
+                var counts = new Dictionary<string, int>();
+                while (objects.MoveNext())
+                {
+                    var obj = objects.Current;
+                    if (obj == null) continue;
+                    string typeName = obj.GetType().Name;
+                    counts[typeName] = counts.TryGetValue(typeName, out int c) ? c + 1 : 1;
+
+                    // Loguj szczegóły dla typów, które mogą być adnotacją
+                    // kąta - nazwa klasy nie jest znana z góry, więc łapiemy
+                    // szeroko (Note/Text/Symbol/Mark w nazwie typu) i
+                    // zrzucamy refleksją co ma.
+                    if (typeName.IndexOf("Note", StringComparison.OrdinalIgnoreCase) >= 0
+                        || typeName.IndexOf("Text", StringComparison.OrdinalIgnoreCase) >= 0
+                        || typeName.IndexOf("Symbol", StringComparison.OrdinalIgnoreCase) >= 0
+                        || typeName.IndexOf("Angular", StringComparison.OrdinalIgnoreCase) >= 0
+                        || typeName.IndexOf("Weld", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        Log($"[view-objects]   widok {viewIndex}, typ={typeName}: {DumpFirstStringProperty(obj)}");
+                    }
+                }
+                foreach (var kv in counts)
+                {
+                    Log($"[view-objects] widok {viewIndex}: {kv.Key} x{kv.Value}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Refleksja: szuka pierwszej właściwości typu string (np. Text,
+        /// Content, Value) na obiekcie i zwraca "Nazwa=Wartość" - szybki
+        /// podgląd zawartości nieznanego typu bez ręcznego wypisywania
+        /// wszystkich właściwości API.
+        /// </summary>
+        private static string DumpFirstStringProperty(object obj)
+        {
+            try
+            {
+                foreach (var prop in obj.GetType().GetProperties())
+                {
+                    if (prop.PropertyType != typeof(string) || !prop.CanRead) continue;
+                    string value;
+                    try { value = prop.GetValue(obj) as string; }
+                    catch { continue; }
+                    if (!string.IsNullOrEmpty(value)) return $"{prop.Name}={value}";
+                }
+                return "(brak właściwości string z treścią)";
+            }
+            catch (Exception ex)
+            {
+                return $"(błąd odczytu: {ex.GetType().Name}: {ex.Message})";
+            }
+        }
+
         private static void LogCandidateFace(View view, Face cutFace, List<Tekla.Structures.Geometry3d.Point> outerLoop, Action<string> log)
         {
             var centroid = Centroid(outerLoop);
