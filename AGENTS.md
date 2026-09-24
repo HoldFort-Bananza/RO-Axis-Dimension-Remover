@@ -370,21 +370,44 @@ najmniejszym dystansie środek-wymiaru↔centroid-ściany.
 zweryfikowana ODCZYTOWO (log, brak modyfikacji rysunku) - to nieskrócone,
 mimo że reguła wygląda obiecująco na obu przykładach.
 
-**2026-09-24: reguła wpięta do `NotchPilot` (kod, NIE zweryfikowane na
-żywo — brak wolnej licencji Tekli w tej sesji).** `InsertWidthTest`/
-`InsertLengthTest`/`InsertTest` przyjmują teraz opcjonalny
-`TSG.Point referencePoint = null` (domyślnie `null` - zachowanie obu
-istniejących przycisków testowych w `MainForm.cs`, które go NIE
-przekazują, jest więc niezmienione: nadal wymagają dokładnie 1 kandydata w
-całym rysunku). Gdy `referencePoint` jest podany I kandydatów jest więcej
-niż 1, `InsertTest` wybiera najbliższy (środek cięciwy kandydata vs
-`referencePoint`) zamiast się zatrzymywać - i JAWNIE loguje, że wybrał, z
-odległością (nie cicho, zgodnie z ostrzeżeniem w kodzie o poprzednim
-błędzie z `LoopSpan`). Nic jeszcze nie WOŁA tej ścieżki z realnym punktem
-referencyjnym (żaden przycisk go nie przekazuje) - to czysto przygotowanie
-API, zanim ktoś je podłączy do faktycznego punktu z usuwanego wymiaru.
-Blokada `PilotDrawingMark = "[35021]"` NIETKNIĘTA - patrz "Następne kroki"
-pkt 3, zdjąć dopiero po potwierdzeniu na kilku złączach.
+**2026-09-24: reguła wpięta do `NotchPilot`, i to potwierdzone DRY-RUNEM
+na żywym `[3.5013]`.** `InsertWidthTest`/`InsertLengthTest`/`InsertTest`
+przyjmują teraz opcjonalny `TSG.Point referencePoint = null` (domyślnie
+`null` - zachowanie obu istniejących przycisków testowych w `MainForm.cs`,
+które go NIE przekazują, jest więc niezmienione: nadal wymagają dokładnie
+1 kandydata w całym rysunku). Gdy `referencePoint` jest podany I
+kandydatów jest więcej niż 1, `InsertTest` wybiera najbliższy (środek
+cięciwy kandydata vs `referencePoint`) zamiast się zatrzymywać - i JAWNIE
+loguje, że wybrał, z odległością (nie cicho, zgodnie z ostrzeżeniem w
+kodzie o poprzednim błędzie z `LoopSpan`).
+
+**`InsertTest` dostał też `dryRun` (domyślnie `false`, zachowanie
+przycisków bez zmian).** Gdy `dryRun: true`: blokada
+`PilotDrawingMark = "[35021]"` jest POMIJANA (dry-run nic nie modyfikuje,
+więc bezpiecznie testować regułę na INNYCH złączach bez zdejmowania
+blokady dla realnego insertu), a na końcu zamiast `Insert()`/
+`CommitChanges()` program tylko LOGUJE, co by wstawił. Nowy tryb
+konsolowy `--diag-notch-insert-dryrun "[Mark]"` (`DiagRunner.
+RunNotchInsertDryRun`, zawsze `dryRun: true`, jak cała reszta `--diag-*`)
+dla KAŻDEGO wymiaru do osi w rysunku (tego samego, który
+`RemoveAxisDimensions` by skasował) woła `NotchPilot` z jego środkiem jako
+`referencePoint` - dokładnie scenariusz produkcyjny, tylko bez ryzyka.
+
+**Wynik na żywym `[3.5013]` (2026-09-24):** oba końce złącza (odległe
+~5775 mm) dały spójne, poprawne wartości: szerokość `42,40 mm` (średnica
+profilu, zgadza się z wcześniejszym pomiarem), długość `59,96 mm` (zgadza
+się z wyliczeniem trygonometrycznym `42,4/cos(45°)=59,96` z sesji
+badającej geometrię wcięcia). Dopasowanie wybrało właściwego kandydata za
+każdym razem (odległość `18,36 mm`, ten sam rząd wielkości co w
+`--diag-notch-match` wczoraj). **To pierwsze potwierdzenie, że reguła
+dopasowania wpięta W SAM `NotchPilot` (nie tylko w niezależnej
+reimplementacji w `DiagRunner`) daje poprawny wynik na złączu z wieloma
+ścianami cięcia** - adresuje lukę z "Następne kroki" pkt 2. Wciąż NIE
+przeszło pełnej bramy: żaden realny insert się nie odbył, operator nic nie
+zobaczył wizualnie w Tekli - dry-run pokazuje tylko liczby, nie wygląd.
+Blokada `PilotDrawingMark = "[35021]"` dla REALNEGO insertu nadal
+NIETKNIĘTA - patrz "Następne kroki" pkt 3, zdjąć dopiero po realnym
+insercie i wizualnym potwierdzeniu operatora na kilku złączach.
 
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
@@ -497,6 +520,7 @@ RoAxisDimensionRemover.exe --diag-mark "[3.5013]"  # otwiera rysunek po Mark, po
 RoAxisDimensionRemover.exe --diag-notch            # tylko odczyt: geometria bryły + kandydat na wymiar wcięcia
 RoAxisDimensionRemover.exe --diag-dimension-style  # tylko odczyt: styl (Attributes/UpDirection/Distance) istniejących wymiarów
 RoAxisDimensionRemover.exe --diag-notch-match "[3.5013]"  # tylko odczyt: dopasowanie wymiar do osi -> najbliższa ściana cięcia
+RoAxisDimensionRemover.exe --diag-notch-insert-dryrun "[3.5013]"  # tylko odczyt: NotchPilot w dry-run dla każdego wymiaru do osi
 ```
 
 `dryRun` jest we wszystkich na sztywno `true` w `DiagRunner.cs` — nie da się
@@ -524,7 +548,7 @@ blokuje proces, `taskkill` to jedyny sposób go zakończyć.**
 | `MainForm.cs` | UI: główny przycisk kasowania, log do okna i do pliku (`dryRun: false` od 2026-09-23 — brama v5 przeszła). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie). Fokus na Teklę po operacji tylko gdy `!dryRun`. Plus DWA przyciski testowe (`NotchTestButton_Click`/`NotchLengthTestButton_Click`) wołające `NotchPilot` — z potwierdzeniem w MessageBox, celowo poza głównym flow |
 | `NotchPilot.cs` | pilot TWORZENIA wymiaru wcięcia — twardo zablokowany do `[35021]` (`PilotDrawingMark`), realnie wstawia `StraightDimension` na żywy rysunek. Potwierdzony wizualnie przez operatora 2026-09-23. Patrz sekcja "Wymiar wcięcia" wyżej po pełny opis ograniczeń |
 | `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark`/`--diag-notch`/`--diag-dimension-style` dla trybu konsolowego |
-| `DiagRunner.cs` | headless runner dry-run + `RunNotchDiag`/`TryLogNotchCandidate` (research geometrii wcięcia) + `RunDimensionStyleDiag` (styl istniejących wymiarów, źródło danych dla `NotchPilot`) + `RunNotchMatchDiag` (dopasowanie wymiar↔ściana cięcia po najbliższości w układzie widoku, patrz "Reguła dopasowania ściana↔wymiar") — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
+| `DiagRunner.cs` | headless runner dry-run + `RunNotchDiag`/`TryLogNotchCandidate` (research geometrii wcięcia) + `RunDimensionStyleDiag` (styl istniejących wymiarów, źródło danych dla `NotchPilot`) + `RunNotchMatchDiag` (dopasowanie wymiar↔ściana cięcia po najbliższości w układzie widoku, patrz "Reguła dopasowania ściana↔wymiar") + `RunNotchInsertDryRun` (woła `NotchPilot` w dry-run dla każdego wymiaru do osi, potwierdzone na żywym [3.5013]) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) |
 | `TeklaWindowFocus.cs` | przełącza fokus Windows na główne okno Tekla Structures (Win32 `SetForegroundWindow`, nie API Tekli). **Nie wołać PRZED startem Pickera** — podejrzenie, że to psuje stan interaktywnej komendy Tekli |
 | `installer/setup.iss`, `installer/fetch-dependencies.ps1`, `installer/TeklaEULA.txt` | instalator Inno Setup — nie dołącza bibliotek Tekla, dociąga je z NuGet po instalacji |
@@ -589,20 +613,21 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
    NIC z tego nie zostało zweryfikowane na żywo (brak licencji Tekli
    2026-09-24) - do zrobienia przy najbliższej okazji z działającą Teklą,
    potem dopiero brama dla tworzenia od nowa (pkt 3 niżej).
-2. **Wymiar wcięcia — pilot potwierdzony na `[35021]` (jedna ściana
-   cięcia), NIE przetestowany na złączu z wieloma ścianami.** `NotchPilot`
-   zadziałał wizualnie poprawnie (operator: "ta na koniec połozenia były
-   poprawne") dla obu wymiarów (szerokość 42,4 mm, długość 45,09 mm).
-   `FindChordCandidates`/`TryLogNotchCandidate` naprawione, żeby nie gubić
-   milcząco dodatkowych kandydatów (patrz wyżej) — ale sama reguła wyboru
-   "który jest właściwy" (pkt 1) wciąż nie istnieje, więc próba na
-   `[3.5013]` z obecnym kodem po prostu odmówi (2 kandydaty zamiast 1),
-   co jest bezpiecznym, ale nieukończonym stanem.
-3. **Dopiero po rozwiązaniu pkt 1 i potwierdzeniu na kilku złączach
-   (w tym z wieloma ścianami):** zdjąć blokadę `PilotDrawingMark`, połączyć
-   z głównym przyciskiem kasowania, przeprowadzić przez pełną bramę
-   bezpieczeństwa (dry-run/podgląd → operator patrzy na żywy rysunek →
-   potwierdza → dopiero wtedy na stałe).
+2. **Wymiar wcięcia — pilot potwierdzony WIZUALNIE na `[35021]` (jedna
+   ściana cięcia), potwierdzony DRY-RUNEM (liczby, nie wygląd) na
+   `[3.5013]` (dwie ściany, 2026-09-24).** Na `[35021]` operator zobaczył
+   wynik w Tekli ("ta na koniec połozenia były poprawne"). Na `[3.5013]`
+   `--diag-notch-insert-dryrun` pokazał poprawne, spójne liczby na obu
+   końcach (szerokość 42,40 mm, długość 59,96 mm, zgadza się z
+   wcześniejszymi pomiarami/wyliczeniami) - ale NIKT tego jeszcze nie
+   zobaczył na żywym rysunku, bo dry-run nic nie wstawia. Brakuje: realny
+   insert na `[3.5013]` (i najlepiej jeszcze jednym złączu) + wizualne
+   potwierdzenie operatora, zanim to przejdzie pkt 3.
+3. **Dopiero po realnym insercie i wizualnym potwierdzeniu na kilku
+   złączach (w tym z wieloma ścianami):** zdjąć blokadę
+   `PilotDrawingMark`, połączyć z głównym przyciskiem kasowania,
+   przeprowadzić przez pełną bramę bezpieczeństwa (dry-run/podgląd →
+   operator patrzy na żywy rysunek → potwierdza → dopiero wtedy na stałe).
 4. **UX wyboru widoku** — zaakceptowane 2026-09-23 jako "działa po
    kliknięciu w geometrię partu; Esc → lista jako zapasowa ścieżka". Nie
    próbować dalej "naprawiać" bez nowego wyraźnego zgłoszenia operatora.

@@ -531,6 +531,74 @@ namespace RoAxisDimensionRemover
             }
         }
 
+        /// <summary>
+        /// Tylko odczyt: dla każdego wymiaru do osi (ten sam, który
+        /// RemoveAxisDimensions by skasował), woła NotchPilot w trybie
+        /// dry-run z punktem środka tego wymiaru jako referencją - dokładnie
+        /// scenariusz, do którego reguła dopasowania ściana↔wymiar została
+        /// zaprojektowana (patrz AGENTS.md), tylko bez blokady marki i bez
+        /// realnego Insert()/CommitChanges(). Loguje, co NotchPilot
+        /// wstawiłby dla każdego wymiaru osobno - pozwala sprawdzić złącza
+        /// z wieloma ścianami cięcia (np. [3.5013]) bez ryzyka.
+        /// </summary>
+        public static void RunNotchInsertDryRun(string mark)
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+
+            Drawing drawing = null;
+            var drawings = dh.GetDrawings();
+            while (drawings.MoveNext())
+            {
+                if (string.Equals(drawings.Current.Mark, mark, StringComparison.OrdinalIgnoreCase))
+                {
+                    drawing = drawings.Current;
+                    break;
+                }
+            }
+            if (drawing == null)
+            {
+                Log($"Nie znaleziono rysunku o Mark={mark}.");
+                return;
+            }
+            dh.SetActiveDrawing(drawing, true);
+
+            Log($"[notch-insert] Rysunek: {drawing.Mark} / {drawing.Name}");
+            var top = drawing.GetSheet().GetAllObjects();
+            while (top.MoveNext())
+            {
+                if (!(top.Current is View view))
+                {
+                    continue;
+                }
+
+                var dims = view.GetAllObjects(new[] { typeof(StraightDimension) });
+                while (dims.MoveNext())
+                {
+                    if (!(dims.Current is StraightDimension sd) || !RoAxisDimensionService.TouchesAxis(sd))
+                    {
+                        continue;
+                    }
+                    double ownLength = Distance(sd.StartPoint, sd.EndPoint);
+                    if (ownLength > RoAxisDimensionService.SameJointDistanceMm)
+                    {
+                        continue;
+                    }
+                    var mid = new Tekla.Structures.Geometry3d.Point(
+                        (sd.StartPoint.X + sd.EndPoint.X) / 2, (sd.StartPoint.Y + sd.EndPoint.Y) / 2, (sd.StartPoint.Z + sd.EndPoint.Z) / 2);
+                    Log($"[notch-insert] wymiar do osi mid={PointStr(mid)} własna_długość={ownLength:F1} mm ->");
+                    NotchPilot.InsertWidthTest(drawing, s => Log("[notch-insert]   " + s), mid, dryRun: true);
+                    NotchPilot.InsertLengthTest(drawing, s => Log("[notch-insert]   " + s), mid, dryRun: true);
+                }
+            }
+        }
+
         private static void LogCandidateFace(View view, Face cutFace, List<Tekla.Structures.Geometry3d.Point> outerLoop, Action<string> log)
         {
             var centroid = Centroid(outerLoop);

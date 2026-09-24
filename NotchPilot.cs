@@ -14,19 +14,23 @@ namespace RoAxisDimensionRemover
         private const string PilotDrawingMark = "[35021]";
         private const double NumericalZero = 0.000001;
 
-        public static bool InsertWidthTest(Drawing drawing, Action<string> log, TSG.Point referencePoint = null)
+        public static bool InsertWidthTest(Drawing drawing, Action<string> log, TSG.Point referencePoint = null, bool dryRun = false)
         {
-            return InsertTest(drawing, log, longest: false, label: "szerokości", referencePoint);
+            return InsertTest(drawing, log, longest: false, label: "szerokości", referencePoint, dryRun);
         }
 
-        public static bool InsertLengthTest(Drawing drawing, Action<string> log, TSG.Point referencePoint = null)
+        public static bool InsertLengthTest(Drawing drawing, Action<string> log, TSG.Point referencePoint = null, bool dryRun = false)
         {
-            return InsertTest(drawing, log, longest: true, label: "długości", referencePoint);
+            return InsertTest(drawing, log, longest: true, label: "długości", referencePoint, dryRun);
         }
 
-        private static bool InsertTest(Drawing drawing, Action<string> log, bool longest, string label, TSG.Point referencePoint)
+        private static bool InsertTest(Drawing drawing, Action<string> log, bool longest, string label, TSG.Point referencePoint, bool dryRun)
         {
-            if (!string.Equals(drawing.Mark, PilotDrawingMark, StringComparison.OrdinalIgnoreCase))
+            // Blokada marki dotyczy tylko REALNEGO wstawienia - dry-run
+            // nic nie modyfikuje, więc to bezpieczne do sprawdzenia reguły
+            // dopasowania na innych złączach (np. [3.5013], wiele ścian
+            // cięcia) bez zdejmowania blokady dla prawdziwego insertu.
+            if (!dryRun && !string.Equals(drawing.Mark, PilotDrawingMark, StringComparison.OrdinalIgnoreCase))
             {
                 log("TEST WSTRZYMANY: pilot jest ograniczony do rysunku " + PilotDrawingMark + ".");
                 return false;
@@ -120,6 +124,14 @@ namespace RoAxisDimensionRemover
             {
                 log("TEST WSTRZYMANY: nie znaleziono istniejącego wymiaru jako wzorca stylu.");
                 return false;
+            }
+
+            if (dryRun)
+            {
+                log($"[dry-run] {label} wcięcia: wstawiłbym {Distance(width.Start, width.End):F2} mm, " +
+                    $"Start=({width.Start.X:F2};{width.Start.Y:F2};{width.Start.Z:F2}) " +
+                    $"End=({width.End.X:F2};{width.End.Y:F2};{width.End.Z:F2}) - styl wzięty z istniejącego wymiaru w widoku. Nic nie zmieniono.");
+                return true;
             }
 
             // Przejmujemy faktyczny styl i odsunięcie z rysunku. Obrót
