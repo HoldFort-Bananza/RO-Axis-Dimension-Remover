@@ -14,17 +14,17 @@ namespace RoAxisDimensionRemover
         private const string PilotDrawingMark = "[35021]";
         private const double NumericalZero = 0.000001;
 
-        public static bool InsertWidthTest(Drawing drawing, Action<string> log)
+        public static bool InsertWidthTest(Drawing drawing, Action<string> log, TSG.Point referencePoint = null)
         {
-            return InsertTest(drawing, log, longest: false, label: "szerokości");
+            return InsertTest(drawing, log, longest: false, label: "szerokości", referencePoint);
         }
 
-        public static bool InsertLengthTest(Drawing drawing, Action<string> log)
+        public static bool InsertLengthTest(Drawing drawing, Action<string> log, TSG.Point referencePoint = null)
         {
-            return InsertTest(drawing, log, longest: true, label: "długości");
+            return InsertTest(drawing, log, longest: true, label: "długości", referencePoint);
         }
 
-        private static bool InsertTest(Drawing drawing, Action<string> log, bool longest, string label)
+        private static bool InsertTest(Drawing drawing, Action<string> log, bool longest, string label, TSG.Point referencePoint)
         {
             if (!string.Equals(drawing.Mark, PilotDrawingMark, StringComparison.OrdinalIgnoreCase))
             {
@@ -72,13 +72,42 @@ namespace RoAxisDimensionRemover
                 }
             }
 
-            if (candidates.Count != 1)
+            Candidate width;
+            if (candidates.Count == 1)
             {
-                log($"TEST WSTRZYMANY: znaleziono {candidates.Count} płaskich kandydatów {label}; wymagany jest dokładnie jeden.");
+                width = candidates[0];
+            }
+            else if (candidates.Count > 1 && referencePoint != null)
+            {
+                // Reguła dopasowania ściana↔wymiar, zaprojektowana i
+                // zweryfikowana ODCZYTOWO na [35021] i [3.5013] przez
+                // --diag-notch-match 2026-09-23 (patrz AGENTS.md, sekcja
+                // "Reguła dopasowania ściana↔wymiar"): StraightDimension i
+                // punkty ściany po ToViewSpace żyją w tym samym lokalnym
+                // układzie widoku, więc "najbliższy środek cięciwy do
+                // środka usuwanego wymiaru" jednoznacznie rozdzielił oba
+                // końce [3.5013] (~5775 mm od siebie vs 15-18 mm do
+                // właściwej ściany). Loguje wybór jawnie - nie cicho, jak
+                // ostrzega komentarz przy zbieraniu kandydatów wyżej.
+                width = candidates[0];
+                double bestDistance = Distance(referencePoint, Midpoint(width));
+                foreach (var candidate in candidates)
+                {
+                    double distance = Distance(referencePoint, Midpoint(candidate));
+                    if (distance < bestDistance)
+                    {
+                        bestDistance = distance;
+                        width = candidate;
+                    }
+                }
+                log($"Znaleziono {candidates.Count} płaskich kandydatów {label} - wybrano najbliższy punktowi referencyjnemu (odległość {bestDistance:F2} mm).");
+            }
+            else
+            {
+                log($"TEST WSTRZYMANY: znaleziono {candidates.Count} płaskich kandydatów {label}; wymagany jest dokładnie jeden (albo punkt referencyjny do wyboru najbliższego).");
                 return false;
             }
 
-            var width = candidates[0];
             if (HasSameDimension(width.View, width.Start, width.End))
             {
                 log("TEST WSTRZYMANY: taki wymiar już istnieje w widoku.");
@@ -214,6 +243,9 @@ namespace RoAxisDimensionRemover
             var pick = longest ? throughCenter[throughCenter.Count - 1] : throughCenter[0];
             return (pick.A, pick.B);
         }
+
+        private static TSG.Point Midpoint(Candidate c) =>
+            new TSG.Point((c.Start.X + c.End.X) / 2, (c.Start.Y + c.End.Y) / 2, (c.Start.Z + c.End.Z) / 2);
 
         private static double Distance(TSG.Point a, TSG.Point b)
         {

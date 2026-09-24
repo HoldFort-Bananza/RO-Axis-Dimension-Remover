@@ -366,13 +366,25 @@ najmniejszym dystansie środek-wymiaru↔centroid-ściany.
   (jest tylko jeden kandydat, więc "dopasowanie" jest trywialne, ale
   potwierdza, że reguła nie psuje prostego przypadku).
 
-**Nadal NIE wpięte do `NotchPilot`/głównego przycisku.** To jest
-zweryfikowane ODCZYTOWO (log, brak modyfikacji rysunku) - następny krok to
-użycie tej reguły w `NotchPilot.FindChordCandidates` (żeby przyjmował
-punkt referencyjny usuwanego wymiaru i wybierał najbliższą ścianę zamiast
-wymagać dokładnie 1 kandydata w całym rysunku), a DOPIERO POTEM przejście
-pełnej bramy bezpieczeństwa dla tworzenia (patrz "Następne kroki" pkt 3) -
-nieskrócone, mimo że reguła wygląda obiecująco na obu przykładach.
+**Nadal NIE wpięte do głównego przycisku.** Sama reguła była
+zweryfikowana ODCZYTOWO (log, brak modyfikacji rysunku) - to nieskrócone,
+mimo że reguła wygląda obiecująco na obu przykładach.
+
+**2026-09-24: reguła wpięta do `NotchPilot` (kod, NIE zweryfikowane na
+żywo — brak wolnej licencji Tekli w tej sesji).** `InsertWidthTest`/
+`InsertLengthTest`/`InsertTest` przyjmują teraz opcjonalny
+`TSG.Point referencePoint = null` (domyślnie `null` - zachowanie obu
+istniejących przycisków testowych w `MainForm.cs`, które go NIE
+przekazują, jest więc niezmienione: nadal wymagają dokładnie 1 kandydata w
+całym rysunku). Gdy `referencePoint` jest podany I kandydatów jest więcej
+niż 1, `InsertTest` wybiera najbliższy (środek cięciwy kandydata vs
+`referencePoint`) zamiast się zatrzymywać - i JAWNIE loguje, że wybrał, z
+odległością (nie cicho, zgodnie z ostrzeżeniem w kodzie o poprzednim
+błędzie z `LoopSpan`). Nic jeszcze nie WOŁA tej ścieżki z realnym punktem
+referencyjnym (żaden przycisk go nie przekazuje) - to czysto przygotowanie
+API, zanim ktoś je podłączy do faktycznego punktu z usuwanego wymiaru.
+Blokada `PilotDrawingMark = "[35021]"` NIETKNIĘTA - patrz "Następne kroki"
+pkt 3, zdjąć dopiero po potwierdzeniu na kilku złączach.
 
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
@@ -567,14 +579,16 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
 ## Następne kroki
 
 1. **Reguła "który kandydat odpowiada któremu złączu/wymiarowi" —
-   ZAPROJEKTOWANA I ZWERYFIKOWANA ODCZYTOWO 2026-09-23** (patrz sekcja
-   "Reguła dopasowania ściana↔wymiar" wyżej): najbliższa ściana cięcia
-   (centroid w układzie widoku) do środka usuwanego wymiaru. Potwierdzona
-   przez `--diag-notch-match` na `[35021]` (1 ściana) i `[3.5013]` (2
-   ściany, jednoznaczna separacja ~5775 mm vs 15-18 mm). Pozostaje: wpiąć
-   tę regułę do `NotchPilot.FindChordCandidates` zamiast wymogu "dokładnie
-   1 kandydat w całym rysunku", potem przejść bramę dla tworzenia od nowa
-   (pkt 3 niżej) — sama weryfikacja diagnostyczna NIE zwalnia z bramy.
+   ZAPROJEKTOWANA, ZWERYFIKOWANA ODCZYTOWO 2026-09-23, WPIĘTA DO KODU
+   2026-09-24** (patrz sekcja "Reguła dopasowania ściana↔wymiar" wyżej):
+   najbliższa ściana cięcia (centroid w układzie widoku) do środka
+   usuwanego wymiaru. Potwierdzona przez `--diag-notch-match` na `[35021]`
+   (1 ściana) i `[3.5013]` (2 ściany, jednoznaczna separacja ~5775 mm vs
+   15-18 mm). `NotchPilot.InsertTest` umie teraz z niej skorzystać
+   (opcjonalny `referencePoint`), ale NIC jeszcze go nie przekazuje i
+   NIC z tego nie zostało zweryfikowane na żywo (brak licencji Tekli
+   2026-09-24) - do zrobienia przy najbliższej okazji z działającą Teklą,
+   potem dopiero brama dla tworzenia od nowa (pkt 3 niżej).
 2. **Wymiar wcięcia — pilot potwierdzony na `[35021]` (jedna ściana
    cięcia), NIE przetestowany na złączu z wieloma ścianami.** `NotchPilot`
    zadziałał wizualnie poprawnie (operator: "ta na koniec połozenia były
