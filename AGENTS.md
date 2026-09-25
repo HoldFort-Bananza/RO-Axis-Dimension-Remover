@@ -685,6 +685,57 @@ przez wybór z dwóch opcji - operator wybrał "zdejmij blokadę całkowicie",
 **Nierozwiązany problem z 2026-09-24 pozostaje otwarty i TERAZ BEZ
 OSŁONY** - patrz ostrzeżenie w sekcji "Wymiar wcięcia" wyżej.
 
+## KRYTYCZNE ZNALEZISKO 2026-09-25: `TouchesAxis` NIE była ograniczona do profili RO
+
+Przy szukaniu nowego kandydata do testów (po tym, jak `[3.5013]` zostało
+usunięte z modelu przez operatora - "All parts deleted") dopisano
+`--diag-find-candidates` (skanuje WSZYSTKIE rysunki w modelu, bez
+otwierania żadnego na ekranie, loguje te z choć jednym wymiarem do osi).
+Pierwszy skan (2285 rysunków) pokazał **setki** trafień na `Blech`
+(blacha), `Träger` (dźwigar), `Winkel` (kątownik) - profilach
+CAŁKOWICIE INNYCH niż RO. Sprawdzenie kodu potwierdziło: `TouchesAxis`
+(i cała `RemoveAxisDimensions`) to czysto geometryczny test (współrzędna
+blisko zera + głębia Z + krótka własna długość) - **nic nigdy nie
+sprawdzało, czy część jest w ogóle profilem RO**, mimo że nazwa
+narzędzia i wszystkie komentarze zakładają wyłącznie RO.
+
+**Potwierdzone na żywym `[21050]`** (blacha z rozstawem otworów
+20/30/70/120/130 mm, otwarta w Tekli operatorowi do wglądu): program
+"znalazł" 4 kandydatów do usunięcia (3× `30 mm`, 1× `130 mm`) - zwykłe,
+potrzebne wymiary rozstawu otworów, zero związku ze skosem/cięciem rury.
+Operator: "moim zdaniem nic nie powinniśmy kasować z tej blachy." To był
+REALNY, nie teoretyczny, risk: gdyby ktoś kiedyś kliknął "Usuń wymiary do
+osi" na widoku takiej blachy (albo dźwigara, kątownika), program
+naprawdę by tam coś skasował.
+
+**Naprawa (`RoAxisDimensionService.RemoveAxisDimensions`):** nowy guard
+`ViewHasRoProfile` na samym początku metody - przez `Model.
+SelectModelObject(Part.ModelIdentifier)` sprawdza, czy widok zawiera choć
+jedną część, której `Profile.ProfileString` zaczyna się na `"RO"`
+(konwencja katalogu Tekli, zmierzona na `[35021]`/`[3.5013]`:
+`"RO42.4*3.2"`). Jeśli nie - metoda kończy się natychmiast, loguje
+"Ten widok nie zawiera części o profilu RO... nic nie kasuję" i NIC nie
+sprawdza dalej (`TouchesAxis` w ogóle się nie odpala dla takiego widoku).
+Brak połączenia z `Model` = bezpieczny domyślny wynik `false` (nic nie
+kasuj), nigdy "zgaduj, że to RO".
+
+**Zweryfikowane na żywo po naprawie:**
+- `[21050]` (blacha): `0` kandydatów (było `4`) - guard działa.
+- `[35021]` (RO, pilot): dalej poprawnie `1` kandydat (`8 mm`, zgodne z
+  historią wyżej) - guard NIE zepsuł istniejącej, potwierdzonej ścieżki.
+- Pełny re-skan modelu (`--diag-find-candidates`, 2285 rysunków): `96`
+  rysunków z kandydatami, WSZYSTKIE teraz `Geländer`/`Gitterrost`
+  (poręcz/krata), `Bogen` (łuk poręczy), `Leiter` (drabina) - zero
+  `Blech`/`Träger`/`Winkel`. Lista tych 96 rysunków to teraz gotowa pula
+  kandydatów do dalszych testów (np. problemu z "Następne kroki" pkt 2).
+
+**`DiagRunner.RunFindCandidatesDiag`** (nowa, trwała diagnostyka,
+`--diag-find-candidates`, bez argumentu - skanuje CAŁY model) woła
+PRAWDZIWĄ `RemoveAxisDimensions(dryRun: true)` zamiast duplikować
+`TouchesAxis` samodzielnie - żeby ten skaner ZAWSZE korzystał z tego
+samego guardu co produkcyjny przycisk, bez ryzyka, że ktoś naprawi jedno
+miejsce a zapomni o drugim.
+
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
 Para `21`/`21` na `[3.5013]` to NIE była duplikat. Reguła v4 (kasuj
@@ -798,6 +849,9 @@ RoAxisDimensionRemover.exe --diag-dimension-style  # tylko odczyt: styl (Attribu
 RoAxisDimensionRemover.exe --diag-notch-match "[3.5013]"  # tylko odczyt: dopasowanie wymiar do osi -> najbliższa ściana cięcia
 RoAxisDimensionRemover.exe --diag-notch-insert-dryrun "[3.5013]"  # tylko odczyt: NotchPilot w dry-run dla każdego wymiaru do osi
 RoAxisDimensionRemover.exe --diag-view-objects "[3.5013]"  # tylko odczyt: typy wszystkich obiektów w widoku (research nad regułą "które złącze pokazać")
+RoAxisDimensionRemover.exe --diag-notch-raw "[Mark]"       # tylko odczyt: WSZYSCY kandydaci na ścianę cięcia, obie cięciwy, bez filtra płaskości
+RoAxisDimensionRemover.exe --diag-connection "[Mark]"      # tylko odczyt: typ/strony Connection dla każdego widoku (research "które złącze potrzebuje wymiaru")
+RoAxisDimensionRemover.exe --diag-find-candidates          # tylko odczyt, BEZ argumentu: skanuje CAŁY model, loguje rysunki z kandydatem (używa prawdziwej RemoveAxisDimensions, więc respektuje guard RO)
 ```
 
 `dryRun` jest we wszystkich na sztywno `true` w `DiagRunner.cs` — nie da się
@@ -821,7 +875,7 @@ blokuje proces, `taskkill` to jedyny sposób go zakończyć.**
 
 | Plik | Zawartość |
 |---|---|
-| `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI (reguła v5 — kasuje wszystko w widoku) |
+| `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI (reguła v5 — kasuje wszystko w widoku). Od 2026-09-25: `ViewHasRoProfile` na wejściu do `RemoveAxisDimensions` — bez części o profilu RO w widoku metoda nic nie sprawdza i nic nie kasuje (patrz "KRYTYCZNE ZNALEZISKO 2026-09-25") |
 | `MainForm.cs` | UI: główny przycisk kasowania, log do okna i do pliku (`dryRun: false` od 2026-09-23 — brama v5 przeszła). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie). Fokus na Teklę po operacji tylko gdy `!dryRun`. Plus jeden przycisk `_insertNotchButton` ("Wstaw wymiar wcięcia dla złączy na wybranym rysunku", handler `InsertNotchButton_Click`) — od 2026-09-25 PRODUKCYJNY, bez blokady marki, przechodzi przez WSZYSTKIE wymiary do osi na aktywnym rysunku (dwa dawne testowe przyciski ograniczone do `[35021]` usunięte, w pełni zastąpione tym jednym) |
 | `NotchPilot.cs` | TWORZENIE wymiaru wcięcia — PRODUKCYJNE od 2026-09-25 (`PilotDrawingMark`/blokada marki usunięte), metody `InsertWidth`/`InsertLength`. Potwierdzone wizualnie przez operatora na `[35021]` i `[3.5013]` (asymetria widoku długość/szerokość, patrz "Wymiar wcięcia"). Nierozwiązany problem "które złącze faktycznie potrzebuje wymiaru" (2026-09-24) NIE ma tu żadnej ochrony - świadoma decyzja operatora |
 | `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark`/`--diag-notch`/`--diag-dimension-style`/`--diag-notch-raw` dla trybu konsolowego |

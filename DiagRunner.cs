@@ -45,6 +45,66 @@ namespace RoAxisDimensionRemover
             RunOn(drawing, Log);
         }
 
+        /// <summary>
+        /// Tylko odczyt: skanuje WSZYSTKIE rysunki w modelu (bez otwierania
+        /// żadnego na ekranie - `GetSheet().GetAllObjects()` działa na
+        /// uchwycie Drawing bez SetActiveDrawing) i loguje te, które mają
+        /// choć jeden wymiar do osi (ten sam warunek co
+        /// RoAxisDimensionService.RemoveAxisDimensions). Cel: znaleźć
+        /// KOLEJNEGO kandydata do testów po tym, jak [3.5013] zostało
+        /// usunięte z modelu (2026-09-25) - zastępuje jednorazowy
+        /// Inspector.cs (usunięty po v0.2.0), bo znowu potrzebny nowy
+        /// kandydat.
+        /// </summary>
+        public static void RunFindCandidatesDiag()
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+
+            // Woła PRAWDZIWĄ RemoveAxisDimensions (dryRun: true), nie
+            // duplikuje TouchesAxis samodzielnie - inaczej ten skaner
+            // pokazywałby te same fałszywe trafienia na innych profilach,
+            // które ten guard ma właśnie wykluczyć (patrz komentarz w
+            // RoAxisDimensionService.RemoveAxisDimensions, ZMIERZONE
+            // 2026-09-25 na [21050]).
+            var service = new RoAxisDimensionService();
+            void Silent(string s) { } // per-dimension log z RemoveAxisDimensions tu nie interesuje - liczy się tylko suma
+            int scanned = 0, withCandidates = 0;
+            var drawings = dh.GetDrawings();
+            while (drawings.MoveNext())
+            {
+                var drawing = drawings.Current;
+                scanned++;
+                int candidateCount = 0;
+                try
+                {
+                    var top = drawing.GetSheet().GetAllObjects();
+                    while (top.MoveNext())
+                    {
+                        if (!(top.Current is ViewBase view)) continue;
+                        candidateCount += service.RemoveAxisDimensions(drawing, view, Silent, dryRun: true).RemovedCount;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"[find] {drawing.Mark}: błąd odczytu ({ex.GetType().Name}: {ex.Message}) - pominięto.");
+                    continue;
+                }
+                if (candidateCount > 0)
+                {
+                    withCandidates++;
+                    Log($"[find] {drawing.Mark} / {drawing.Name}: {candidateCount} kandydat(ów) do usunięcia (wymiar do osi).");
+                }
+            }
+            Log($"[find] Przeskanowano {scanned} rysunków, {withCandidates} ma kandydatów.");
+        }
+
         // Otwiera rysunek po Mark i uruchamia na nim tę samą diagnostykę -
         // do porównania [35270] vs [3.5013] bez ręcznego klikania w Tekli.
         // SetActiveDrawing(d, true) otwiera na ekranie (patrz ../AGENTS.md,
@@ -786,6 +846,103 @@ namespace RoAxisDimensionRemover
                 {
                     Log($"[view-objects] widok {viewIndex}: {kv.Key} x{kv.Value}");
                 }
+            }
+        }
+
+        /// <summary>
+        /// Tylko odczyt: dla każdego rysunkowego `Connection` w każdym
+        /// widoku, przez `ModelIdentifier` idzie do modelowego
+        /// `TSM.Connection` i loguje Number/Name/Class oraz profil i nazwę
+        /// części podstawowej (`GetPrimaryObject`) i połączonych
+        /// (`GetSecondaryObjects`). Cel: sprawdzić, czy złącze, które
+        /// operator odrzucił (2026-09-24, [3.5013] drugi koniec - "ma
+        /// ścianę cięcia" ≠ "potrzebuje wymiaru wcięcia") różni się typem
+        /// połączenia albo tym, do czego się faktycznie łączy, od złącza,
+        /// które operator zaakceptował - dwie wcześniejsze hipotezy
+        /// (obecność AngleDimension, typ widoku) zostały obalone
+        /// --diag-view-objects, więc to nowy trop, nie powtórka.
+        /// </summary>
+        public static void RunConnectionDiag(string mark)
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+
+            Drawing drawing = null;
+            var drawings = dh.GetDrawings();
+            while (drawings.MoveNext())
+            {
+                if (string.Equals(drawings.Current.Mark, mark, StringComparison.OrdinalIgnoreCase))
+                {
+                    drawing = drawings.Current;
+                    break;
+                }
+            }
+            if (drawing == null)
+            {
+                Log($"Nie znaleziono rysunku o Mark={mark}.");
+                return;
+            }
+            dh.SetActiveDrawing(drawing, true);
+
+            var model = new TSM.Model();
+            if (!model.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Model).");
+                return;
+            }
+
+            Log($"[connection] Rysunek: {drawing.Mark} / {drawing.Name}");
+            int viewIndex = 0;
+            var top = drawing.GetSheet().GetAllObjects();
+            while (top.MoveNext())
+            {
+                if (!(top.Current is ViewBase view)) continue;
+                viewIndex++;
+                var objects = view.GetAllObjects(new[] { typeof(Connection) });
+                while (objects.MoveNext())
+                {
+                    if (!(objects.Current is Connection drawingConnection)) continue;
+                    if (!(model.SelectModelObject(drawingConnection.ModelIdentifier) is TSM.Connection modelConnection))
+                    {
+                        Log($"[connection] widok {viewIndex}: nie udało się rozwiązać ModelIdentifier na TSM.Connection.");
+                        continue;
+                    }
+                    Log($"[connection] widok {viewIndex}: Number={modelConnection.Number} Name={modelConnection.Name} Class={modelConnection.GetType().Name}");
+                    LogConnectedPart("  primary", modelConnection.GetPrimaryObject(), Log);
+                    var secondaries = modelConnection.GetSecondaryObjects();
+                    if (secondaries != null)
+                    {
+                        foreach (TSM.ModelObject secondary in secondaries)
+                        {
+                            LogConnectedPart("  secondary", secondary, Log);
+                        }
+                    }
+                }
+            }
+        }
+
+        private static void LogConnectedPart(string label, TSM.ModelObject obj, Action<string> log)
+        {
+            if (obj == null)
+            {
+                log($"[connection] {label}: (brak)");
+                return;
+            }
+            if (obj is TSM.Part part)
+            {
+                string profile = "?";
+                try { profile = part.Profile.ProfileString; } catch { }
+                log($"[connection] {label}: {part.GetType().Name} Name={part.Name} Profile={profile}");
+            }
+            else
+            {
+                log($"[connection] {label}: {obj.GetType().Name}");
             }
         }
 
