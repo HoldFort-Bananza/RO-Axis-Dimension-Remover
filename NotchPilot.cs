@@ -13,14 +13,15 @@ namespace RoAxisDimensionRemover
     {
         private const string PilotDrawingMark = "[35021]";
 
-        // Tymczasowo (2026-09-24) dopuszczone do REALNEGO insertu - druga
-        // runda bramy bezpieczeństwa dla reguły dopasowania ściana↔wymiar,
-        // konkretnie na złączu z WIELOMA ścianami cięcia (patrz AGENTS.md,
-        // "Następne kroki" pkt 2: dry-run już potwierdził poprawne liczby
-        // na [3.5013], brakuje realnego insertu + wizualnego potwierdzenia
-        // operatora). Nie usuwać PilotDrawingMark - to jest DODATKOWE
-        // dopuszczenie, nie zastąpienie blokady.
-        private static readonly string[] AllowedRealInsertMarks = { PilotDrawingMark, "[3.5013]" };
+        // [3.5013] było tymczasowo dopuszczone do REALNEGO insertu
+        // 2026-09-24, żeby przetestować regułę dopasowania ściana↔wymiar na
+        // złączu z wieloma ścianami cięcia (patrz AGENTS.md, "Następne
+        // kroki" pkt 2). Test wykrył NOWY, nierozwiązany problem domenowy
+        // ("ma ścianę cięcia" ≠ "potrzebuje wymiaru wcięcia") i operator
+        // zdecydował odłożyć temat - [3.5013] WYCOFANE z dopuszczenia,
+        // zgodnie z tą decyzją. Przywrócić dopiero po rozwiązaniu tego
+        // problemu, nie wcześniej.
+        private static readonly string[] AllowedRealInsertMarks = { PilotDrawingMark };
 
         private const double NumericalZero = 0.000001;
 
