@@ -254,7 +254,35 @@ namespace RoAxisDimensionRemover
                 foreach (var loop in loops)
                     if (faceOuterLoop == null || LoopSpan(loop) > LoopSpan(faceOuterLoop)) faceOuterLoop = loop;
 
-                var pair = FindChord(faceOuterLoop, Centroid(faceOuterLoop), longest);
+                // ZMIERZONE 2026-09-25 na żywym [3.5027]: ta sama bryła może
+                // mieć ścianę cięcia pod PRAWDZIWYM, widocznym kątem (koniec
+                // "ścięty" - operator to potwierdził wizualnie) i drugą,
+                // gdzie kąt jest tak mały, że koniec wygląda jak zwykłe
+                // płaskie zakończenie rury (operator: "z jednej strony
+                // płaskie") - mimo że OBIE geometrycznie kwalifikują się
+                // jako "ściana cięcia" (>1 pętla, normalna niedokładnie
+                // równoległa do osi). Odróżnia je stosunek długość/szerokość
+                // cięcia (= 1/cos kąta cięcia): zmierzone punkty danych -
+                // ~5° (koniec płaski, [3.5027]) pomijamy, ~19,9° ([35021]) i
+                // ~45° ([3.5013]/[3.5027] drugi koniec) - wstawiamy. Próg
+                // 10° to SZACUNEK (mniej więcej w połowie między 5° a 19,9°
+                // na tych trzech punktach), nie pomiar - do doprecyzowania,
+                // gdy pojawią się kolejne złącza bliżej granicy. NIE
+                // rozwiązuje osobnego, wciąż otwartego problemu z 24.09
+                // ([3.5013] drugi koniec miał TEN SAM ~45° kąt co pierwszy,
+                // a mimo to operator go odrzucił z innego, nieznanego
+                // powodu) - to tylko odsiewa przypadki, gdzie kąt sam w
+                // sobie jest pomijalny.
+                const double MinCutAngleDegrees = 10.0;
+                var centroid = Centroid(faceOuterLoop);
+                var majorChord = FindChord(faceOuterLoop, centroid, longest: true);
+                var minorChord = FindChord(faceOuterLoop, centroid, longest: false);
+                double majorLength = Distance(majorChord.A, majorChord.B);
+                double minorLength = Distance(minorChord.A, minorChord.B);
+                double cutAngleDegrees = Math.Acos(Math.Min(1.0, minorLength / majorLength)) * 180.0 / Math.PI;
+                if (cutAngleDegrees < MinCutAngleDegrees) continue;
+
+                var pair = longest ? majorChord : minorChord;
                 var cs = view.DisplayCoordinateSystem;
                 result.Add(new Candidate { View = view, Start = ToViewSpace(pair.A, cs), End = ToViewSpace(pair.B, cs), AxisView = axisView });
             }

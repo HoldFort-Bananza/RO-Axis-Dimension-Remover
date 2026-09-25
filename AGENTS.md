@@ -736,6 +736,49 @@ PRAWDZIWĄ `RemoveAxisDimensions(dryRun: true)` zamiast duplikować
 samego guardu co produkcyjny przycisk, bez ryzyka, że ktoś naprawi jedno
 miejsce a zapomni o drugim.
 
+## Filtr kąta cięcia w `NotchPilot` (2026-09-25) - CZĘŚCIOWE rozwiązanie problemu z "Następne kroki" pkt 2
+
+Po znalezieniu nowego kandydata `[3.5027]` (przez `--diag-find-candidates`
+po tym, jak `[3.5013]` zniknęło z modelu) trafiono na kolejny przykład
+złącza z DWIEMA ścianami cięcia - ale tym razem o wyraźnie różnym
+charakterze: `--diag-notch-raw` pokazał, że jeden koniec ma cięciwę
+długość/szerokość w stosunku `59,86/42,40 ≈ 1,41` (kąt cięcia ~45°), a
+drugi `42,55/42,40 ≈ 1,003` (kąt cięcia ~4,8°). Operator, patrząc na żywy
+rysunek: "z jednej strony płaskie z drugiej ścięte" - i Tekla ma tam
+własne adnotacje kąta potwierdzające dokładnie te liczby: `4,75°` i
+`44,90°` (niezależna weryfikacja, nie nasze liczenie).
+
+**Wniosek: kąt cięcia ściany (a nie tylko sam fakt "ma ścianę cięcia") da
+się zmierzyć i użyć jako filtr** - ściana o kącie bliskim zeru to
+praktycznie zwykłe, płaskie zakończenie rury, nie potrzebuje wymiaru
+wcięcia. Dodano `MinCutAngleDegrees = 10.0` w `NotchPilot.
+FindChordCandidates`: liczy stosunek najkrótszej do najdłuższej cięciwy
+zewnętrznej pętli ściany (`Math.Acos(minor/major)`), i jeśli wychodzący
+kąt jest mniejszy niż próg, CAŁA ściana jest pomijana (nie trafia do puli
+kandydatów w ogóle, ani dla długości, ani dla szerokości).
+
+**Próg `10°` to SZACUNEK, nie pomiar** - w połowie między jedynymi trzema
+zmierzonymi punktami danych: `~4,8°` (pomiń, `[3.5027]`), `~19,9°`
+(wstaw, `[35021]`), `~45°` (wstaw, `[3.5013]`/`[3.5027]` drugi koniec).
+Do doprecyzowania, gdyby pojawiło się złącze bliżej granicy.
+
+**Zweryfikowane na żywo na `[3.5027]`:** dry-run pokazał `0 kandydatów
+długości` dla płaskiego końca (filtr zadziałał), a realny insert
+poprawnie wstawił szerokość i długość TYLKO dla ściętego końca - płaski
+koniec nie dostał niczego nowego. `--diag-dimension-style` po insercie
+potwierdził: widok1 +1 wymiar (`42,00 mm` szerokość, przy X≈352 - ścięty
+koniec), widok2 +1 wymiar (`42,00 mm` długość, ten sam ścięty koniec),
+zero zmian przy X≈0 (płaski koniec).
+
+**To NIE rozwiązuje oryginalnej zagadki z `[3.5013]` (24.09)** - tamten
+drugi, odrzucony koniec miał TEN SAM ~45° kąt co pierwszy, zaakceptowany
+koniec (identyczny stosunek długość/szerokość), więc filtr kąta by go NIE
+złapał. Powód odrzucenia tamtego konkretnego złącza pozostaje nieznany -
+`[3.5013]` nie istnieje już w modelu (usunięte przez operatora), więc nie
+da się go już zbadać dalej. Ten filtr jest dodatkowym, niezależnym
+zabezpieczeniem przeciwko INNEJ kategorii fałszywych trafień (kąt bliski
+zeru), nie pełnym rozwiązaniem "które złącze potrzebuje wymiaru wcięcia".
+
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
 Para `21`/`21` na `[3.5013]` to NIE była duplikat. Reguła v4 (kasuj
@@ -942,17 +985,19 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
    (błędna diagnoza z pierwszej rundy tej sesji), tylko fakt geometryczny:
    w danym widoku tylko JEDNA z dwóch ścian ma płaską cięciwę danego typu
    (długość/szerokość). Zamknięte.
-2. **Wymiar wcięcia — pilot potwierdzony WIZUALNIE na `[35021]` i na
-   `[3.5013]` (oba testowane końce, patrz wyżej).** Problem "ma ścianę
-   cięcia w bryle" ≠ "potrzebuje wymiaru wcięcia w rysunku" (odkryty
-   24.09 na drugim końcu `[3.5013]`) **WCIĄŻ NIEROZWIĄZANY** - dwie
-   hipotezy (obecność `AngleDimension`, typ widoku) obalone
-   `--diag-view-objects`. **2026-09-25: operator świadomie zdecydował NIE
-   czekać na rozwiązanie tego problemu i zdjął blokadę rysunku mimo to** -
-   program teraz wstawia wymiar dla KAŻDEGO geometrycznego kandydata na
-   KAŻDYM rysunku, więc to ryzyko jest aktywne w produkcji, nie tylko
-   teoretyczne. Jeśli operator zgłosi błędnie wstawiony wymiar na jakimś
-   złączu - to prawdopodobnie właśnie ten, wciąż nierozwiązany problem.
+2. **Wymiar wcięcia — pilot potwierdzony WIZUALNIE na `[35021]`, na
+   `[3.5013]` i na `[3.5027]` (patrz wyżej).** Problem "ma ścianę cięcia w
+   bryle" ≠ "potrzebuje wymiaru wcięcia w rysunku" (odkryty 24.09 na
+   drugim końcu `[3.5013]`) **CZĘŚCIOWO rozwiązany 2026-09-25** - filtr
+   kąta cięcia (`MinCutAngleDegrees = 10.0`, patrz sekcja "Filtr kąta
+   cięcia" wyżej) poprawnie odsiewa ściany o kącie bliskim zeru
+   (praktycznie proste zakończenia, zweryfikowane na żywo na `[3.5027]`).
+   **Nie tłumaczy jednak oryginalnego `[3.5013]`** - tamten odrzucony
+   koniec miał TEN SAM ~45° kąt co zaakceptowany, więc filtr kąta by go
+   nie złapał, a `[3.5013]` już nie istnieje w modelu do dalszego badania.
+   Jeśli operator zgłosi błędnie wstawiony wymiar na złączu o WYRAŹNYM
+   kącie (nie bliskim zeru) - to wciąż ten sam, nierozwiązany rodzaj
+   problemu.
 3. **Główny przycisk kasowania i wstawiania wymiaru wcięcia są teraz
    OSOBNYMI przyciskami w `MainForm.cs`, nie połączone w jeden przepływ**
    ("skasuj i od razu wstaw wcięcie w to miejsce") - to była pierwotna
