@@ -306,7 +306,7 @@ namespace RoAxisDimensionRemover
         {
             if (_busy) return;
             if (MessageBox.Show(this,
-                "Wstawić wymiary wcięcia (szerokość + długość) dla każdego wymiaru do osi na aktywnym rysunku?\n\nCtrl+Z w Tekli cofa.",
+                "Wstawić brakujące wymiary wcięcia (szerokość + długość) dla wszystkich kwalifikujących się złączy na aktywnym rysunku?\n\nCtrl+Z w Tekli cofa.",
                 "Wymiar wcięcia", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
             {
                 return;
@@ -330,56 +330,8 @@ namespace RoAxisDimensionRemover
                     return;
                 }
 
-                // ZMIERZONE 2026-09-24: wcześniejsza wersja brała TYLKO
-                // pierwszy znaleziony wymiar do osi (break po trafieniu) -
-                // na [3.5013] (dwa złącza) to zawsze łapało to samo pierwsze
-                // złącze, a drugi klik tylko mówił "już istnieje". Teraz
-                // zbieramy WSZYSTKIE i próbujemy wstawić dla każdego -
-                // NotchPilot i tak bezpiecznie pomija te, które już są.
-                var referencePoints = new System.Collections.Generic.List<(Tekla.Structures.Geometry3d.Point Mid, Tekla.Structures.Drawing.View View)>();
-                var top = drawing.GetSheet().GetAllObjects();
-                while (top.MoveNext())
-                {
-                    if (!(top.Current is Tekla.Structures.Drawing.View view)) continue;
-                    var dims = view.GetAllObjects(new[] { typeof(StraightDimension) });
-                    while (dims.MoveNext())
-                    {
-                        if (!(dims.Current is StraightDimension sd) || !RoAxisDimensionService.TouchesAxis(sd))
-                        {
-                            continue;
-                        }
-                        double ownLength = Distance(sd.StartPoint, sd.EndPoint);
-                        if (ownLength > RoAxisDimensionService.SameJointDistanceMm)
-                        {
-                            continue;
-                        }
-                        var mid = new Tekla.Structures.Geometry3d.Point(
-                            (sd.StartPoint.X + sd.EndPoint.X) / 2, (sd.StartPoint.Y + sd.EndPoint.Y) / 2, (sd.StartPoint.Z + sd.EndPoint.Z) / 2);
-                        referencePoints.Add((mid, view));
-                    }
-                }
-
-                if (referencePoints.Count == 0)
-                {
-                    _statusLabel.Text = "Nie znaleziono wymiaru do osi na tym rysunku — zobacz log.";
-                    Log("Brak kandydata.");
-                    return;
-                }
-
-                bool anyInserted = false;
-                foreach (var (referencePoint, referenceView) in referencePoints)
-                {
-                    Log($"Wymiar do osi, środek=({referencePoint.X:F2};{referencePoint.Y:F2};{referencePoint.Z:F2}):");
-                    bool widthInserted = NotchPilot.InsertWidth(drawing, Log, referencePoint, referenceView: referenceView);
-                    // ZMIERZONE 2026-09-24: po CommitChanges() ponowne użycie
-                    // TEGO SAMEGO uchwytu Drawing na kolejny insert dawało
-                    // błędną blokadę marki (drawing.Mark przestawał się
-                    // zgadzać) - odświeżamy uchwyt na wszelki wypadek.
-                    drawing = handler.GetActiveDrawing() ?? drawing;
-                    bool lengthInserted = NotchPilot.InsertLength(drawing, Log, referencePoint, referenceView: referenceView);
-                    drawing = handler.GetActiveDrawing() ?? drawing;
-                    anyInserted = anyInserted || widthInserted || lengthInserted;
-                }
+                int insertedCount = NotchPilot.InsertMissing(drawing, Log);
+                bool anyInserted = insertedCount > 0;
                 _statusLabel.Text = anyInserted
                     ? "Wstawiono wymiar wcięcia. Sprawdź go w Tekli (Ctrl+Z cofa)."
                     : "Nie wstawiono nowego wymiaru — zobacz log.";
@@ -395,12 +347,6 @@ namespace RoAxisDimensionRemover
             {
                 _busy = false;
             }
-        }
-
-        private static double Distance(Tekla.Structures.Geometry3d.Point a, Tekla.Structures.Geometry3d.Point b)
-        {
-            double x = a.X - b.X, y = a.Y - b.Y, z = a.Z - b.Z;
-            return Math.Sqrt(x * x + y * y + z * z);
         }
 
         /// <summary>

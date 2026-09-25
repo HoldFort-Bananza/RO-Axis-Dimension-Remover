@@ -596,6 +596,46 @@ namespace RoAxisDimensionRemover
         }
 
         /// <summary>
+        /// Tylko odczyt: woła `NotchPilot.InsertMissing` w dry-run - reguła
+        /// napędzana bezpośrednio geometrią ścian cięcia, nie istniejącymi
+        /// wymiarami do osi (patrz komentarz przy `InsertMissing` w
+        /// NotchPilot.cs - dodane 2026-09-25 po tym, jak skasowanie starego
+        /// wymiaru do osi kaskadowo zabrało ze sobą już wstawiony wymiar
+        /// wcięcia na [3.5027], zrywając zależność od jego istnienia).
+        /// </summary>
+        public static void RunNotchFillDryRun(string mark)
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+
+            Drawing drawing = null;
+            var drawings = dh.GetDrawings();
+            while (drawings.MoveNext())
+            {
+                if (string.Equals(drawings.Current.Mark, mark, StringComparison.OrdinalIgnoreCase))
+                {
+                    drawing = drawings.Current;
+                    break;
+                }
+            }
+            if (drawing == null)
+            {
+                Log($"Nie znaleziono rysunku o Mark={mark}.");
+                return;
+            }
+            dh.SetActiveDrawing(drawing, true);
+
+            Log($"[notch-fill] Rysunek: {drawing.Mark} / {drawing.Name}");
+            NotchPilot.InsertMissing(drawing, s => Log("[notch-fill]   " + s), dryRun: true);
+        }
+
+        /// <summary>
         /// Tylko odczyt: dla każdego wymiaru do osi (ten sam, który
         /// RemoveAxisDimensions by skasował), woła NotchPilot w trybie
         /// dry-run z punktem środka tego wymiaru jako referencją - dokładnie

@@ -779,6 +779,66 @@ da się go już zbadać dalej. Ten filtr jest dodatkowym, niezależnym
 zabezpieczeniem przeciwko INNEJ kategorii fałszywych trafień (kąt bliski
 zeru), nie pełnym rozwiązaniem "które złącze potrzebuje wymiaru wcięcia".
 
+## `NotchPilot.InsertMissing` — insert napędzany geometrią, nie wymiarem do osi (2026-09-25)
+
+Podczas testów na `[3.5027]` operator skasował stary wymiar do osi w
+jednym widoku (`Usuń wymiary do osi`), a wcześniej wstawiony wymiar
+DŁUGOŚCI wcięcia w TYM SAMYM widoku zniknął razem z nim — mimo że kod nigdy
+nie prosił o usunięcie tego drugiego obiektu. To pasuje do znanego, ale
+wcześniej tylko TEORETYCZNEGO ryzyka opisanego przy
+`RoAxisDimensionService.DescribeDimensionSet`: Tekla potrafi grupować
+sąsiadujące wymiary we wspólny `StraightDimensionSet` ("łańcuch"), i
+skasowanie jednego elementu może kaskadowo zabrać resztę łańcucha. To
+pierwszy RAZ, kiedy to faktycznie zaobserwowano na żywo, nie tylko w
+komentarzu ostrzegawczym.
+
+**Konsekwencja praktyczna:** stary mechanizm insertu (`InsertWidth`/
+`InsertLength`, wywoływane z `MainForm` z punktem odniesienia
+znalezionym przez skan ISTNIEJĄCYCH wymiarów do osi) nie ma jak
+zadziałać, gdy ten wymiar do osi już zniknął (kaskadowo albo przez zwykłe
+"Usuń") - nie ma punktu odniesienia, więc nic się nie wstawia, nawet jeśli
+wymiar wcięcia faktycznie brakuje.
+
+**Naprawa: `NotchPilot.InsertMissing(Drawing, log, dryRun)`** - całkiem
+nowy, niezależny mechanizm. Zamiast szukać punktu odniesienia po
+istniejącym wymiarze do osi, przechodzi PROSTO po geometrii: dla każdej
+unikalnej części (po `ModelIdentifier`, żeby nie liczyć dwa razy tej samej
+części widocznej w dwóch widokach) i każdej jej kwalifikującej się ściany
+cięcia (ten sam filtr kąta co wyżej), liczy obie cięciwy (długość,
+szerokość) we WSPÓŁRZĘDNYCH MODELU (`FindQualifyingChordPairs`), a
+dopiero potem szuka WŚRÓD WSZYSTKICH widoków rysunku tego jednego, w
+którym dana cięciwa wychodzi płasko (`InsertResolvedIfMissing`). Jeśli
+wymiar w tym miejscu już istnieje (`HasSameDimension`) - nic nie robi,
+cicho (to normalny, częsty przypadek). Jeśli nie istnieje - wstawia go,
+tym samym stylem/kierunkiem co poprzednio (kod stylu/side/measureDir
+przeniesiony bez zmian). Więcej niż jeden płaski widok dla tej samej
+cięciwy = niejednoznaczne, program się wstrzymuje zamiast zgadywać.
+
+**To całkowicie odsprzęga insert od tego, czy wymiar do osi jeszcze
+istnieje** - działa tak samo dobrze na świeżym rysunku (nic jeszcze nie
+wstawione), po częściowym wstawieniu (uzupełnia braki), i po kaskadowym
+skasowaniu (naprawia lukę), bez rozróżniania tych przypadków w kodzie.
+
+**`MainForm.InsertNotchButton_Click`** uproszczony: cała stara logika
+skanowania wymiarów do osi (~30 linii) zastąpiona jednym wywołaniem
+`NotchPilot.InsertMissing(drawing, Log)`, które zwraca liczbę realnie
+wstawionych wymiarów (do ustawienia komunikatu w UI). Stare
+`InsertWidth`/`InsertLength` (z `referencePoint`/`referenceView`) ZOSTAJĄ
+w kodzie - wciąż używane przez `DiagRunner.RunNotchInsertDryRun`
+(`--diag-notch-insert-dryrun`, oparte na istniejących wymiarach do osi,
+przydatne jako niezależna, druga metoda weryfikacji tych samych liczb).
+Nowa diagnostyka **`--diag-notch-fill-dryrun "[Mark]"`** (zawsze
+`dryRun: true`) testuje właśnie `InsertMissing`.
+
+**Zweryfikowane na żywo na `[3.5027]`:** dry-run na świeżym rysunku
+(5 oryginalnych wymiarów, nic wstawione) poprawnie znalazł DOKŁADNIE 2
+braki (długość i szerokość ściętego końca), zero dla płaskiego końca.
+Realny insert przez przycisk potwierdzony `--diag-dimension-style`. Po
+kolejnym "Usuń wymiary do osi" na widoku ściętego końca (tym razem BEZ
+kaskady - `42 mm` długości przetrwało) przycisk "Wstaw" poprawnie
+zgłosił "nie wstawiono nowego wymiaru", bo faktycznie niczego nie
+brakowało - potwierdza, że `HasSameDimension` nie wstawia duplikatów.
+
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
 Para `21`/`21` na `[3.5013]` to NIE była duplikat. Reguła v4 (kasuj
@@ -893,6 +953,7 @@ RoAxisDimensionRemover.exe --diag-notch-match "[3.5013]"  # tylko odczyt: dopaso
 RoAxisDimensionRemover.exe --diag-notch-insert-dryrun "[3.5013]"  # tylko odczyt: NotchPilot w dry-run dla każdego wymiaru do osi
 RoAxisDimensionRemover.exe --diag-view-objects "[3.5013]"  # tylko odczyt: typy wszystkich obiektów w widoku (research nad regułą "które złącze pokazać")
 RoAxisDimensionRemover.exe --diag-notch-raw "[Mark]"       # tylko odczyt: WSZYSCY kandydaci na ścianę cięcia, obie cięciwy, bez filtra płaskości
+RoAxisDimensionRemover.exe --diag-notch-fill-dryrun "[Mark]"  # tylko odczyt: NotchPilot.InsertMissing w dry-run - reguła napędzana geometrią, nie wymiarem do osi
 RoAxisDimensionRemover.exe --diag-connection "[Mark]"      # tylko odczyt: typ/strony Connection dla każdego widoku (research "które złącze potrzebuje wymiaru")
 RoAxisDimensionRemover.exe --diag-find-candidates          # tylko odczyt, BEZ argumentu: skanuje CAŁY model, loguje rysunki z kandydatem (używa prawdziwej RemoveAxisDimensions, więc respektuje guard RO)
 ```
@@ -919,7 +980,7 @@ blokuje proces, `taskkill` to jedyny sposób go zakończyć.**
 | Plik | Zawartość |
 |---|---|
 | `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI (reguła v5 — kasuje wszystko w widoku). Od 2026-09-25: `ViewHasRoProfile` na wejściu do `RemoveAxisDimensions` — bez części o profilu RO w widoku metoda nic nie sprawdza i nic nie kasuje (patrz "KRYTYCZNE ZNALEZISKO 2026-09-25") |
-| `MainForm.cs` | UI: główny przycisk kasowania, log do okna i do pliku (`dryRun: false` od 2026-09-23 — brama v5 przeszła). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie). Fokus na Teklę po operacji tylko gdy `!dryRun`. Plus jeden przycisk `_insertNotchButton` ("Wstaw wymiar wcięcia dla złączy na wybranym rysunku", handler `InsertNotchButton_Click`) — od 2026-09-25 PRODUKCYJNY, bez blokady marki, przechodzi przez WSZYSTKIE wymiary do osi na aktywnym rysunku (dwa dawne testowe przyciski ograniczone do `[35021]` usunięte, w pełni zastąpione tym jednym) |
+| `MainForm.cs` | UI: główny przycisk kasowania, log do okna i do pliku (`dryRun: false` od 2026-09-23 — brama v5 przeszła). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie). Fokus na Teklę po operacji tylko gdy `!dryRun`. Plus jeden przycisk `_insertNotchButton` ("Wstaw wymiar wcięcia dla złączy na wybranym rysunku", handler `InsertNotchButton_Click`) — woła `NotchPilot.InsertMissing` (patrz "InsertMissing — insert napędzany geometrią" wyżej), bez blokady marki, uzupełnia brakujące wymiary wcięcia niezależnie od tego, czy wymiar do osi jeszcze istnieje |
 | `NotchPilot.cs` | TWORZENIE wymiaru wcięcia — PRODUKCYJNE od 2026-09-25 (`PilotDrawingMark`/blokada marki usunięte), metody `InsertWidth`/`InsertLength`. Potwierdzone wizualnie przez operatora na `[35021]` i `[3.5013]` (asymetria widoku długość/szerokość, patrz "Wymiar wcięcia"). Nierozwiązany problem "które złącze faktycznie potrzebuje wymiaru" (2026-09-24) NIE ma tu żadnej ochrony - świadoma decyzja operatora |
 | `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark`/`--diag-notch`/`--diag-dimension-style`/`--diag-notch-raw` dla trybu konsolowego |
 | `DiagRunner.cs` | headless runner dry-run + `RunNotchDiag`/`TryLogNotchCandidate` (research geometrii wcięcia) + `RunDimensionStyleDiag` (styl istniejących wymiarów, źródło danych dla `NotchPilot`) + `RunNotchMatchDiag` (dopasowanie wymiar↔ściana cięcia po najbliższości w układzie widoku, patrz "Reguła dopasowania ściana↔wymiar") + `RunNotchInsertDryRun` (woła `NotchPilot` w dry-run dla każdego wymiaru do osi, potwierdzone na żywym [3.5013]) + `RunNotchRawDiag` (2026-09-25: zrzuca WSZYSTKICH kandydatów, obie cięciwy, bez filtra płaskości, z flagą płaska(Z≈0) — źródło danych dla poprawki asymetrii widoku, patrz "Poprawiona przyczyna i finalna naprawa") — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
