@@ -7,59 +7,67 @@ using TSG = Tekla.Structures.Geometry3d;
 
 namespace RoAxisDimensionRemover
 {
-    // Jednorazowy, jawnie ograniczony pilot. Nie jest jeszcze regułą
-    // produkcyjną: brama bezpieczeństwa dla tworzenia wymiaru trwa.
+    // Wstawianie wymiaru wcięcia (cut fitting) po skasowaniu wymiarów do
+    // osi. Reguła dopasowania ściana↔wymiar i asymetria widoku
+    // długość/szerokość zweryfikowane na [35021] i [3.5013] - patrz
+    // AGENTS.md, sekcja "Wymiar wcięcia". Bez blokady rysunku od
+    // 2026-09-25 (decyzja operatora, poinformowanego o ryzyku) - wciąż
+    // nierozwiązany, osobny problem: program nie odróżnia złącza, które
+    // FAKTYCZNIE potrzebuje wymiaru wcięcia, od takiego, które tylko
+    // geometrycznie ma ścianę cięcia (patrz AGENTS.md, "Następne kroki").
     internal static class NotchPilot
     {
-        private const string PilotDrawingMark = "[35021]";
-
-        // [3.5013] było tymczasowo dopuszczone do REALNEGO insertu
-        // 2026-09-24, żeby przetestować regułę dopasowania ściana↔wymiar na
-        // złączu z wieloma ścianami cięcia (patrz AGENTS.md, "Następne
-        // kroki" pkt 2). Test wykrył NOWY, nierozwiązany problem domenowy
-        // ("ma ścianę cięcia" ≠ "potrzebuje wymiaru wcięcia") i operator
-        // zdecydował odłożyć temat - [3.5013] WYCOFANE z dopuszczenia,
-        // zgodnie z tą decyzją. Przywrócić dopiero po rozwiązaniu tego
-        // problemu, nie wcześniej.
-        private static readonly string[] AllowedRealInsertMarks = { PilotDrawingMark };
-
         private const double NumericalZero = 0.000001;
 
-        public static bool InsertWidthTest(Drawing drawing, Action<string> log, TSG.Point referencePoint = null, bool dryRun = false)
+        public static bool InsertWidth(Drawing drawing, Action<string> log, TSG.Point referencePoint = null, bool dryRun = false, View referenceView = null)
         {
-            return InsertTest(drawing, log, longest: false, label: "szerokości", referencePoint, dryRun);
+            return Insert(drawing, log, longest: false, label: "szerokości", referencePoint, dryRun, referenceView);
         }
 
-        public static bool InsertLengthTest(Drawing drawing, Action<string> log, TSG.Point referencePoint = null, bool dryRun = false)
+        public static bool InsertLength(Drawing drawing, Action<string> log, TSG.Point referencePoint = null, bool dryRun = false, View referenceView = null)
         {
-            return InsertTest(drawing, log, longest: true, label: "długości", referencePoint, dryRun);
+            return Insert(drawing, log, longest: true, label: "długości", referencePoint, dryRun, referenceView);
         }
 
-        private static bool InsertTest(Drawing drawing, Action<string> log, bool longest, string label, TSG.Point referencePoint, bool dryRun)
+        private static bool Insert(Drawing drawing, Action<string> log, bool longest, string label, TSG.Point referencePoint, bool dryRun, View referenceView = null)
         {
-            // Blokada marki dotyczy tylko REALNEGO wstawienia - dry-run
-            // nic nie modyfikuje, więc to bezpieczne do sprawdzenia reguły
-            // dopasowania na innych złączach bez zdejmowania blokady.
-            bool markAllowed = dryRun || Array.Exists(AllowedRealInsertMarks,
-                m => string.Equals(drawing.Mark, m, StringComparison.OrdinalIgnoreCase));
-            if (!markAllowed)
-            {
-                log("TEST WSTRZYMANY: pilot jest ograniczony do rysunków " + string.Join(", ", AllowedRealInsertMarks) + ".");
-                return false;
-            }
-
             var model = new TSM.Model();
             if (!model.GetConnectionStatus())
             {
-                log("TEST WSTRZYMANY: brak połączenia z Teklą (Model).");
+                log("WSTRZYMANO: brak połączenia z Teklą (Model).");
                 return false;
             }
 
-            var candidates = new List<Candidate>();
+            // ZMIERZONE 2026-09-25 na żywym [3.5013] (surowy zrzut
+            // --diag-notch-raw): złącze z DWIEMA ścianami cięcia ma, w
+            // KAŻDYM z dwóch widoków (ramek na arkuszu), dokładnie jedną
+            // ścianę z płaską (Z≈0) cięciwą DŁUGOŚCI i drugą (przeciwną) ze
+            // płaską cięciwą SZEROKOŚCI - nigdy obie naraz dla tej samej
+            // ściany w tym samym widoku. Fizycznie: krótki kierunek owalnego
+            // przecięcia rury "ucieka w głąb kartki" akurat w tej ramce,
+            // która pokazuje długi kierunek płasko - i odwrotnie w drugiej
+            // ramce. Operator zaakceptował (2026-09-25): długość i szerokość
+            // TEGO SAMEGO końca mogą wylądować w RÓŻNYCH ramkach, każda w
+            // całości w jednej - byle żaden POJEDYNCZY wymiar nie był
+            // rozdzielony między dwie ramki (co i tak nie zdarza się w tym
+            // API - Insert() zawsze celuje w jeden View). Stąd asymetria
+            // niżej: DŁUGOŚĆ ogranicza się do widoku źródłowego wymiaru do
+            // osi (tam jej płaski kandydat zawsze jest właściwą ścianą -
+            // zmierzone), a SZEROKOŚĆ szuka po CAŁYM rysunku wśród płaskich
+            // kandydatów (tam, gdzie faktycznie wychodzi płasko, może być w
+            // INNYM widoku niż długość tego samego końca - to jest zamierzone,
+            // nie błąd).
+            var flatCandidates = new List<Candidate>();
             var top = drawing.GetSheet().GetAllObjects();
             while (top.MoveNext())
             {
                 if (!(top.Current is View view)) continue;
+                // Ograniczenie do widoku źródłowego dotyczy TYLKO długości -
+                // dla szerokości szukamy po całym rysunku (patrz komentarz
+                // wyżej). Po Origin, nie ReferenceEquals/Name: View.Name bywa
+                // puste (zmierzone 2026-09-25), a uchwyty widoków mogą się
+                // różnić instancją między wywołaniami.
+                if (longest && referenceView != null && Distance(view.Origin, referenceView.Origin) > NumericalZero) continue;
                 var parts = view.GetAllObjects(new[] { typeof(Part) });
                 while (parts.MoveNext())
                 {
@@ -82,11 +90,13 @@ namespace RoAxisDimensionRemover
                         if (Math.Abs(candidate.Start.Z) <= NumericalZero
                             && Math.Abs(candidate.End.Z) <= NumericalZero)
                         {
-                            candidates.Add(candidate);
+                            flatCandidates.Add(candidate);
                         }
                     }
                 }
             }
+
+            var candidates = flatCandidates;
 
             Candidate width;
             if (candidates.Count == 1)
@@ -120,13 +130,13 @@ namespace RoAxisDimensionRemover
             }
             else
             {
-                log($"TEST WSTRZYMANY: znaleziono {candidates.Count} płaskich kandydatów {label}; wymagany jest dokładnie jeden (albo punkt referencyjny do wyboru najbliższego).");
+                log($"WSTRZYMANO: znaleziono {candidates.Count} płaskich kandydatów {label}; wymagany jest dokładnie jeden (albo punkt referencyjny do wyboru najbliższego).");
                 return false;
             }
 
             if (HasSameDimension(width.View, width.Start, width.End))
             {
-                log("TEST WSTRZYMANY: taki wymiar już istnieje w widoku.");
+                log("WSTRZYMANO: taki wymiar już istnieje w widoku.");
                 return false;
             }
 
@@ -134,7 +144,7 @@ namespace RoAxisDimensionRemover
             var referenceSet = reference?.GetDimensionSet() as StraightDimensionSet;
             if (referenceSet?.Attributes == null)
             {
-                log("TEST WSTRZYMANY: nie znaleziono istniejącego wymiaru jako wzorca stylu.");
+                log("WSTRZYMANO: nie znaleziono istniejącego wymiaru jako wzorca stylu.");
                 return false;
             }
 
@@ -158,7 +168,7 @@ namespace RoAxisDimensionRemover
             // geometria tego konkretnego kąta, nie każdego złącza.
             if (width.AxisView == null)
             {
-                log("TEST WSTRZYMANY: nie znam kierunku osi belki (część nie jest TSM.Beam?) - nie da się policzyć wymiaru równoległego/prostopadłego bez zgadywania.");
+                log("WSTRZYMANO: nie znam kierunku osi belki (część nie jest TSM.Beam?) - nie da się policzyć wymiaru równoległego/prostopadłego bez zgadywania.");
                 return false;
             }
             var axisView = width.AxisView;
@@ -184,12 +194,12 @@ namespace RoAxisDimensionRemover
                 width.View, width.Start, width.End, side, reference.Distance, referenceSet.Attributes);
             if (!dimension.Insert())
             {
-                log("TEST: StraightDimension.Insert() zwrócił false.");
+                log("StraightDimension.Insert() zwrócił false.");
                 return false;
             }
-            if (!drawing.CommitChanges("Test wymiaru szerokości wcięcia"))
+            if (!drawing.CommitChanges("Wymiar wcięcia"))
             {
-                log("TEST: Insert() się powiódł, ale CommitChanges() zwrócił false.");
+                log("Insert() się powiódł, ale CommitChanges() zwrócił false.");
                 return false;
             }
 
@@ -201,11 +211,11 @@ namespace RoAxisDimensionRemover
             // tam jest, zanim log powie "wstawiono".
             if (!HasSameDimension(width.View, width.Start, width.End))
             {
-                log($"TEST: Insert()/CommitChanges() zwróciły true, ale ponowny odczyt widoku NIE znalazł wstawionego wymiaru {label} - nic się NIE utrwaliło. Nie ufaj temu insertowi.");
+                log($"Insert()/CommitChanges() zwróciły true, ale ponowny odczyt widoku NIE znalazł wstawionego wymiaru {label} - nic się NIE utrwaliło. Nie ufaj temu insertowi.");
                 return false;
             }
 
-            log($"TEST: wstawiono {label} wcięcia {displayedValue:F2} mm, potwierdzone ponownym odczytem widoku. Obejrzyj rysunek w Tekli; Ctrl+Z cofa.");
+            log($"Wstawiono {label} wcięcia {displayedValue:F2} mm, potwierdzone ponownym odczytem widoku.");
             return true;
         }
 

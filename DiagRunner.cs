@@ -21,6 +21,10 @@ namespace RoAxisDimensionRemover
     // niezależnie od tego, jak dobrze zweryfikowana jest reguła.
     internal static class DiagRunner
     {
+        // Ta sama wartość i to samo znaczenie co NotchPilot.NumericalZero -
+        // tolerancja błędu numerycznego projekcji, nie próg geometrii.
+        private const double NumericalZero = 0.000001;
+
         public static void RunOnActiveDrawing()
         {
             void Log(string s) => Console.WriteLine(s);
@@ -593,8 +597,119 @@ namespace RoAxisDimensionRemover
                     var mid = new Tekla.Structures.Geometry3d.Point(
                         (sd.StartPoint.X + sd.EndPoint.X) / 2, (sd.StartPoint.Y + sd.EndPoint.Y) / 2, (sd.StartPoint.Z + sd.EndPoint.Z) / 2);
                     Log($"[notch-insert] wymiar do osi mid={PointStr(mid)} własna_długość={ownLength:F1} mm ->");
-                    NotchPilot.InsertWidthTest(drawing, s => Log("[notch-insert]   " + s), mid, dryRun: true);
-                    NotchPilot.InsertLengthTest(drawing, s => Log("[notch-insert]   " + s), mid, dryRun: true);
+                    NotchPilot.InsertWidth(drawing, s => Log("[notch-insert]   " + s), mid, dryRun: true, referenceView: view);
+                    NotchPilot.InsertLength(drawing, s => Log("[notch-insert]   " + s), mid, dryRun: true, referenceView: view);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Tylko odczyt: zrzuca WSZYSTKICH kandydatów na ścianę cięcia (bez
+        /// filtra "płaskości" Z≈0, w przeciwieństwie do NotchPilot) dla
+        /// KAŻDEGO widoku osobno - Start/End obu cięciw (długość/szerokość)
+        /// po ToViewSpace, z pełnym X;Y;Z. Cel: sprawdzić na surowo, ZANIM
+        /// napisze się kolejną wersję reguły dopasowania, która ściana w
+        /// którym widoku wychodzi płaska - po tym, jak 2026-09-25 na żywym
+        /// [3.5013] okazało się, że filtr płaskości w NotchPilot mógł
+        /// odrzucać WŁAŚCIWĄ ścianę danego widoku i zostawiać niewłaściwą
+        /// (patrz AGENTS.md, sekcja "REALNY test na [3.5013] (2026-09-25)").
+        /// </summary>
+        public static void RunNotchRawDiag(string mark)
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+
+            Drawing drawing = null;
+            var drawings = dh.GetDrawings();
+            while (drawings.MoveNext())
+            {
+                if (string.Equals(drawings.Current.Mark, mark, StringComparison.OrdinalIgnoreCase))
+                {
+                    drawing = drawings.Current;
+                    break;
+                }
+            }
+            if (drawing == null)
+            {
+                Log($"Nie znaleziono rysunku o Mark={mark}.");
+                return;
+            }
+            dh.SetActiveDrawing(drawing, true);
+
+            var model = new TSM.Model();
+            if (!model.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Model).");
+                return;
+            }
+
+            Log($"[notch-raw] Rysunek: {drawing.Mark} / {drawing.Name}");
+            var top = drawing.GetSheet().GetAllObjects();
+            while (top.MoveNext())
+            {
+                if (!(top.Current is View view))
+                {
+                    continue;
+                }
+
+                Log($"[notch-raw] widok Origin={PointStr(view.Origin)}");
+
+                var dims = view.GetAllObjects(new[] { typeof(StraightDimension) });
+                while (dims.MoveNext())
+                {
+                    if (!(dims.Current is StraightDimension sd) || !RoAxisDimensionService.TouchesAxis(sd))
+                    {
+                        continue;
+                    }
+                    double ownLength = Distance(sd.StartPoint, sd.EndPoint);
+                    if (ownLength > RoAxisDimensionService.SameJointDistanceMm)
+                    {
+                        continue;
+                    }
+                    var mid = new Tekla.Structures.Geometry3d.Point(
+                        (sd.StartPoint.X + sd.EndPoint.X) / 2, (sd.StartPoint.Y + sd.EndPoint.Y) / 2, (sd.StartPoint.Z + sd.EndPoint.Z) / 2);
+                    Log($"[notch-raw]   wymiar do osi (do usunięcia w tym widoku): mid={PointStr(mid)}");
+                }
+
+                var partsEnum = view.GetAllObjects(new[] { typeof(Part) });
+                while (partsEnum.MoveNext())
+                {
+                    if (!(partsEnum.Current is Part drawingPart)) continue;
+                    if (!(model.SelectModelObject(drawingPart.ModelIdentifier) is TSM.Part modelPart)) continue;
+
+                    Tekla.Structures.Geometry3d.Vector axisDir = null;
+                    if (modelPart is TSM.Beam beam)
+                    {
+                        var delta = beam.EndPoint - beam.StartPoint;
+                        axisDir = new Tekla.Structures.Geometry3d.Vector(delta.X, delta.Y, delta.Z).GetNormal();
+                    }
+
+                    TSM.Solid solid;
+                    try { solid = modelPart.GetSolid(); }
+                    catch { continue; }
+
+                    var cs = view.DisplayCoordinateSystem;
+                    int faceIndex = 0;
+                    foreach (var (face, outerLoop) in CollectCandidateFaces(solid, axisDir))
+                    {
+                        faceIndex++;
+                        var centroid = Centroid(outerLoop);
+                        var major = FindChord(outerLoop, centroid, longest: true);
+                        var minor = FindChord(outerLoop, centroid, longest: false);
+                        var majorStart = ToViewSpace(major.Item1, cs);
+                        var majorEnd = ToViewSpace(major.Item2, cs);
+                        var minorStart = ToViewSpace(minor.Item1, cs);
+                        var minorEnd = ToViewSpace(minor.Item2, cs);
+                        Log($"[notch-raw]   ściana#{faceIndex} Normal=({face.Normal.X:F2};{face.Normal.Y:F2};{face.Normal.Z:F2})");
+                        Log($"[notch-raw]     długość: Start={PointStr(majorStart)} End={PointStr(majorEnd)} wartość={Distance(majorStart, majorEnd):F2} mm płaska(Z≈0)={Math.Abs(majorStart.Z) <= NumericalZero && Math.Abs(majorEnd.Z) <= NumericalZero}");
+                        Log($"[notch-raw]     szerokość: Start={PointStr(minorStart)} End={PointStr(minorEnd)} wartość={Distance(minorStart, minorEnd):F2} mm płaska(Z≈0)={Math.Abs(minorStart.Z) <= NumericalZero && Math.Abs(minorEnd.Z) <= NumericalZero}");
+                    }
                 }
             }
         }

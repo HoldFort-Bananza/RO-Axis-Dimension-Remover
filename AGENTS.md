@@ -185,14 +185,34 @@ od razu aktualizuje to, co operator odpala z pulpitu — wygodne w tej fazie
 częstych zmian reguły. Gdy reguła będzie gotowa do dystrybucji, rozważyć
 przywrócenie skrótu na świeżo zbudowany instalator.
 
-## Wymiar wcięcia (cut fitting) — PILOT DZIAŁA NA `[35021]`, NIE PRODUKCYJNE
+## Wymiar wcięcia (cut fitting) — PRODUKCYJNE OD 2026-09-25, BEZ BLOKADY RYSUNKU
 
-Program ma docelowo po skasowaniu wymiarów do osi dorysować nowy wymiar
-(albo dwa: długość i szerokość) opisujący wcięcie (cut fitting) profilu w
-złączu — żeby rysunek nie tracił informacji, tylko zmieniał jej formę.
-**Kasowanie już działa (patrz wyżej). Tworzenie nowego wymiaru ma teraz
-działający, POTWIERDZONY WIZUALNIE PRZEZ OPERATORA pilot — ale celowo
-zablokowany do jednego rysunku, nie wpięty do głównego przycisku.**
+Program po skasowaniu wymiarów do osi dorysowuje nowy wymiar (długość i
+szerokość) opisujący wcięcie (cut fitting) profilu w złączu — żeby rysunek
+nie tracił informacji, tylko zmieniał jej formę. **Kasowanie już działa
+(patrz wyżej). Tworzenie nowego wymiaru działa też, POTWIERDZONE WIZUALNIE
+PRZEZ OPERATORA na `[35021]` (jedna ściana cięcia) i `[3.5013]` (dwie
+ściany, asymetria widoku szerokość/długość - patrz sekcja "REALNY test na
+[3.5013] (2026-09-25)").**
+
+**Klasa `NotchPilot` przestała być "pilotem"** — 2026-09-25 operator
+świadomie zdjął blokadę `PilotDrawingMark`/`AllowedRealInsertMarks`
+(metody `InsertWidthTest`/`InsertLengthTest` przemianowane na
+`InsertWidth`/`InsertLength`, komunikaty logu bez prefiksu "TEST", trzy
+przyciski testowe w `MainForm.cs` zastąpione jednym: "Wstaw wymiar
+wcięcia dla złączy na wybranym rysunku"). Program wstawia teraz wymiar
+wcięcia dla KAŻDEGO wymiaru do osi na KAŻDYM rysunku, nie tylko na
+dwóch przetestowanych.
+
+**Świadomie zaakceptowane ryzyko rezydualne:** nierozwiązany problem z
+2026-09-24 ("ma ścianę cięcia" ≠ "potrzebuje wymiaru wcięcia" — patrz
+sekcja "REALNY test na [3.5013] (2026-09-24)") NIE został rozwiązany,
+tylko świadomie zignorowany na życzenie operatora, poinformowanego wprost
+o tym konkretnym ryzyku (drugi koniec `[3.5013]`, który operator sam
+odrzucił 24.09, znowu dostanie wymiar, bo program nie ma żadnej reguły,
+która by to odróżniła). Nie traktować braku dalszych zgłoszeń jako
+potwierdzenia, że to już nieszkodliwe — po prostu nikt jeszcze tego nie
+sprawdził na tym konkretnym złączu po zdjęciu blokady.
 
 ### Co już ustalone i zmierzone na żywo (`[35021]`, profil `RO42.4*3.2`)
 
@@ -573,13 +593,97 @@ ponownie: dopisać do niego log identyfikujący widok (np. `view.Origin`)
 obok każdego wstawianego wymiaru, żeby złapać tę klasę błędu ODCZYTOWO,
 bez realnego insertu.
 
-**Stan repo po sesji:** wszystkie tymczasowe zmiany (dopuszczenie
-`[3.5013]`, limit do pierwszego końca, próba filtra po widoku) COFNIĘTE
-ręcznie (edycja, nie `git checkout` - zablokowany przez klasyfikator auto
-mode jako nieodwracalna operacja na śledzonych plikach). `dev` jest
-niezmieniony względem stanu przed sesją. Realny insert na żywym `[3.5013]`
-z tej sesji cofnięty przez operatora w Tekli (Ctrl+Z), potwierdzone
-`--diag-dimension-style`: 5 oryginalnych wymiarów, zero śladów testu.
+**Stan repo po sesji (2026-09-25, pierwsza runda):** wszystkie tymczasowe
+zmiany (dopuszczenie `[3.5013]`, limit do pierwszego końca, próba filtra po
+widoku) COFNIĘTE ręcznie (edycja, nie `git checkout` - zablokowany przez
+klasyfikator auto mode jako nieodwracalna operacja na śledzonych plikach).
+`dev` jest niezmieniony względem stanu przed sesją. Realny insert na żywym
+`[3.5013]` z tej sesji cofnięty przez operatora w Tekli (Ctrl+Z),
+potwierdzone `--diag-dimension-style`: 5 oryginalnych wymiarów, zero
+śladów testu.
+
+### Poprawiona przyczyna i finalna naprawa (2026-09-25, druga runda tego samego dnia)
+
+Po przerwie na zwolnienie licencji Tekli, sesja wróciła do problemu z
+nowym narzędziem: **`--diag-notch-raw "[Mark]"`** (`DiagRunner.
+RunNotchRawDiag`, tylko odczyt) — zrzuca dla KAŻDEGO widoku i KAŻDEJ
+kwalifikującej się ściany cięcia obie cięciwy (długość i szerokość) z
+pełnym `X;Y;Z`, BEZ filtra płaskości, plus jawną flagę `płaska(Z≈0)`.
+Surowe dane na żywym `[3.5013]` ujawniły prawdziwy mechanizm: **w KAŻDYM z
+dwóch widoków, jedna ściana ma płaską cięciwę DŁUGOŚCI, a DRUGA (przeciwna)
+ma płaską cięciwę SZEROKOŚCI — nigdy obie naraz dla tej samej ściany w tym
+samym widoku.** Fizycznie: krótki kierunek owalnego przecięcia rury
+"ucieka w głąb kartki" akurat w tym widoku, który pokazuje długi kierunek
+płasko, i odwrotnie w drugim widoku. To NIE jest błąd dopasowania (wczorajsza
+diagnoza była błędna) — to fakt geometryczny o TYM konkretnym złączu (kąt +
+orientacja obu widoków).
+
+**Konsekwencja poprzedniego kodu:** filtr "tylko płaskie kandydaty"
+(potrzebny, bo bez niego `StraightDimension` policzona z nieplaskiej
+cięciwy daje `0,00 mm` - rzut na kierunek pomiaru wychodzi zerowy, patrz
+niżej) w KAŻDYM widoku z osobna zostawiał dokładnie JEDNEGO płaskiego
+kandydata - ale dla wymiaru SZEROKOŚCI był to zawsze kandydat PRZECIWNEJ
+ściany, nie tej, do której należy wymiar do osi w tym widoku. Stąd błąd
+"szerokość i długość w dwóch różnych widokach" z pierwszej rundy tej sesji.
+
+**Operator wyjaśnił kryterium akceptacji w prostych słowach** (po tym, jak
+żargon "widok"/"ToViewSpace" nie trafiał): liczy się tylko niebieska ramka
+widoczna na rysunku (czyli faktycznie `View` z Open API - potwierdzone na
+zrzutach ekranu). Zasada operatora: **pojedynczy wymiar nigdy nie jest
+rozdzielony między dwie ramki (to i tak niemożliwe w tym API), ale długość
+i szerokość TEGO SAMEGO końca MOGĄ być w RÓŻNYCH ramkach, jeśli inaczej się
+nie da — najważniejsze, żeby nic się nie nakładało i nic nie wychodziło poza
+ramkę.**
+
+**Finalna reguła w `NotchPilot` (funkcja `Insert`, dawniej `InsertTest`)
+— asymetryczna, zależna od `longest`:**
+- **Długość** ogranicza wyszukiwanie kandydatów do widoku źródłowego
+  wymiaru do osi (`referenceView`, dopasowanie po `View.Origin` z
+  tolerancją - `View.Name` bywa puste, zmierzone 2026-09-25, więc
+  porównanie po nazwie nigdy by nie zadziałało). W tym widoku płaski
+  kandydat zawsze jest właściwą ścianą - zmierzone na obu końcach
+  `[3.5013]`.
+- **Szerokość** szuka po CAŁYM rysunku (bez ograniczenia do widoku) wśród
+  TYLKO płaskich kandydatów (`flatCandidates`, filtr Z≈0 nie usunięty, w
+  przeciwieństwie do próby z pierwszej rundy tej sesji) - to bezpieczne,
+  bo w puli samych płaskich kandydatów każda ściana ma dokładnie jedną
+  flat-reprezentację (we WŁAŚCIWYM dla niej widoku), więc "najbliższy
+  środek cięciwy do środka wymiaru do osi" jednoznacznie trafia we
+  właściwą ścianę - nawet jeśli ląduje w innym widoku niż długość tego
+  samego końca. To ZAMIERZONE, potwierdzone wizualnie przez operatora na
+  żywym `[3.5013]`: nowy wymiar szerokości pojawił się w drugiej ramce
+  arkusza, w pustym miejscu, bez nakładania na istniejącą geometrię.
+
+**BRAMA BEZPIECZEŃSTWA DLA TEJ POPRAWKI PRZESZŁA 2026-09-25.** Realny
+insert na pierwszym końcu żywego `[3.5013]` (drugi koniec pominięty -
+osobny, wciąż otwarty problem domenowy z 24.09, patrz niżej), operator
+obejrzał wynik w Tekli i na pytanie "czy to wygląda poprawnie, nic się nie
+nakłada, nic nie wychodzi poza ramkę?" odpowiedział "tak jest dobrze".
+
+### Zdjęcie blokady rysunku i przejście z pilota na produkcję (2026-09-25)
+
+Po potwierdzeniu poprawki operator poprosił wprost o zamianę przycisków
+testowych na produkcyjne i zdjęcie blokady rysunku. Agent WYRAŹNIE nazwał
+ryzyko przed wykonaniem (drugi koniec `[3.5013]`, odrzucony 24.09, znowu
+dostanie wymiar, bo nie ma reguły odróżniającej) i zapytał operatora wprost
+przez wybór z dwóch opcji - operator wybrał "zdejmij blokadę całkowicie",
+świadomy tego konkretnego ryzyka. Wykonane zmiany:
+- `NotchPilot.cs`: usunięte `PilotDrawingMark`/`AllowedRealInsertMarks` i
+  cała blokada marki w `InsertTest`. Metody przemianowane
+  `InsertWidthTest`→`InsertWidth`, `InsertLengthTest`→`InsertLength`,
+  `InsertTest`→`Insert`. Komunikaty logu bez prefiksu "TEST"/"TEST
+  WSTRZYMANY" (teraz "WSTRZYMANO").
+- `MainForm.cs`: usunięte dwa przyciski testowe ograniczone do `[35021]`
+  bez `referencePoint` (`_notchTestButton`, `_notchLengthTestButton` i ich
+  handlery) - były zbędne, w pełni zastąpione ogólnym. Trzeci przycisk
+  (`_notchMultiFaceTestButton`) przemianowany na `_insertNotchButton`
+  ("Wstaw wymiar wcięcia dla złączy na wybranym rysunku"), limit do
+  pierwszego końca (tymczasowy, z tej sesji) USUNIĘTY - przetwarza teraz
+  WSZYSTKIE wymiary do osi na rysunku.
+- `DiagRunner.cs`: zaktualizowane wywołania na nowe nazwy metod.
+
+**Nierozwiązany problem z 2026-09-24 pozostaje otwarty i TERAZ BEZ
+OSŁONY** - patrz ostrzeżenie w sekcji "Wymiar wcięcia" wyżej.
 
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
@@ -718,10 +822,10 @@ blokuje proces, `taskkill` to jedyny sposób go zakończyć.**
 | Plik | Zawartość |
 |---|---|
 | `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI (reguła v5 — kasuje wszystko w widoku) |
-| `MainForm.cs` | UI: główny przycisk kasowania, log do okna i do pliku (`dryRun: false` od 2026-09-23 — brama v5 przeszła). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie). Fokus na Teklę po operacji tylko gdy `!dryRun`. Plus TRZY przyciski testowe wołające `NotchPilot` — z potwierdzeniem w MessageBox, celowo poza głównym flow: `NotchTestButton_Click`/`NotchLengthTestButton_Click` (pojedynczy insert na `[35021]`) i `NotchMultiFaceTestButton_Click` (2026-09-24: przechodzi przez WSZYSTKIE wymiary do osi na rysunku, dodane do testów na `[3.5013]` — patrz "REALNY test na [3.5013]") |
-| `NotchPilot.cs` | pilot TWORZENIA wymiaru wcięcia — twardo zablokowany do `[35021]` (`PilotDrawingMark`), realnie wstawia `StraightDimension` na żywy rysunek. Potwierdzony wizualnie przez operatora 2026-09-23. Patrz sekcja "Wymiar wcięcia" wyżej po pełny opis ograniczeń |
-| `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark`/`--diag-notch`/`--diag-dimension-style` dla trybu konsolowego |
-| `DiagRunner.cs` | headless runner dry-run + `RunNotchDiag`/`TryLogNotchCandidate` (research geometrii wcięcia) + `RunDimensionStyleDiag` (styl istniejących wymiarów, źródło danych dla `NotchPilot`) + `RunNotchMatchDiag` (dopasowanie wymiar↔ściana cięcia po najbliższości w układzie widoku, patrz "Reguła dopasowania ściana↔wymiar") + `RunNotchInsertDryRun` (woła `NotchPilot` w dry-run dla każdego wymiaru do osi, potwierdzone na żywym [3.5013]) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
+| `MainForm.cs` | UI: główny przycisk kasowania, log do okna i do pliku (`dryRun: false` od 2026-09-23 — brama v5 przeszła). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie). Fokus na Teklę po operacji tylko gdy `!dryRun`. Plus jeden przycisk `_insertNotchButton` ("Wstaw wymiar wcięcia dla złączy na wybranym rysunku", handler `InsertNotchButton_Click`) — od 2026-09-25 PRODUKCYJNY, bez blokady marki, przechodzi przez WSZYSTKIE wymiary do osi na aktywnym rysunku (dwa dawne testowe przyciski ograniczone do `[35021]` usunięte, w pełni zastąpione tym jednym) |
+| `NotchPilot.cs` | TWORZENIE wymiaru wcięcia — PRODUKCYJNE od 2026-09-25 (`PilotDrawingMark`/blokada marki usunięte), metody `InsertWidth`/`InsertLength`. Potwierdzone wizualnie przez operatora na `[35021]` i `[3.5013]` (asymetria widoku długość/szerokość, patrz "Wymiar wcięcia"). Nierozwiązany problem "które złącze faktycznie potrzebuje wymiaru" (2026-09-24) NIE ma tu żadnej ochrony - świadoma decyzja operatora |
+| `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark`/`--diag-notch`/`--diag-dimension-style`/`--diag-notch-raw` dla trybu konsolowego |
+| `DiagRunner.cs` | headless runner dry-run + `RunNotchDiag`/`TryLogNotchCandidate` (research geometrii wcięcia) + `RunDimensionStyleDiag` (styl istniejących wymiarów, źródło danych dla `NotchPilot`) + `RunNotchMatchDiag` (dopasowanie wymiar↔ściana cięcia po najbliższości w układzie widoku, patrz "Reguła dopasowania ściana↔wymiar") + `RunNotchInsertDryRun` (woła `NotchPilot` w dry-run dla każdego wymiaru do osi, potwierdzone na żywym [3.5013]) + `RunNotchRawDiag` (2026-09-25: zrzuca WSZYSTKICH kandydatów, obie cięciwy, bez filtra płaskości, z flagą płaska(Z≈0) — źródło danych dla poprawki asymetrii widoku, patrz "Poprawiona przyczyna i finalna naprawa") — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) |
 | `TeklaWindowFocus.cs` | przełącza fokus Windows na główne okno Tekla Structures (Win32 `SetForegroundWindow`, nie API Tekli). **Nie wołać PRZED startem Pickera** — podejrzenie, że to psuje stan interaktywnej komendy Tekli |
 | `installer/setup.iss`, `installer/fetch-dependencies.ps1`, `installer/TeklaEULA.txt` | instalator Inno Setup — nie dołącza bibliotek Tekla, dociąga je z NuGet po instalacji |
@@ -776,43 +880,31 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
 ## Następne kroki
 
 1. **Reguła "który kandydat odpowiada któremu złączu/wymiarowi" —
-   ZAPROJEKTOWANA, ZWERYFIKOWANA ODCZYTOWO 2026-09-23, WPIĘTA DO KODU
-   2026-09-24, ZWERYFIKOWANA NA ŻYWO 2026-09-25 - I ZŁAPAŁA NOWY BŁĄD**
-   (patrz sekcja "REALNY test na [3.5013] (2026-09-25)" wyżej): reguła
-   "najbliższa ściana cięcia do środka usuwanego wymiaru" nie wie, z
-   którego WIDOKU pochodzi ten środek, i porównuje odległości między
-   kandydatami z RÓŻNYCH widoków - realny insert na żywym `[3.5013]`
-   wstawił szerokość i długość wcięcia w DWA RÓŻNE widoki zamiast w jeden
-   komplet. Próba naprawy (ogranicz wyszukiwanie do widoku źródłowego
-   wymiaru, dopasowanie po `View.Origin` bo `View.Name` bywa puste)
-   ZWERYFIKOWANA DRY-RUNEM i WYCOFANA - dała wynik gorszy (dopasowanie
-   odwrócone), bo jeden widok tego rysunku poprawnie reprezentuje
-   geometrię OBU końców naraz. Prawdziwa reguła wciąż nieznaleziona -
-   potrzebny nowy zrzut diagnostyczny (wszyscy kandydaci obu ścian, ich Z
-   po projekcji, osobno dla każdego z dwóch widoków) przed kolejną próbą,
-   nie zgadywać. Wszystkie tymczasowe zmiany z tej sesji cofnięte, `dev`
-   niezmieniony.
-2. **Wymiar wcięcia — pilot potwierdzony WIZUALNIE na `[35021]` (jedna
-   ściana cięcia) I na PIERWSZYM końcu `[3.5013]` (2026-09-24, po trzech
-   poprawkach - patrz sekcja "REALNY test na [3.5013]" wyżej: przyciski
-   blokujące się, fałszywy sukces bez weryfikacji, i zły kierunek wymiaru
-   dwa razy z rzędu, zanim wyszło poprawnie).** DRUGI koniec `[3.5013]`
-   też dostał poprawnie policzone `42,40 mm`/`42,40 mm`, ale operator
-   ocenił, że TEN KONKRETNY koniec nie powinien w ogóle dostać wymiaru
-   wcięcia - odkrył NOWY, nierozwiązany problem: "ma ścianę cięcia w
-   bryle" ≠ "potrzebuje wymiaru wcięcia w rysunku". Dwie hipotezy na regułę
-   rozróżniającą (obecność `AngleDimension`, typ widoku) sprawdzone i
-   OBALONE `--diag-view-objects` (patrz sekcja wyżej). **ODŁOŻONE na
-   życzenie operatora 2026-09-24** - nie kopać dalej bez nowego pomysłu
-   albo wyraźnego zgłoszenia. Praca nad wieloma ścianami wstrzymana; pilot
-   zostaje ograniczony jak było (`PilotDrawingMark`, realnie tylko
-   `[35021]`).
-3. **Dopiero po rozwiązaniu problemu "które złącze faktycznie potrzebuje
-   wymiaru wcięcia" (pkt 2) i wizualnym potwierdzeniu na kilku złączach
-   (w tym z wieloma ścianami):** zdjąć blokadę `PilotDrawingMark`/
-   `AllowedRealInsertMarks`, połączyć z głównym przyciskiem kasowania,
-   przeprowadzić przez pełną bramę bezpieczeństwa (dry-run/podgląd →
-   operator patrzy na żywy rysunek → potwierdza → dopiero wtedy na stałe).
+   ROZWIĄZANA I POTWIERDZONA NA ŻYWO 2026-09-25** (druga runda tej samej
+   sesji, po przerwie na licencję - patrz "Poprawiona przyczyna i finalna
+   naprawa" wyżej): asymetria widoku - długość ogranicza się do widoku
+   źródłowego wymiaru do osi, szerokość szuka po całym rysunku wśród
+   płaskich kandydatów. Prawdziwa przyczyna nie była "mylenie widoków"
+   (błędna diagnoza z pierwszej rundy tej sesji), tylko fakt geometryczny:
+   w danym widoku tylko JEDNA z dwóch ścian ma płaską cięciwę danego typu
+   (długość/szerokość). Zamknięte.
+2. **Wymiar wcięcia — pilot potwierdzony WIZUALNIE na `[35021]` i na
+   `[3.5013]` (oba testowane końce, patrz wyżej).** Problem "ma ścianę
+   cięcia w bryle" ≠ "potrzebuje wymiaru wcięcia w rysunku" (odkryty
+   24.09 na drugim końcu `[3.5013]`) **WCIĄŻ NIEROZWIĄZANY** - dwie
+   hipotezy (obecność `AngleDimension`, typ widoku) obalone
+   `--diag-view-objects`. **2026-09-25: operator świadomie zdecydował NIE
+   czekać na rozwiązanie tego problemu i zdjął blokadę rysunku mimo to** -
+   program teraz wstawia wymiar dla KAŻDEGO geometrycznego kandydata na
+   KAŻDYM rysunku, więc to ryzyko jest aktywne w produkcji, nie tylko
+   teoretyczne. Jeśli operator zgłosi błędnie wstawiony wymiar na jakimś
+   złączu - to prawdopodobnie właśnie ten, wciąż nierozwiązany problem.
+3. **Główny przycisk kasowania i wstawiania wymiaru wcięcia są teraz
+   OSOBNYMI przyciskami w `MainForm.cs`, nie połączone w jeden przepływ**
+   ("skasuj i od razu wstaw wcięcie w to miejsce") - to była pierwotna
+   wizja z sekcji "Wymiar wcięcia", wciąż niezrealizowana. Do rozważenia
+   przy kolejnej sesji, jeśli operator tego zechce - nie zakładać, że to
+   oczywisty kolejny krok bez pytania.
 4. **UX wyboru widoku** — zaakceptowane 2026-09-23 jako "działa po
    kliknięciu w geometrię partu; Esc → lista jako zapasowa ścieżka". Nie
    próbować dalej "naprawiać" bez nowego wyraźnego zgłoszenia operatora.
