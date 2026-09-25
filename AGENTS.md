@@ -496,6 +496,91 @@ której nie da się łatwo zredukować do reguły API.** Operator zdecydował
 zgodnie z AGENTS.md pkt 4. `--diag-view-objects` zostaje w kodzie jako
 narzędzie do ewentualnego podjęcia tematu później.
 
+### REALNY test na `[3.5013]` (2026-09-25) - NOWY błąd: szerokość i długość wylądowały w DWÓCH RÓŻNYCH widokach
+
+Operator tymczasowo dopuścił `[3.5013]` do realnego insertu (jak 2026-09-24,
+ta sama para flag: `AllowedRealInsertMarks` w `NotchPilot.cs` + limit w
+`MainForm.NotchMultiFaceTestButton_Click` do PIERWSZEGO znalezionego końca,
+żeby nie dotykać spornego drugiego końca z sesji 2026-09-24). Insert
+zwrócił sukces dla obu wymiarów (szerokość i długość), z potwierdzeniem
+przez ponowny odczyt widoku (`HasSameDimension`) - żadna z lekcji
+2026-09-24 (fałszywy sukces, zły kierunek) się nie powtórzyła. Mimo to
+operator, patrząc na żywy rysunek, zgłosił: **"na drugiej belce na ścięciu
+nic nie ma, a na dolnej jest jedno 42 na długość, nie ma na szerokość"** -
+czyli oba wstawione wymiary NIE są w tym samym widoku, mimo że powinny
+opisywać TEN SAM koniec.
+
+**Potwierdzone przez `--diag-dimension-style` (nie zgadywanie):** widok A
+(ten z oryginalnymi wymiarami bliskiego końca, `21mm`/`21mm`/`42mm`-
+długość) dostał tylko wymiar DŁUGOŚCI. Widok B (ten z oryginalnymi
+wymiarami DALEKIEGO końca i całkowitą długością `5796mm`) dostał wymiar
+SZEROKOŚCI - mimo że oba inserty startowały z TEGO SAMEGO
+`referencePoint` (środek tego samego usuwanego wymiaru do osi, bliski
+koniec). Insert szerokości i insert długości, wywołane jeden po drugim z
+tym samym punktem referencyjnym, wybrały kandydatów z DWÓCH RÓŻNYCH
+widoków.
+
+**Przyczyna:** `NotchPilot.InsertTest` zbiera kandydatów (ściana cięcia →
+cięciwa) ze WSZYSTKICH widoków rysunku naraz, licząc "najbliższy
+punktowi referencyjnemu" po surowej odległości, BEZ wiedzy o tym, z
+którego widoku pochodzi sam `referencePoint`. Odległość porównuje punkty
+przeliczone przez `ToViewSpace` przy użyciu `view.DisplayCoordinateSystem`
+KAŻDEGO widoku z osobna - a jeśli lokalne układy współrzędnych dwóch
+widoków tego samego złącza dają zbieżne liczby dla tego samego fizycznego
+miejsca, porównanie "najbliższy" może (i tu zrobiło) wybrać kandydata z
+niewłaściwego widoku dla jednego z dwóch wywołań (szerokość), podczas gdy
+drugie (długość) tego samego `referencePoint` trafiło poprawnie.
+
+**Próba naprawy (WYCOFANA, dała wynik GORSZY niż brak poprawki):**
+ograniczenie wyszukiwania kandydatów do widoku, z którego pochodzi
+`referencePoint` (nowy parametr `referenceView` przekazywany z
+`MainForm`/`DiagRunner`, dopasowanie po `view.Origin` z tolerancją -
+`View.Name` okazał się PUSTY dla tych widoków, więc porównanie po nazwie
+nigdy by nie zadziałało, `""!=""` zawsze `false`). Zweryfikowane
+`--diag-notch-insert-dryrun` PRZED realnym insertem (dobra dyscyplina -
+błąd złapany bez dotykania modelu): dla wymiaru bliskiego końca (mid
+X≈10,6) reguła z ograniczeniem do widoku wybrała kandydata o
+współrzędnych DALEKIEGO końca (X≈5775), i odwrotnie dla dalekiego końca -
+dopasowanie kompletnie ODWRÓCONE, gorsze niż oryginalny błąd.
+
+**Wniosek z surowych danych (zmierzone, nie zgadane):** `view.Origin`
+dwóch widoków tego rysunku faktycznie się różni (`(37,10;102,92)` vs
+`(37,10;167,90)` - to naprawdę dwa różne obiekty widoku), ale **JEDEN
+widok potrafi poprawnie reprezentować geometrię OBU końców złącza
+naraz** - lokalna oś X widoku odpowiada odległości wzdłuż całej belki,
+wspólnej dla obu końców, nie jest "wyzerowana" osobno przy każdym końcu.
+To obala założenie stojące za próbą naprawy ("ogranicz do widoku
+źródłowego wymiaru") - ograniczenie do jednego widoku nie eliminuje
+dwuznaczności, bo w TYM widoku nadal istnieją kandydaci obu końców, tylko
+z tej pary każdy widok "widzi płasko" (Z≈0 po projekcji) inną ścianę niż
+się spodziewano. Prawdziwa przyczyna leży najpewniej w tym, KTÓRA ściana
+wychodzi płaska w danym widoku (zależne od orientacji widoku względem
+płaszczyzny cięcia), nie w tym, z którego widoku pochodzi wymiar do
+usunięcia - ale to WCIĄŻ nierozwiązane, nie zgadywać dalej bez kolejnej
+rundy surowych danych (np. zrzut WSZYSTKICH kandydatów - obu ścian, z ich
+Z po projekcji - osobno dla KAŻDEGO z dwóch widoków, zanim napisze się
+kolejną wersję reguły).
+
+**Ważna, nowa lekcja o samym procesie diagnozy:** ten błąd byłby NIEWYKRYTY
+przez sam dry-run w takiej postaci, w jakiej istniał do tej pory -
+`--diag-notch-insert-dryrun` loguje Start/End/wartość dla szerokości i
+długości OSOBNO, ale nie loguje (i nie porównuje), czy oba insert dla
+TEGO SAMEGO wymiaru do osi wylądowałyby w TYM SAMYM widoku. Liczby same w
+sobie wyglądały wiarygodnie (42,40 mm i 59,96 mm, zgodne z wcześniejszymi
+pomiarami) - dopiero PO realnym insercie i wizualnym obejrzeniu rysunku
+było widać, że to dwa osobne widoki. Zanim ktoś zaufa temu dry-runowi
+ponownie: dopisać do niego log identyfikujący widok (np. `view.Origin`)
+obok każdego wstawianego wymiaru, żeby złapać tę klasę błędu ODCZYTOWO,
+bez realnego insertu.
+
+**Stan repo po sesji:** wszystkie tymczasowe zmiany (dopuszczenie
+`[3.5013]`, limit do pierwszego końca, próba filtra po widoku) COFNIĘTE
+ręcznie (edycja, nie `git checkout` - zablokowany przez klasyfikator auto
+mode jako nieodwracalna operacja na śledzonych plikach). `dev` jest
+niezmieniony względem stanu przed sesją. Realny insert na żywym `[3.5013]`
+z tej sesji cofnięty przez operatora w Tekli (Ctrl+Z), potwierdzone
+`--diag-dimension-style`: 5 oryginalnych wymiarów, zero śladów testu.
+
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
 Para `21`/`21` na `[3.5013]` to NIE była duplikat. Reguła v4 (kasuj
@@ -692,15 +777,21 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
 
 1. **Reguła "który kandydat odpowiada któremu złączu/wymiarowi" —
    ZAPROJEKTOWANA, ZWERYFIKOWANA ODCZYTOWO 2026-09-23, WPIĘTA DO KODU
-   2026-09-24** (patrz sekcja "Reguła dopasowania ściana↔wymiar" wyżej):
-   najbliższa ściana cięcia (centroid w układzie widoku) do środka
-   usuwanego wymiaru. Potwierdzona przez `--diag-notch-match` na `[35021]`
-   (1 ściana) i `[3.5013]` (2 ściany, jednoznaczna separacja ~5775 mm vs
-   15-18 mm). `NotchPilot.InsertTest` umie teraz z niej skorzystać
-   (opcjonalny `referencePoint`), ale NIC jeszcze go nie przekazuje i
-   NIC z tego nie zostało zweryfikowane na żywo (brak licencji Tekli
-   2026-09-24) - do zrobienia przy najbliższej okazji z działającą Teklą,
-   potem dopiero brama dla tworzenia od nowa (pkt 3 niżej).
+   2026-09-24, ZWERYFIKOWANA NA ŻYWO 2026-09-25 - I ZŁAPAŁA NOWY BŁĄD**
+   (patrz sekcja "REALNY test na [3.5013] (2026-09-25)" wyżej): reguła
+   "najbliższa ściana cięcia do środka usuwanego wymiaru" nie wie, z
+   którego WIDOKU pochodzi ten środek, i porównuje odległości między
+   kandydatami z RÓŻNYCH widoków - realny insert na żywym `[3.5013]`
+   wstawił szerokość i długość wcięcia w DWA RÓŻNE widoki zamiast w jeden
+   komplet. Próba naprawy (ogranicz wyszukiwanie do widoku źródłowego
+   wymiaru, dopasowanie po `View.Origin` bo `View.Name` bywa puste)
+   ZWERYFIKOWANA DRY-RUNEM i WYCOFANA - dała wynik gorszy (dopasowanie
+   odwrócone), bo jeden widok tego rysunku poprawnie reprezentuje
+   geometrię OBU końców naraz. Prawdziwa reguła wciąż nieznaleziona -
+   potrzebny nowy zrzut diagnostyczny (wszyscy kandydaci obu ścian, ich Z
+   po projekcji, osobno dla każdego z dwóch widoków) przed kolejną próbą,
+   nie zgadywać. Wszystkie tymczasowe zmiany z tej sesji cofnięte, `dev`
+   niezmieniony.
 2. **Wymiar wcięcia — pilot potwierdzony WIZUALNIE na `[35021]` (jedna
    ściana cięcia) I na PIERWSZYM końcu `[3.5013]` (2026-09-24, po trzech
    poprawkach - patrz sekcja "REALNY test na [3.5013]" wyżej: przyciski
