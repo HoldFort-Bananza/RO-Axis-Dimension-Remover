@@ -546,6 +546,10 @@ namespace RoAxisDimensionRemover
                     if (!(partsEnum.Current is Part drawingPart)) continue;
                     if (!(model.SelectModelObject(drawingPart.ModelIdentifier) is TSM.Part modelPart)) continue;
 
+                    string profileString = "?";
+                    try { profileString = modelPart.Profile.ProfileString; } catch { }
+                    Log($"[notch-raw]   część: {modelPart.GetType().Name} Name={modelPart.Name} Profile={profileString}");
+
                     Tekla.Structures.Geometry3d.Vector axisDir = null;
                     if (modelPart is TSM.Beam beam)
                     {
@@ -783,6 +787,10 @@ namespace RoAxisDimensionRemover
                     if (!(partsEnum.Current is Part drawingPart)) continue;
                     if (!(model.SelectModelObject(drawingPart.ModelIdentifier) is TSM.Part modelPart)) continue;
 
+                    string profileString = "?";
+                    try { profileString = modelPart.Profile.ProfileString; } catch { }
+                    Log($"[notch-raw]   część: {modelPart.GetType().Name} Name={modelPart.Name} Profile={profileString}");
+
                     Tekla.Structures.Geometry3d.Vector axisDir = null;
                     if (modelPart is TSM.Beam beam)
                     {
@@ -811,6 +819,82 @@ namespace RoAxisDimensionRemover
                         Log($"[notch-raw]     szerokość: Start={PointStr(minorStart)} End={PointStr(minorEnd)} wartość={Distance(minorStart, minorEnd):F2} mm płaska(Z≈0)={Math.Abs(minorStart.Z) <= NumericalZero && Math.Abs(minorEnd.Z) <= NumericalZero}");
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Tylko odczyt: research pod "czy wymiar wcięcia wychodzi poza
+        /// arkusz" (zgłoszone przez operatora na [35095], 2026-09-28) -
+        /// sprawdza, czy da się odzyskać skalę widoku (mm modelu -> mm
+        /// papieru) bez czytania ramki (o której wiadomo, że się nie da -
+        /// patrz ..\AGENTS.md). Loguje Width/Height widoku i arkusza (mm
+        /// papieru, już używane gdzie indziej w projekcie), bounding box
+        /// narysowanej zawartości, i długość (NIE znormalizowaną) wektorów
+        /// ViewCoordinateSystem kontra DisplayCoordinateSystem - jeśli
+        /// któryś niesie skalę zamiast być jednostkowy, to da się z tego
+        /// policzyć przelicznik.
+        /// </summary>
+        public static void RunViewBoundsDiag(string mark)
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+
+            Drawing drawing = null;
+            var drawings = dh.GetDrawings();
+            while (drawings.MoveNext())
+            {
+                if (string.Equals(drawings.Current.Mark, mark, StringComparison.OrdinalIgnoreCase))
+                {
+                    drawing = drawings.Current;
+                    break;
+                }
+            }
+            if (drawing == null)
+            {
+                Log($"Nie znaleziono rysunku o Mark={mark}.");
+                return;
+            }
+            dh.SetActiveDrawing(drawing, true);
+
+            Log($"[view-bounds] Rysunek: {drawing.Mark} / {drawing.Name}");
+            try
+            {
+                var sheet = drawing.GetSheet();
+                Log($"[view-bounds] arkusz: Width={sheet.Width:F2} Height={sheet.Height:F2}");
+            }
+            catch (Exception ex)
+            {
+                Log($"[view-bounds] arkusz: błąd odczytu ({ex.GetType().Name}: {ex.Message})");
+            }
+
+            var top = drawing.GetSheet().GetAllObjects();
+            while (top.MoveNext())
+            {
+                if (!(top.Current is View view)) continue;
+                Log($"[view-bounds] widok Origin={PointStr(view.Origin)} Width={view.Width:F2} Height={view.Height:F2}");
+                try
+                {
+                    var box = view.GetAxisAlignedBoundingBox();
+                    Log($"[view-bounds]   bounding box zawartości: Min={PointStr(box.MinPoint)} Max={PointStr(box.MaxPoint)}");
+                }
+                catch (Exception ex)
+                {
+                    Log($"[view-bounds]   bounding box: błąd odczytu ({ex.GetType().Name}: {ex.Message})");
+                }
+                var vcs = view.ViewCoordinateSystem;
+                var dcs = view.DisplayCoordinateSystem;
+                var vcsX = new Tekla.Structures.Geometry3d.Vector(vcs.AxisX);
+                var vcsY = new Tekla.Structures.Geometry3d.Vector(vcs.AxisY);
+                var dcsX = new Tekla.Structures.Geometry3d.Vector(dcs.AxisX);
+                var dcsY = new Tekla.Structures.Geometry3d.Vector(dcs.AxisY);
+                Log($"[view-bounds]   ViewCoordinateSystem: Origin={PointStr(vcs.Origin)} |AxisX|={vcsX.GetLength():F6} |AxisY|={vcsY.GetLength():F6}");
+                Log($"[view-bounds]   DisplayCoordinateSystem: Origin={PointStr(dcs.Origin)} |AxisX|={dcsX.GetLength():F6} |AxisY|={dcsY.GetLength():F6}");
             }
         }
 

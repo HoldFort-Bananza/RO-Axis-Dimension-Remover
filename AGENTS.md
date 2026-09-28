@@ -839,6 +839,89 @@ kaskady - `42 mm` długości przetrwało) przycisk "Wstaw" poprawnie
 zgłosił "nie wstawiono nowego wymiaru", bo faktycznie niczego nie
 brakowało - potwierdza, że `HasSameDimension` nie wstawia duplikatów.
 
+## Dalsze testy skanera modelu (2026-09-28): `[225.130]` (nie kasować!), `[35095]` (kolejny sukces filtra kąta)
+
+Skorzystano z listy 96 kandydatów z `--diag-find-candidates` (patrz
+"KRYTYCZNE ZNALEZISKO 2026-09-25"), żeby przetestować regułę na świeżych
+złączach.
+
+**`[225.130]` (`Gelander`, CAŁY ZESPÓŁ balustrady z płytkami i śrubami
+M16, NIE `Einzelteil`) - 14 kandydatów do usunięcia, WSZYSTKIE
+FAŁSZYWE.** `--diag-notch-raw` pokazał wszystkie ściany z normalnymi
+DOKŁADNIE osiowymi (`(1,0,0)`, `(0,0,1)` itd.) i identyczną wartością
+`48,30 mm` dla długości I szerokości każdej ściany (kąt cięcia = 0°,
+zwykłe proste zakończenia rur `RO48.3*3.2`) - filtr kąta poprawnie
+odrzucił wszystkie (`--diag-notch-fill-dryrun` nie znalazł nic do
+wstawienia). ALE same 14 kandydatów do USUNIĘCIA (wartości `50/193/57
+mm`) po sprawdzeniu współrzędnych (`--diag-dimension-style`) okazały się
+**geometrią detali śrubowych/płytkowych** (powtarzający się wzorzec przy
+każdym z ~7 słupków, pasujący do symboli "2 x M16x45-ISO4017" widocznych
+na rysunku) - NIE artefaktami skosu rury. **Wniosek: reguła
+`TouchesAxis`/`RemoveAxisDimensions` była projektowana i testowana
+WYŁĄCZNIE na rysunkach `Einzelteil` (pojedyncza część) - na rysunkach
+CAŁEGO ZESPOŁU (`Gelander` bez `Einzelteil`, z płytkami/śrubami) może się
+mylić z zupełnie innego powodu (geometria złącza śrubowego, nie skos
+rury). Operator zdecydował NIE kasować nic na `[225.130]`.** To nowe,
+nieprzetestowane wcześniej ograniczenie zakresu - nie próbować kasować na
+rysunkach zespołów bez dodatkowej weryfikacji.
+
+**`[35095]` (`Einzelteil Geländer`, `Handlauf` `RO42.4*3.2`) - kolejne
+potwierdzenie filtra kąta na złożonym, PODWÓJNYM skosie.** Ten sam koniec
+ma DWIE różne ściany cięcia (kąty ~37,5° i ~64,3° policzone z geometrii
+modelu), pasujące niemal dokładnie do WŁASNYCH adnotacji kąta Tekli na
+rysunku (`39,14°` i `64,69°`) - niezależne potwierdzenie poprawności
+liczenia kąta. W 3D bryła wygląda jak płaski, zaostrzony "nóż" (na
+zrzucie z modelu) - to tylko efekt patrzenia niemal wzdłuż osi rury przy
+podwójnym skosie, NIE płaski element (`Profile=RO42.4*3.2` potwierdzone
+przez nowy log w `--diag-notch-raw`, patrz niżej). Osobna para małych
+adnotacji kąta (`9,04°`/`12,12°`) w innym widoku tego samego rysunku NIE
+odpowiada żadnej ścianie znalezionej przez `FindQualifyingChordPairs` -
+najpewniej to ten sam fizyczny skos, tylko zmierzony/pokazany w innym
+rzucie 2D (kąt pozorny w rzucie zależy od kierunku patrzenia, w
+przeciwieństwie do kąta liczonego w tym kodzie, który używa
+współrzędnych MODELU, nie widoku - patrz `FindQualifyingChordPairs`).
+Dry-run i realny insert oba potwierdzone: 4/4 wymiarów (długość+szerokość
+obu ścian) wstawione poprawnie, wartości `35,00`/`90,00`/`42,00`/`42,00`
+mm zgodne z `--diag-dimension-style` po insercie.
+
+**`--diag-notch-raw` dostał trwały log profilu części** (`Profile={ProfileString}`
+obok każdej znalezionej części) - przydatne przy każdej przyszłej
+wątpliwości "czy to na pewno rura RO", bez zgadywania z wyglądu w 3D.
+
+### Zgłoszony, ZBADANY i PORZUCONY: wymiar wcięcia może wyjść poza krawędź arkusza
+
+Na `[35095]` wstawiona długość (`35 mm`) wylądowała blisko/za krawędzią
+arkusza - operator: "trochę do cofnięcia, ale poza tym jest dobrze"
+(zaakceptowane jako drobna wada do ręcznej poprawki, nie blokujące).
+Zbadano, czy da się to wykryć/uniknąć w kodzie (`--diag-view-bounds`,
+nowa trwała diagnostyka - loguje `Sheet.Width/Height`, `View.Width/
+Height`, `GetAxisAlignedBoundingBox()`, długość wektorów
+`ViewCoordinateSystem`/`DisplayCoordinateSystem`):
+
+- **Żaden z wektorów osi (View ani Display CoordinateSystem) nie niesie
+  skali** - oba mają długość dokładnie `1,0` (znormalizowane). Nie ma
+  jawnej właściwości `Scale` na `View`.
+- **`View.Width`/`Height` DOKŁADNIE pokrywają się z bounding boxem
+  narysowanej zawartości** (zmierzone: `72,60×60,60`, dokładnie równe
+  różnicy Max-Min bounding boxa) - czyli ramka widoku automatycznie
+  dopasowuje się do
+  zawartości. Nie ma tam żadnego "zapasu" do sprawdzenia - dodanie
+  czegokolwiek zawsze "zmieści się" we własnym, rosnącym pudełku widoku.
+  To, co faktycznie ogranicza miejsce (fizyczna krawędź arkusza, margines
+  szablonu), nie jest tym samym co ten bounding box.
+- Fizyczna krawędź arkusza (`Sheet.Width/Height`, np. `297×210` dla A4)
+  jest znana, ale bez skali (mm modelu -> mm papieru) i bez marginesu
+  szablonu `.lay` (potwierdzone nieczytelne, patrz `..\AGENTS.md`) nie da
+  się wiarygodnie policzyć, czy punkt w jednostkach modelu (lokalnych
+  widoku) wypadnie w bezpiecznej odległości od krawędzi papieru.
+
+**Decyzja: NIE implementować tej poprawki - brak wiarygodnej ścieżki bez
+zgadywania.** Zostaje jako znane ograniczenie kierunku odsunięcia linii
+wymiarowej (`side`, heurystyka z 2026-09-24) - poprawka ręczna w Tekli,
+tak jak wcześniej z `21 mm` na `[35021]`. `--diag-view-bounds` zostaje w
+kodzie, gdyby ktoś kiedyś znalazł sposób na odzyskanie skali (np. przez
+inny obiekt o znanej relacji model↔papier).
+
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
 Para `21`/`21` na `[3.5013]` to NIE była duplikat. Reguła v4 (kasuj
@@ -956,6 +1039,7 @@ RoAxisDimensionRemover.exe --diag-notch-raw "[Mark]"       # tylko odczyt: WSZYS
 RoAxisDimensionRemover.exe --diag-notch-fill-dryrun "[Mark]"  # tylko odczyt: NotchPilot.InsertMissing w dry-run - reguła napędzana geometrią, nie wymiarem do osi
 RoAxisDimensionRemover.exe --diag-connection "[Mark]"      # tylko odczyt: typ/strony Connection dla każdego widoku (research "które złącze potrzebuje wymiaru")
 RoAxisDimensionRemover.exe --diag-find-candidates          # tylko odczyt, BEZ argumentu: skanuje CAŁY model, loguje rysunki z kandydatem (używa prawdziwej RemoveAxisDimensions, więc respektuje guard RO)
+RoAxisDimensionRemover.exe --diag-view-bounds "[Mark]"      # tylko odczyt: rozmiar arkusza/widoku, bounding box zawartości, skala widoku (research "czy wymiar wychodzi poza arkusz" - PORZUCONE, patrz sekcja "Zgłoszony, ZBADANY i PORZUCONY")
 ```
 
 `dryRun` jest we wszystkich na sztywno `true` w `DiagRunner.cs` — nie da się
