@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Tekla.Structures.Drawing;
+using TSM = Tekla.Structures.Model;
 
 namespace RoAxisDimensionRemover
 {
@@ -66,6 +67,24 @@ namespace RoAxisDimensionRemover
         {
             var result = new Result { ViewsChecked = 1 };
 
+            // ZMIERZONE 2026-09-25: TouchesAxis jest czysto geometryczny
+            // (współrzędna blisko zera + głębia Z + krótka długość) i NIC w
+            // kodzie wcześniej nie sprawdzało, czy część jest w ogóle
+            // profilem RO - mimo że cały opis narzędzia (nazwa, komentarze)
+            // zakłada tylko RO. Skan całego modelu (--diag-find-candidates)
+            // znalazł setki "kandydatów" na blachach/dźwigarach/kątownikach
+            // (Blech/Träger/Winkel), operator na żywym [21050] (blacha,
+            // zwykłe rozstawy otworów 20/30/70/120/130 mm) potwierdził: "nic
+            // nie powinniśmy kasować z tej blachy" - to był realny, nie
+            // teoretyczny, risk fałszywego dopasowania. Guard: jeśli widok
+            // nie zawiera ŻADNEJ części o profilu zaczynającym się na "RO",
+            // nic nie rusza - bez względu na to, ile TouchesAxis znajdzie.
+            if (!ViewHasRoProfile(view, log))
+            {
+                log("Ten widok nie zawiera części o profilu RO - narzędzie jest ograniczone do profili RO, nic nie kasuję.");
+                return result;
+            }
+
             var objs = view.GetAllObjects();
             while (objs.MoveNext())
             {
@@ -112,6 +131,35 @@ namespace RoAxisDimensionRemover
             }
 
             return result;
+        }
+
+        // "RO" to konwencja nazewnictwa profili w katalogu Tekli (rura
+        // okrągła) - zmierzone na [35021]/[3.5013]: Profile.ProfileString
+        // = "RO42.4*3.2". Brak połączenia z Model albo brak części z takim
+        // profilem w widoku = bezpieczny domyślny wynik "false" (nic nie
+        // kasuj), nigdy "zgaduj, że to RO".
+        private static bool ViewHasRoProfile(ViewBase view, Action<string> log)
+        {
+            var model = new TSM.Model();
+            if (!model.GetConnectionStatus())
+            {
+                log("Brak połączenia z Teklą (Model) - nie mogę sprawdzić profilu części, nic nie kasuję.");
+                return false;
+            }
+            var parts = view.GetAllObjects(new[] { typeof(Part) });
+            while (parts.MoveNext())
+            {
+                if (!(parts.Current is Part drawingPart)) continue;
+                if (!(model.SelectModelObject(drawingPart.ModelIdentifier) is TSM.Part modelPart)) continue;
+                string profile;
+                try { profile = modelPart.Profile.ProfileString; }
+                catch { continue; }
+                if (profile != null && profile.TrimStart().StartsWith("RO", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static double PointDistance(Tekla.Structures.Geometry3d.Point p1, Tekla.Structures.Geometry3d.Point p2)

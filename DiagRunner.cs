@@ -21,6 +21,10 @@ namespace RoAxisDimensionRemover
     // niezależnie od tego, jak dobrze zweryfikowana jest reguła.
     internal static class DiagRunner
     {
+        // Ta sama wartość i to samo znaczenie co NotchPilot.NumericalZero -
+        // tolerancja błędu numerycznego projekcji, nie próg geometrii.
+        private const double NumericalZero = 0.000001;
+
         public static void RunOnActiveDrawing()
         {
             void Log(string s) => Console.WriteLine(s);
@@ -39,6 +43,66 @@ namespace RoAxisDimensionRemover
                 return;
             }
             RunOn(drawing, Log);
+        }
+
+        /// <summary>
+        /// Tylko odczyt: skanuje WSZYSTKIE rysunki w modelu (bez otwierania
+        /// żadnego na ekranie - `GetSheet().GetAllObjects()` działa na
+        /// uchwycie Drawing bez SetActiveDrawing) i loguje te, które mają
+        /// choć jeden wymiar do osi (ten sam warunek co
+        /// RoAxisDimensionService.RemoveAxisDimensions). Cel: znaleźć
+        /// KOLEJNEGO kandydata do testów po tym, jak [3.5013] zostało
+        /// usunięte z modelu (2026-09-25) - zastępuje jednorazowy
+        /// Inspector.cs (usunięty po v0.2.0), bo znowu potrzebny nowy
+        /// kandydat.
+        /// </summary>
+        public static void RunFindCandidatesDiag()
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+
+            // Woła PRAWDZIWĄ RemoveAxisDimensions (dryRun: true), nie
+            // duplikuje TouchesAxis samodzielnie - inaczej ten skaner
+            // pokazywałby te same fałszywe trafienia na innych profilach,
+            // które ten guard ma właśnie wykluczyć (patrz komentarz w
+            // RoAxisDimensionService.RemoveAxisDimensions, ZMIERZONE
+            // 2026-09-25 na [21050]).
+            var service = new RoAxisDimensionService();
+            void Silent(string s) { } // per-dimension log z RemoveAxisDimensions tu nie interesuje - liczy się tylko suma
+            int scanned = 0, withCandidates = 0;
+            var drawings = dh.GetDrawings();
+            while (drawings.MoveNext())
+            {
+                var drawing = drawings.Current;
+                scanned++;
+                int candidateCount = 0;
+                try
+                {
+                    var top = drawing.GetSheet().GetAllObjects();
+                    while (top.MoveNext())
+                    {
+                        if (!(top.Current is ViewBase view)) continue;
+                        candidateCount += service.RemoveAxisDimensions(drawing, view, Silent, dryRun: true).RemovedCount;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"[find] {drawing.Mark}: błąd odczytu ({ex.GetType().Name}: {ex.Message}) - pominięto.");
+                    continue;
+                }
+                if (candidateCount > 0)
+                {
+                    withCandidates++;
+                    Log($"[find] {drawing.Mark} / {drawing.Name}: {candidateCount} kandydat(ów) do usunięcia (wymiar do osi).");
+                }
+            }
+            Log($"[find] Przeskanowano {scanned} rysunków, {withCandidates} ma kandydatów.");
         }
 
         // Otwiera rysunek po Mark i uruchamia na nim tę samą diagnostykę -
@@ -482,6 +546,10 @@ namespace RoAxisDimensionRemover
                     if (!(partsEnum.Current is Part drawingPart)) continue;
                     if (!(model.SelectModelObject(drawingPart.ModelIdentifier) is TSM.Part modelPart)) continue;
 
+                    string profileString = "?";
+                    try { profileString = modelPart.Profile.ProfileString; } catch { }
+                    Log($"[notch-raw]   część: {modelPart.GetType().Name} Name={modelPart.Name} Profile={profileString}");
+
                     Tekla.Structures.Geometry3d.Vector axisDir = null;
                     if (modelPart is TSM.Beam beam)
                     {
@@ -528,6 +596,503 @@ namespace RoAxisDimensionRemover
                     }
                     Log($"[notch-match]   DOPASOWANIE: wymiar mid={PointStr(mid)} -> ściana Normal=({best.Normal.X:F2};{best.Normal.Y:F2};{best.Normal.Z:F2}) długość={best.MajorLen:F2} mm szerokość={best.MinorLen:F2} mm odległość_do_środka={bestDist:F2} mm (widok)");
                 }
+            }
+        }
+
+        /// <summary>
+        /// Tylko odczyt: woła `NotchPilot.InsertMissing` w dry-run - reguła
+        /// napędzana bezpośrednio geometrią ścian cięcia, nie istniejącymi
+        /// wymiarami do osi (patrz komentarz przy `InsertMissing` w
+        /// NotchPilot.cs - dodane 2026-09-25 po tym, jak skasowanie starego
+        /// wymiaru do osi kaskadowo zabrało ze sobą już wstawiony wymiar
+        /// wcięcia na [3.5027], zrywając zależność od jego istnienia).
+        /// </summary>
+        public static void RunNotchFillDryRun(string mark)
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+
+            Drawing drawing = null;
+            var drawings = dh.GetDrawings();
+            while (drawings.MoveNext())
+            {
+                if (string.Equals(drawings.Current.Mark, mark, StringComparison.OrdinalIgnoreCase))
+                {
+                    drawing = drawings.Current;
+                    break;
+                }
+            }
+            if (drawing == null)
+            {
+                Log($"Nie znaleziono rysunku o Mark={mark}.");
+                return;
+            }
+            dh.SetActiveDrawing(drawing, true);
+
+            Log($"[notch-fill] Rysunek: {drawing.Mark} / {drawing.Name}");
+            NotchPilot.InsertMissing(drawing, s => Log("[notch-fill]   " + s), dryRun: true);
+        }
+
+        /// <summary>
+        /// Tylko odczyt: dla każdego wymiaru do osi (ten sam, który
+        /// RemoveAxisDimensions by skasował), woła NotchPilot w trybie
+        /// dry-run z punktem środka tego wymiaru jako referencją - dokładnie
+        /// scenariusz, do którego reguła dopasowania ściana↔wymiar została
+        /// zaprojektowana (patrz AGENTS.md), tylko bez blokady marki i bez
+        /// realnego Insert()/CommitChanges(). Loguje, co NotchPilot
+        /// wstawiłby dla każdego wymiaru osobno - pozwala sprawdzić złącza
+        /// z wieloma ścianami cięcia (np. [3.5013]) bez ryzyka.
+        /// </summary>
+        public static void RunNotchInsertDryRun(string mark)
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+
+            Drawing drawing = null;
+            var drawings = dh.GetDrawings();
+            while (drawings.MoveNext())
+            {
+                if (string.Equals(drawings.Current.Mark, mark, StringComparison.OrdinalIgnoreCase))
+                {
+                    drawing = drawings.Current;
+                    break;
+                }
+            }
+            if (drawing == null)
+            {
+                Log($"Nie znaleziono rysunku o Mark={mark}.");
+                return;
+            }
+            dh.SetActiveDrawing(drawing, true);
+
+            Log($"[notch-insert] Rysunek: {drawing.Mark} / {drawing.Name}");
+            var top = drawing.GetSheet().GetAllObjects();
+            while (top.MoveNext())
+            {
+                if (!(top.Current is View view))
+                {
+                    continue;
+                }
+
+                var dims = view.GetAllObjects(new[] { typeof(StraightDimension) });
+                while (dims.MoveNext())
+                {
+                    if (!(dims.Current is StraightDimension sd) || !RoAxisDimensionService.TouchesAxis(sd))
+                    {
+                        continue;
+                    }
+                    double ownLength = Distance(sd.StartPoint, sd.EndPoint);
+                    if (ownLength > RoAxisDimensionService.SameJointDistanceMm)
+                    {
+                        continue;
+                    }
+                    var mid = new Tekla.Structures.Geometry3d.Point(
+                        (sd.StartPoint.X + sd.EndPoint.X) / 2, (sd.StartPoint.Y + sd.EndPoint.Y) / 2, (sd.StartPoint.Z + sd.EndPoint.Z) / 2);
+                    Log($"[notch-insert] wymiar do osi mid={PointStr(mid)} własna_długość={ownLength:F1} mm ->");
+                    NotchPilot.InsertWidth(drawing, s => Log("[notch-insert]   " + s), mid, dryRun: true, referenceView: view);
+                    NotchPilot.InsertLength(drawing, s => Log("[notch-insert]   " + s), mid, dryRun: true, referenceView: view);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Tylko odczyt: zrzuca WSZYSTKICH kandydatów na ścianę cięcia (bez
+        /// filtra "płaskości" Z≈0, w przeciwieństwie do NotchPilot) dla
+        /// KAŻDEGO widoku osobno - Start/End obu cięciw (długość/szerokość)
+        /// po ToViewSpace, z pełnym X;Y;Z. Cel: sprawdzić na surowo, ZANIM
+        /// napisze się kolejną wersję reguły dopasowania, która ściana w
+        /// którym widoku wychodzi płaska - po tym, jak 2026-09-25 na żywym
+        /// [3.5013] okazało się, że filtr płaskości w NotchPilot mógł
+        /// odrzucać WŁAŚCIWĄ ścianę danego widoku i zostawiać niewłaściwą
+        /// (patrz AGENTS.md, sekcja "REALNY test na [3.5013] (2026-09-25)").
+        /// </summary>
+        public static void RunNotchRawDiag(string mark)
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+
+            Drawing drawing = null;
+            var drawings = dh.GetDrawings();
+            while (drawings.MoveNext())
+            {
+                if (string.Equals(drawings.Current.Mark, mark, StringComparison.OrdinalIgnoreCase))
+                {
+                    drawing = drawings.Current;
+                    break;
+                }
+            }
+            if (drawing == null)
+            {
+                Log($"Nie znaleziono rysunku o Mark={mark}.");
+                return;
+            }
+            dh.SetActiveDrawing(drawing, true);
+
+            var model = new TSM.Model();
+            if (!model.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Model).");
+                return;
+            }
+
+            Log($"[notch-raw] Rysunek: {drawing.Mark} / {drawing.Name}");
+            var top = drawing.GetSheet().GetAllObjects();
+            while (top.MoveNext())
+            {
+                if (!(top.Current is View view))
+                {
+                    continue;
+                }
+
+                Log($"[notch-raw] widok Origin={PointStr(view.Origin)}");
+
+                var dims = view.GetAllObjects(new[] { typeof(StraightDimension) });
+                while (dims.MoveNext())
+                {
+                    if (!(dims.Current is StraightDimension sd) || !RoAxisDimensionService.TouchesAxis(sd))
+                    {
+                        continue;
+                    }
+                    double ownLength = Distance(sd.StartPoint, sd.EndPoint);
+                    if (ownLength > RoAxisDimensionService.SameJointDistanceMm)
+                    {
+                        continue;
+                    }
+                    var mid = new Tekla.Structures.Geometry3d.Point(
+                        (sd.StartPoint.X + sd.EndPoint.X) / 2, (sd.StartPoint.Y + sd.EndPoint.Y) / 2, (sd.StartPoint.Z + sd.EndPoint.Z) / 2);
+                    Log($"[notch-raw]   wymiar do osi (do usunięcia w tym widoku): mid={PointStr(mid)}");
+                }
+
+                var partsEnum = view.GetAllObjects(new[] { typeof(Part) });
+                while (partsEnum.MoveNext())
+                {
+                    if (!(partsEnum.Current is Part drawingPart)) continue;
+                    if (!(model.SelectModelObject(drawingPart.ModelIdentifier) is TSM.Part modelPart)) continue;
+
+                    string profileString = "?";
+                    try { profileString = modelPart.Profile.ProfileString; } catch { }
+                    Log($"[notch-raw]   część: {modelPart.GetType().Name} Name={modelPart.Name} Profile={profileString}");
+
+                    Tekla.Structures.Geometry3d.Vector axisDir = null;
+                    if (modelPart is TSM.Beam beam)
+                    {
+                        var delta = beam.EndPoint - beam.StartPoint;
+                        axisDir = new Tekla.Structures.Geometry3d.Vector(delta.X, delta.Y, delta.Z).GetNormal();
+                    }
+
+                    TSM.Solid solid;
+                    try { solid = modelPart.GetSolid(); }
+                    catch { continue; }
+
+                    var cs = view.DisplayCoordinateSystem;
+                    int faceIndex = 0;
+                    foreach (var (face, outerLoop) in CollectCandidateFaces(solid, axisDir))
+                    {
+                        faceIndex++;
+                        var centroid = Centroid(outerLoop);
+                        var major = FindChord(outerLoop, centroid, longest: true);
+                        var minor = FindChord(outerLoop, centroid, longest: false);
+                        var majorStart = ToViewSpace(major.Item1, cs);
+                        var majorEnd = ToViewSpace(major.Item2, cs);
+                        var minorStart = ToViewSpace(minor.Item1, cs);
+                        var minorEnd = ToViewSpace(minor.Item2, cs);
+                        Log($"[notch-raw]   ściana#{faceIndex} Normal=({face.Normal.X:F2};{face.Normal.Y:F2};{face.Normal.Z:F2})");
+                        Log($"[notch-raw]     długość: Start={PointStr(majorStart)} End={PointStr(majorEnd)} wartość={Distance(majorStart, majorEnd):F2} mm płaska(Z≈0)={Math.Abs(majorStart.Z) <= NumericalZero && Math.Abs(majorEnd.Z) <= NumericalZero}");
+                        Log($"[notch-raw]     szerokość: Start={PointStr(minorStart)} End={PointStr(minorEnd)} wartość={Distance(minorStart, minorEnd):F2} mm płaska(Z≈0)={Math.Abs(minorStart.Z) <= NumericalZero && Math.Abs(minorEnd.Z) <= NumericalZero}");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Tylko odczyt: research pod "czy wymiar wcięcia wychodzi poza
+        /// arkusz" (zgłoszone przez operatora na [35095], 2026-09-28) -
+        /// sprawdza, czy da się odzyskać skalę widoku (mm modelu -> mm
+        /// papieru) bez czytania ramki (o której wiadomo, że się nie da -
+        /// patrz ..\AGENTS.md). Loguje Width/Height widoku i arkusza (mm
+        /// papieru, już używane gdzie indziej w projekcie), bounding box
+        /// narysowanej zawartości, i długość (NIE znormalizowaną) wektorów
+        /// ViewCoordinateSystem kontra DisplayCoordinateSystem - jeśli
+        /// któryś niesie skalę zamiast być jednostkowy, to da się z tego
+        /// policzyć przelicznik.
+        /// </summary>
+        public static void RunViewBoundsDiag(string mark)
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+
+            Drawing drawing = null;
+            var drawings = dh.GetDrawings();
+            while (drawings.MoveNext())
+            {
+                if (string.Equals(drawings.Current.Mark, mark, StringComparison.OrdinalIgnoreCase))
+                {
+                    drawing = drawings.Current;
+                    break;
+                }
+            }
+            if (drawing == null)
+            {
+                Log($"Nie znaleziono rysunku o Mark={mark}.");
+                return;
+            }
+            dh.SetActiveDrawing(drawing, true);
+
+            Log($"[view-bounds] Rysunek: {drawing.Mark} / {drawing.Name}");
+            try
+            {
+                var sheet = drawing.GetSheet();
+                Log($"[view-bounds] arkusz: Width={sheet.Width:F2} Height={sheet.Height:F2}");
+            }
+            catch (Exception ex)
+            {
+                Log($"[view-bounds] arkusz: błąd odczytu ({ex.GetType().Name}: {ex.Message})");
+            }
+
+            var top = drawing.GetSheet().GetAllObjects();
+            while (top.MoveNext())
+            {
+                if (!(top.Current is View view)) continue;
+                Log($"[view-bounds] widok Origin={PointStr(view.Origin)} Width={view.Width:F2} Height={view.Height:F2}");
+                try
+                {
+                    var box = view.GetAxisAlignedBoundingBox();
+                    Log($"[view-bounds]   bounding box zawartości: Min={PointStr(box.MinPoint)} Max={PointStr(box.MaxPoint)}");
+                }
+                catch (Exception ex)
+                {
+                    Log($"[view-bounds]   bounding box: błąd odczytu ({ex.GetType().Name}: {ex.Message})");
+                }
+                var vcs = view.ViewCoordinateSystem;
+                var dcs = view.DisplayCoordinateSystem;
+                var vcsX = new Tekla.Structures.Geometry3d.Vector(vcs.AxisX);
+                var vcsY = new Tekla.Structures.Geometry3d.Vector(vcs.AxisY);
+                var dcsX = new Tekla.Structures.Geometry3d.Vector(dcs.AxisX);
+                var dcsY = new Tekla.Structures.Geometry3d.Vector(dcs.AxisY);
+                Log($"[view-bounds]   ViewCoordinateSystem: Origin={PointStr(vcs.Origin)} |AxisX|={vcsX.GetLength():F6} |AxisY|={vcsY.GetLength():F6}");
+                Log($"[view-bounds]   DisplayCoordinateSystem: Origin={PointStr(dcs.Origin)} |AxisX|={dcsX.GetLength():F6} |AxisY|={dcsY.GetLength():F6}");
+            }
+        }
+
+        /// <summary>
+        /// Tylko odczyt: zrzuca WSZYSTKIE obiekty w każdym widoku (nie tylko
+        /// wymiary) - typ i podstawowe dane. Cel: sprawdzić, czym w Open API
+        /// jest adnotacja kąta ("45°"/"19,90°") widoczna na rysunku przy
+        /// skośnym cięciu - operator (2026-09-24) zauważył, że bryła może
+        /// mieć geometryczną ścianę cięcia bez potrzeby wymiaru wcięcia w
+        /// rysunku, a obecność takiej adnotacji może być sygnałem "to
+        /// złącze faktycznie trzeba opisać". Patrz AGENTS.md, "Następne
+        /// kroki" pkt 2 - to research pod tę regułę, nie gotowa reguła.
+        /// </summary>
+        public static void RunViewObjectsDiag(string mark)
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+
+            Drawing drawing = null;
+            var drawings = dh.GetDrawings();
+            while (drawings.MoveNext())
+            {
+                if (string.Equals(drawings.Current.Mark, mark, StringComparison.OrdinalIgnoreCase))
+                {
+                    drawing = drawings.Current;
+                    break;
+                }
+            }
+            if (drawing == null)
+            {
+                Log($"Nie znaleziono rysunku o Mark={mark}.");
+                return;
+            }
+            dh.SetActiveDrawing(drawing, true);
+
+            Log($"[view-objects] Rysunek: {drawing.Mark} / {drawing.Name}");
+            int viewIndex = 0;
+            var top = drawing.GetSheet().GetAllObjects();
+            while (top.MoveNext())
+            {
+                if (!(top.Current is ViewBase view)) continue;
+                viewIndex++;
+                Log($"[view-objects] widok {viewIndex}: typ widoku={view.GetType().Name}");
+                var objects = view.GetAllObjects();
+                var counts = new Dictionary<string, int>();
+                while (objects.MoveNext())
+                {
+                    var obj = objects.Current;
+                    if (obj == null) continue;
+                    string typeName = obj.GetType().Name;
+                    counts[typeName] = counts.TryGetValue(typeName, out int c) ? c + 1 : 1;
+
+                    // Loguj szczegóły dla typów, które mogą być adnotacją
+                    // kąta - nazwa klasy nie jest znana z góry, więc łapiemy
+                    // szeroko (Note/Text/Symbol/Mark w nazwie typu) i
+                    // zrzucamy refleksją co ma.
+                    if (typeName.IndexOf("Note", StringComparison.OrdinalIgnoreCase) >= 0
+                        || typeName.IndexOf("Text", StringComparison.OrdinalIgnoreCase) >= 0
+                        || typeName.IndexOf("Symbol", StringComparison.OrdinalIgnoreCase) >= 0
+                        || typeName.IndexOf("Angular", StringComparison.OrdinalIgnoreCase) >= 0
+                        || typeName.IndexOf("Weld", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        Log($"[view-objects]   widok {viewIndex}, typ={typeName}: {DumpFirstStringProperty(obj)}");
+                    }
+                }
+                foreach (var kv in counts)
+                {
+                    Log($"[view-objects] widok {viewIndex}: {kv.Key} x{kv.Value}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Tylko odczyt: dla każdego rysunkowego `Connection` w każdym
+        /// widoku, przez `ModelIdentifier` idzie do modelowego
+        /// `TSM.Connection` i loguje Number/Name/Class oraz profil i nazwę
+        /// części podstawowej (`GetPrimaryObject`) i połączonych
+        /// (`GetSecondaryObjects`). Cel: sprawdzić, czy złącze, które
+        /// operator odrzucił (2026-09-24, [3.5013] drugi koniec - "ma
+        /// ścianę cięcia" ≠ "potrzebuje wymiaru wcięcia") różni się typem
+        /// połączenia albo tym, do czego się faktycznie łączy, od złącza,
+        /// które operator zaakceptował - dwie wcześniejsze hipotezy
+        /// (obecność AngleDimension, typ widoku) zostały obalone
+        /// --diag-view-objects, więc to nowy trop, nie powtórka.
+        /// </summary>
+        public static void RunConnectionDiag(string mark)
+        {
+            void Log(string s) => Console.WriteLine(s);
+
+            var dh = new DrawingHandler();
+            if (!dh.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Drawing).");
+                return;
+            }
+
+            Drawing drawing = null;
+            var drawings = dh.GetDrawings();
+            while (drawings.MoveNext())
+            {
+                if (string.Equals(drawings.Current.Mark, mark, StringComparison.OrdinalIgnoreCase))
+                {
+                    drawing = drawings.Current;
+                    break;
+                }
+            }
+            if (drawing == null)
+            {
+                Log($"Nie znaleziono rysunku o Mark={mark}.");
+                return;
+            }
+            dh.SetActiveDrawing(drawing, true);
+
+            var model = new TSM.Model();
+            if (!model.GetConnectionStatus())
+            {
+                Log("Brak połączenia z Teklą (Model).");
+                return;
+            }
+
+            Log($"[connection] Rysunek: {drawing.Mark} / {drawing.Name}");
+            int viewIndex = 0;
+            var top = drawing.GetSheet().GetAllObjects();
+            while (top.MoveNext())
+            {
+                if (!(top.Current is ViewBase view)) continue;
+                viewIndex++;
+                var objects = view.GetAllObjects(new[] { typeof(Connection) });
+                while (objects.MoveNext())
+                {
+                    if (!(objects.Current is Connection drawingConnection)) continue;
+                    if (!(model.SelectModelObject(drawingConnection.ModelIdentifier) is TSM.Connection modelConnection))
+                    {
+                        Log($"[connection] widok {viewIndex}: nie udało się rozwiązać ModelIdentifier na TSM.Connection.");
+                        continue;
+                    }
+                    Log($"[connection] widok {viewIndex}: Number={modelConnection.Number} Name={modelConnection.Name} Class={modelConnection.GetType().Name}");
+                    LogConnectedPart("  primary", modelConnection.GetPrimaryObject(), Log);
+                    var secondaries = modelConnection.GetSecondaryObjects();
+                    if (secondaries != null)
+                    {
+                        foreach (TSM.ModelObject secondary in secondaries)
+                        {
+                            LogConnectedPart("  secondary", secondary, Log);
+                        }
+                    }
+                }
+            }
+        }
+
+        private static void LogConnectedPart(string label, TSM.ModelObject obj, Action<string> log)
+        {
+            if (obj == null)
+            {
+                log($"[connection] {label}: (brak)");
+                return;
+            }
+            if (obj is TSM.Part part)
+            {
+                string profile = "?";
+                try { profile = part.Profile.ProfileString; } catch { }
+                log($"[connection] {label}: {part.GetType().Name} Name={part.Name} Profile={profile}");
+            }
+            else
+            {
+                log($"[connection] {label}: {obj.GetType().Name}");
+            }
+        }
+
+        /// <summary>
+        /// Refleksja: szuka pierwszej właściwości typu string (np. Text,
+        /// Content, Value) na obiekcie i zwraca "Nazwa=Wartość" - szybki
+        /// podgląd zawartości nieznanego typu bez ręcznego wypisywania
+        /// wszystkich właściwości API.
+        /// </summary>
+        private static string DumpFirstStringProperty(object obj)
+        {
+            try
+            {
+                foreach (var prop in obj.GetType().GetProperties())
+                {
+                    if (prop.PropertyType != typeof(string) || !prop.CanRead) continue;
+                    string value;
+                    try { value = prop.GetValue(obj) as string; }
+                    catch { continue; }
+                    if (!string.IsNullOrEmpty(value)) return $"{prop.Name}={value}";
+                }
+                return "(brak właściwości string z treścią)";
+            }
+            catch (Exception ex)
+            {
+                return $"(błąd odczytu: {ex.GetType().Name}: {ex.Message})";
             }
         }
 

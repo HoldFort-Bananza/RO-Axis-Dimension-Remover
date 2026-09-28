@@ -34,6 +34,41 @@ namespace RoAxisDimensionRemover
                 DiagRunner.RunNotchMatchDiag(args[1]);
                 return;
             }
+            if (args.Length > 1 && args[0] == "--diag-notch-insert-dryrun")
+            {
+                DiagRunner.RunNotchInsertDryRun(args[1]);
+                return;
+            }
+            if (args.Length > 1 && args[0] == "--diag-view-objects")
+            {
+                DiagRunner.RunViewObjectsDiag(args[1]);
+                return;
+            }
+            if (args.Length > 1 && args[0] == "--diag-view-bounds")
+            {
+                DiagRunner.RunViewBoundsDiag(args[1]);
+                return;
+            }
+            if (args.Length > 1 && args[0] == "--diag-notch-raw")
+            {
+                DiagRunner.RunNotchRawDiag(args[1]);
+                return;
+            }
+            if (args.Length > 1 && args[0] == "--diag-connection")
+            {
+                DiagRunner.RunConnectionDiag(args[1]);
+                return;
+            }
+            if (args.Length > 0 && args[0] == "--diag-find-candidates")
+            {
+                DiagRunner.RunFindCandidatesDiag();
+                return;
+            }
+            if (args.Length > 1 && args[0] == "--diag-notch-fill-dryrun")
+            {
+                DiagRunner.RunNotchFillDryRun(args[1]);
+                return;
+            }
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);

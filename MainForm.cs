@@ -15,8 +15,7 @@ namespace RoAxisDimensionRemover
         private bool _busy;
 
         private Button _runButton;
-        private Button _notchTestButton;
-        private Button _notchLengthTestButton;
+        private Button _insertNotchButton;
         private TextBox _logBox;
         private Label _statusLabel;
 
@@ -32,7 +31,7 @@ namespace RoAxisDimensionRemover
         {
             Text = "RO Axis Dimension Remover – Tekla 2025";
             Width = 520;
-            Height = 420;
+            Height = 455;
             StartPosition = FormStartPosition.CenterScreen;
 
             _runButton = new Button
@@ -45,30 +44,20 @@ namespace RoAxisDimensionRemover
             };
             _runButton.Click += RunButton_Click;
 
-            _notchTestButton = new Button
+            _insertNotchButton = new Button
             {
-                Text = "TEST: wstaw szerokość wcięcia 42,4 mm ([35021])",
+                Text = "Wstaw wymiar wcięcia dla złączy na wybranym rysunku",
                 Left = 15,
                 Top = 60,
                 Width = 470,
                 Height = 30
             };
-            _notchTestButton.Click += NotchTestButton_Click;
-
-            _notchLengthTestButton = new Button
-            {
-                Text = "TEST: wstaw długość wcięcia 45,09 mm ([35021])",
-                Left = 15,
-                Top = 95,
-                Width = 470,
-                Height = 30
-            };
-            _notchLengthTestButton.Click += NotchLengthTestButton_Click;
+            _insertNotchButton.Click += InsertNotchButton_Click;
 
             _statusLabel = new Label
             {
                 Left = 15,
-                Top = 131,
+                Top = 96,
                 Width = 470,
                 Height = 20,
                 ForeColor = Color.DarkSlateGray
@@ -77,9 +66,9 @@ namespace RoAxisDimensionRemover
             _logBox = new TextBox
             {
                 Left = 15,
-                Top = 156,
+                Top = 121,
                 Width = 470,
-                Height = 260,
+                Height = 295,
                 Multiline = true,
                 ScrollBars = ScrollBars.Vertical,
                 ReadOnly = true,
@@ -113,8 +102,7 @@ namespace RoAxisDimensionRemover
 
             Controls.Add(_updateBanner);
             Controls.Add(_runButton);
-            Controls.Add(_notchTestButton);
-            Controls.Add(_notchLengthTestButton);
+            Controls.Add(_insertNotchButton);
             Controls.Add(_statusLabel);
             Controls.Add(_logBox);
 
@@ -305,20 +293,28 @@ namespace RoAxisDimensionRemover
             }
         }
 
-        private void NotchTestButton_Click(object sender, EventArgs e)
+        /// <summary>
+        /// Wstawia wymiary wcięcia (szerokość + długość) dla KAŻDEGO wymiaru
+        /// do osi znalezionego na aktywnym rysunku (ten sam warunek co
+        /// RoAxisDimensionService.RemoveAxisDimensions). Bez blokady
+        /// rysunku od 2026-09-25 (decyzja operatora) - program NIE
+        /// odróżnia jeszcze złącza, które faktycznie potrzebuje wymiaru
+        /// wcięcia, od takiego, które tylko geometrycznie ma ścianę cięcia
+        /// (patrz AGENTS.md, "Następne kroki") - obejrzeć wynik w Tekli.
+        /// </summary>
+        private void InsertNotchButton_Click(object sender, EventArgs e)
         {
             if (_busy) return;
             if (MessageBox.Show(this,
-                "Wstawić jeden testowy wymiar szerokości wcięcia na [35021]?\n\nCtrl+Z w Tekli go cofa.",
-                "Test wymiaru wcięcia", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
+                "Wstawić brakujące wymiary wcięcia (szerokość + długość) dla wszystkich kwalifikujących się złączy na aktywnym rysunku?\n\nCtrl+Z w Tekli cofa.",
+                "Wymiar wcięcia", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
             {
                 return;
             }
 
             _logBox.Clear();
-            Log($"===== {DateTime.Now:HH:mm:ss} TEST SZEROKOŚCI WCIĘCIA =====");
+            Log($"===== {DateTime.Now:HH:mm:ss} WSTAWIANIE WYMIARU WCIĘCIA =====");
             _busy = true;
-            _notchTestButton.Enabled = false;
             try
             {
                 var handler = new DrawingHandler();
@@ -334,62 +330,16 @@ namespace RoAxisDimensionRemover
                     return;
                 }
 
-                bool inserted = NotchPilot.InsertWidthTest(drawing, Log);
-                _statusLabel.Text = inserted
-                    ? "Wstawiono test szerokości. Sprawdź go w Tekli (Ctrl+Z cofa)."
-                    : "Test nie wstawił wymiaru — zobacz log.";
-                if (inserted) TeklaWindowFocus.BringToFront(Log);
+                int insertedCount = NotchPilot.InsertMissing(drawing, Log);
+                bool anyInserted = insertedCount > 0;
+                _statusLabel.Text = anyInserted
+                    ? "Wstawiono wymiar wcięcia. Sprawdź go w Tekli (Ctrl+Z cofa)."
+                    : "Nie wstawiono nowego wymiaru — zobacz log.";
+                if (anyInserted) TeklaWindowFocus.BringToFront(Log);
             }
             catch (Exception ex)
             {
-                _statusLabel.Text = "Błąd testu — zobacz log.";
-                Log("BŁĄD: " + ex.Message);
-                Log(ex.StackTrace);
-            }
-            finally
-            {
-                _busy = false;
-            }
-        }
-
-        private void NotchLengthTestButton_Click(object sender, EventArgs e)
-        {
-            if (_busy) return;
-            if (MessageBox.Show(this,
-                "Wstawić jeden testowy wymiar długości wcięcia na [35021]?\n\nCtrl+Z w Tekli go cofa.",
-                "Test wymiaru wcięcia", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
-            {
-                return;
-            }
-
-            _logBox.Clear();
-            Log($"===== {DateTime.Now:HH:mm:ss} TEST DŁUGOŚCI WCIĘCIA =====");
-            _busy = true;
-            _notchLengthTestButton.Enabled = false;
-            try
-            {
-                var handler = new DrawingHandler();
-                if (!handler.GetConnectionStatus())
-                {
-                    _statusLabel.Text = "Brak połączenia z Teklą.";
-                    return;
-                }
-                var drawing = handler.GetActiveDrawing();
-                if (drawing == null)
-                {
-                    _statusLabel.Text = "Brak otwartego rysunku.";
-                    return;
-                }
-
-                bool inserted = NotchPilot.InsertLengthTest(drawing, Log);
-                _statusLabel.Text = inserted
-                    ? "Wstawiono test długości. Sprawdź go w Tekli (Ctrl+Z cofa)."
-                    : "Test nie wstawił wymiaru — zobacz log.";
-                if (inserted) TeklaWindowFocus.BringToFront(Log);
-            }
-            catch (Exception ex)
-            {
-                _statusLabel.Text = "Błąd testu — zobacz log.";
+                _statusLabel.Text = "Błąd — zobacz log.";
                 Log("BŁĄD: " + ex.Message);
                 Log(ex.StackTrace);
             }
