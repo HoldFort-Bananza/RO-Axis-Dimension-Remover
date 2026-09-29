@@ -333,7 +333,7 @@ namespace RoAxisDimensionRemover
                 int insertedCount = NotchPilot.InsertMissing(drawing, Log);
                 bool anyInserted = insertedCount > 0;
                 _statusLabel.Text = anyInserted
-                    ? "Wstawiono wymiar wcięcia. Sprawdź go w Tekli (Ctrl+Z cofa)."
+                    ? "Uzupełniono wymiary wcięcia. Sprawdź je w Tekli (Ctrl+Z cofa)."
                     : "Nie wstawiono nowego wymiaru — zobacz log.";
                 if (anyInserted) TeklaWindowFocus.BringToFront(Log);
             }

@@ -99,7 +99,23 @@ namespace RoAxisDimensionRemover
                 if (candidateCount > 0)
                 {
                     withCandidates++;
-                    Log($"[find] {drawing.Mark} / {drawing.Name}: {candidateCount} kandydat(ów) do usunięcia (wymiar do osi).");
+                    // Ten sam InsertMissing co przycisk "Wstaw", w dry-run - liczy
+                    // braki wymiaru wcięcia i promienie do rozciągnięcia, żeby
+                    // wybrać rysunek testowy po danych, nie na oko.
+                    int missing = 0, stretch = 0;
+                    try
+                    {
+                        NotchPilot.InsertMissing(drawing, s =>
+                        {
+                            if (s.Contains("[dry-run] brakująca")) missing++;
+                            else if (s.Contains("[dry-run] rozciągnąłbym")) stretch++;
+                        }, dryRun: true);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"[find] {drawing.Mark}: błąd dry-runu wstawiania ({ex.GetType().Name}: {ex.Message}).");
+                    }
+                    Log($"[find] {drawing.Mark} / {drawing.Name}: {candidateCount} do usunięcia, {missing} brakujących wymiarów wcięcia, {stretch} promieni do rozciągnięcia.");
                 }
             }
             Log($"[find] Przeskanowano {scanned} rysunków, {withCandidates} ma kandydatów.");
@@ -129,11 +145,27 @@ namespace RoAxisDimensionRemover
                 {
                     continue;
                 }
-                dh.SetActiveDrawing(d, true);
+                d = OpenUnlessActive(dh, d);
                 RunOn(d, Log);
                 return;
             }
             Log($"Nie znaleziono rysunku o Mark={mark}.");
+        }
+
+        // SetActiveDrawing na rysunku, który JUŻ jest otwarty, przeładowuje go
+        // i gubi niezapisane zmiany - zmierzone 2026-09-29 na [35095]: diag
+        // po Mark cofnął 7 wymiarów skasowanych chwilę wcześniej przyciskiem
+        // (model testowy nie zapisuje się, limit licencji). Otwarty rysunek
+        // o tym samym Mark bierzemy więc tak, jak jest.
+        private static Drawing OpenUnlessActive(DrawingHandler dh, Drawing drawing)
+        {
+            var active = dh.GetActiveDrawing();
+            if (active != null && string.Equals(active.Mark, drawing.Mark, StringComparison.OrdinalIgnoreCase))
+            {
+                return active;
+            }
+            dh.SetActiveDrawing(drawing, true);
+            return drawing;
         }
 
         // Picker (wybór widoku przez kliknięcie w MainForm) wymaga GUI, więc
@@ -498,7 +530,7 @@ namespace RoAxisDimensionRemover
                 Log($"Nie znaleziono rysunku o Mark={mark}.");
                 return;
             }
-            dh.SetActiveDrawing(drawing, true);
+            drawing = OpenUnlessActive(dh, drawing);
 
             var model = new TSM.Model();
             if (!model.GetConnectionStatus())
@@ -633,7 +665,7 @@ namespace RoAxisDimensionRemover
                 Log($"Nie znaleziono rysunku o Mark={mark}.");
                 return;
             }
-            dh.SetActiveDrawing(drawing, true);
+            drawing = OpenUnlessActive(dh, drawing);
 
             Log($"[notch-fill] Rysunek: {drawing.Mark} / {drawing.Name}");
             NotchPilot.InsertMissing(drawing, s => Log("[notch-fill]   " + s), dryRun: true);
@@ -675,7 +707,7 @@ namespace RoAxisDimensionRemover
                 Log($"Nie znaleziono rysunku o Mark={mark}.");
                 return;
             }
-            dh.SetActiveDrawing(drawing, true);
+            drawing = OpenUnlessActive(dh, drawing);
 
             Log($"[notch-insert] Rysunek: {drawing.Mark} / {drawing.Name}");
             var top = drawing.GetSheet().GetAllObjects();
@@ -744,7 +776,7 @@ namespace RoAxisDimensionRemover
                 Log($"Nie znaleziono rysunku o Mark={mark}.");
                 return;
             }
-            dh.SetActiveDrawing(drawing, true);
+            drawing = OpenUnlessActive(dh, drawing);
 
             var model = new TSM.Model();
             if (!model.GetConnectionStatus())
@@ -860,7 +892,7 @@ namespace RoAxisDimensionRemover
                 Log($"Nie znaleziono rysunku o Mark={mark}.");
                 return;
             }
-            dh.SetActiveDrawing(drawing, true);
+            drawing = OpenUnlessActive(dh, drawing);
 
             Log($"[view-bounds] Rysunek: {drawing.Mark} / {drawing.Name}");
             try
@@ -934,7 +966,7 @@ namespace RoAxisDimensionRemover
                 Log($"Nie znaleziono rysunku o Mark={mark}.");
                 return;
             }
-            dh.SetActiveDrawing(drawing, true);
+            drawing = OpenUnlessActive(dh, drawing);
 
             Log($"[view-objects] Rysunek: {drawing.Mark} / {drawing.Name}");
             int viewIndex = 0;
@@ -1012,7 +1044,7 @@ namespace RoAxisDimensionRemover
                 Log($"Nie znaleziono rysunku o Mark={mark}.");
                 return;
             }
-            dh.SetActiveDrawing(drawing, true);
+            drawing = OpenUnlessActive(dh, drawing);
 
             var model = new TSM.Model();
             if (!model.GetConnectionStatus())

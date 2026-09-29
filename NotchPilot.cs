@@ -235,7 +235,7 @@ namespace RoAxisDimensionRemover
         public static int InsertMissing(Drawing drawing, Action<string> log, bool dryRun = false)
         {
             int insertedCount = 0;
-            void CountingLog(string s) { log(s); if (s.StartsWith("Wstawiono", StringComparison.Ordinal)) insertedCount++; }
+            void CountingLog(string s) { log(s); if (s.StartsWith("Wstawiono", StringComparison.Ordinal) || s.StartsWith("Rozciągnięto", StringComparison.Ordinal)) insertedCount++; }
 
             // Ten sam zakres co RemoveAxisDimensions: reguła sprawdzona tylko na
             // rysunkach pojedynczej części. Na zespole InsertMissing przeszedłby
@@ -287,6 +287,7 @@ namespace RoAxisDimensionRemover
                     {
                         InsertResolvedIfMissing(views, drawing, majorChord, longest: true, label: "długości", axis, CountingLog, dryRun);
                         InsertResolvedIfMissing(views, drawing, minorChord, longest: false, label: "szerokości", axis, CountingLog, dryRun);
+                        StretchRadiusToDiameter(views, drawing, majorChord, axis, CountingLog, dryRun);
                     }
                 }
             }
@@ -370,17 +371,19 @@ namespace RoAxisDimensionRemover
                 return;
             }
 
-            if (HasSameDimension(flatView, start, end))
-            {
-                return; // już jest - nic do zrobienia, to normalny, częsty przypadek
-            }
-
             if (axisModel == null)
             {
                 log($"WSTRZYMANO {label}: nie znam kierunku osi belki (część nie jest TSM.Beam?) - nie da się policzyć wymiaru równoległego/prostopadłego bez zgadywania.");
                 return;
             }
             var axisView = ToViewSpaceVector(axisModel, flatView.DisplayCoordinateSystem);
+            var perpView = new TSG.Vector(-axisView.Y, axisView.X, 0);
+            var side = longest ? perpView : axisView;
+
+            if (HasSameDimension(flatView, start, end, side))
+            {
+                return; // już jest - nic do zrobienia, to normalny, częsty przypadek
+            }
 
             var reference = FindReferenceDimension(flatView, start, end);
             var referenceSet = reference?.GetDimensionSet() as StraightDimensionSet;
@@ -390,8 +393,6 @@ namespace RoAxisDimensionRemover
                 return;
             }
 
-            var perpView = new TSG.Vector(-axisView.Y, axisView.X, 0);
-            var side = longest ? perpView : axisView;
             var chordVector = new TSG.Vector(end.X - start.X, end.Y - start.Y, end.Z - start.Z);
             var measureDir = longest ? axisView : perpView;
             double displayedValue = Math.Abs(chordVector.Dot(measureDir));
@@ -413,12 +414,114 @@ namespace RoAxisDimensionRemover
                 log($"{label}: Insert() się powiódł, ale CommitChanges() zwrócił false.");
                 return;
             }
-            if (!HasSameDimension(flatView, start, end))
+            if (!HasSameDimension(flatView, start, end, side))
             {
                 log($"{label}: Insert()/CommitChanges() zwróciły true, ale ponowny odczyt widoku NIE znalazł wstawionego wymiaru - nic się NIE utrwaliło. Nie ufaj temu insertowi.");
                 return;
             }
             log($"Wstawiono brakującą {label} wcięcia {displayedValue:F2} mm, potwierdzone ponownym odczytem widoku.");
+        }
+
+        // Tolerancja "ten sam punkt" dla końca istniejącego wymiaru vs końca
+        // cięciwy z bryły, mm modelu w układzie widoku. Zmierzone 2026-09-29
+        // na [35095]: koniec wymiaru promienia i koniec cięciwy długości
+        // zgadzają się co do setnej (89,65;21,20;0,00) - 0,01 mm to margines
+        // na zaokrąglenia, nie na "mniej więcej ten sam punkt".
+        private const double SamePointToleranceMm = 0.01;
+
+        // Operator (2026-09-29, [35095]): płaski wymiar promienia rury przy
+        // skośnym końcu (21 mm, od czubka cięcia do osi) ma sięgać od czubka
+        // do czubka cięcia - pełna średnica, 42 mm. Zmierzone: jeden koniec
+        // tego wymiaru leży DOKŁADNIE na końcu płaskiej cięciwy długości
+        // cięcia, drugi na osi rury. Rozciągamy tylko taki wymiar: przesuwamy
+        // koniec z osi na DRUGI koniec tej samej cięciwy. Wymiar, który tylko
+        // przypadkiem ma ~promień, ale nie startuje z czubka cięcia, zostaje.
+        private static void StretchRadiusToDiameter(List<View> views, Drawing drawing, (TSG.Point A, TSG.Point B) chordModel, TSG.Vector axisModel, Action<string> log, bool dryRun)
+        {
+            if (axisModel == null) return;
+            foreach (var view in views)
+            {
+                var cs = view.DisplayCoordinateSystem;
+                var a = ToViewSpace(chordModel.A, cs);
+                var b = ToViewSpace(chordModel.B, cs);
+                if (Math.Abs(a.Z) > NumericalZero || Math.Abs(b.Z) > NumericalZero) continue;
+
+                var axisView = ToViewSpaceVector(axisModel, cs);
+                var perpView = new TSG.Vector(-axisView.Y, axisView.X, 0);
+                double diameter = Math.Abs(new TSG.Vector(b.X - a.X, b.Y - a.Y, b.Z - a.Z).Dot(perpView));
+
+                // Najpierw lista, potem Modify() - bez zmieniania rysunku w
+                // trakcie przechodzenia jego enumeratorem.
+                var dimensions = new List<StraightDimension>();
+                var objects = view.GetAllObjects(new[] { typeof(StraightDimension) });
+                while (objects.MoveNext()) if (objects.Current is StraightDimension sd) dimensions.Add(sd);
+
+                foreach (var dimension in dimensions)
+                {
+                    var start = dimension.StartPoint;
+                    var end = dimension.EndPoint;
+                    if (Math.Abs(start.Z) > NumericalZero || Math.Abs(end.Z) > NumericalZero) continue;
+
+                    // Który koniec wymiaru to czubek cięcia i który czubek (A czy B).
+                    bool startOnTip = Distance(start, a) <= SamePointToleranceMm || Distance(start, b) <= SamePointToleranceMm;
+                    bool endOnTip = Distance(end, a) <= SamePointToleranceMm || Distance(end, b) <= SamePointToleranceMm;
+                    if (startOnTip == endOnTip) continue; // żaden koniec albo oba (to już jest średnica)
+                    var tip = startOnTip ? start : end;
+                    var other = startOnTip ? end : start;
+                    var oppositeTip = Distance(tip, a) <= SamePointToleranceMm ? b : a;
+
+                    // Drugi koniec musi leżeć na osi rury: w połowie średnicy od
+                    // czubka, mierząc prostopadle do osi.
+                    double offset = Math.Abs(new TSG.Vector(other.X - tip.X, other.Y - tip.Y, 0).Dot(perpView));
+                    if (Math.Abs(offset - diameter / 2) > RoAxisDimensionService.AxisToleranceMm) continue;
+
+                    if (dryRun)
+                    {
+                        log($"[dry-run] rozciągnąłbym wymiar promienia {offset:F2} mm do średnicy {diameter:F2} mm: koniec ({other.X:F2};{other.Y:F2}) -> ({oppositeTip.X:F2};{oppositeTip.Y:F2}). Nic nie zmieniono.");
+                        continue;
+                    }
+
+                    if (HasSameDimension(view, tip, oppositeTip, axisView))
+                    {
+                        continue; // średnica już jest - nie dublujemy
+                    }
+
+                    // Nie Modify() z nowym punktem: zmierzone 2026-09-29 na
+                    // [35095] - Modify()+CommitChanges() zwróciły true, odczyt w
+                    // tym samym procesie pokazał nowy punkt, a niezależny odczyt
+                    // (--diag-dimension-style) stary. Tekla zmiany punktu nie
+                    // zastosowała. Zamiast tego: nowy wymiar w stylu, kierunku i
+                    // odsunięciu starego, a stary kasujemy dopiero po udanym
+                    // wstawieniu - przy porażce nic nie ginie.
+                    var set = dimension.GetDimensionSet() as StraightDimensionSet;
+                    if (set?.Attributes == null)
+                    {
+                        log("Rozciąganie promienia: WSTRZYMANO - nie da się odczytać stylu istniejącego wymiaru.");
+                        continue;
+                    }
+                    var diameterDimension = new StraightDimension(view, tip, oppositeTip, dimension.UpDirection, dimension.Distance, set.Attributes);
+                    if (!diameterDimension.Insert())
+                    {
+                        log("Rozciąganie promienia: StraightDimension.Insert() zwrócił false, promień zostaje bez zmian.");
+                        continue;
+                    }
+                    if (!dimension.Delete())
+                    {
+                        log("Rozciąganie promienia: wstawiono średnicę, ale Delete() starego promienia zwrócił false - na rysunku są oba, usuń promień ręcznie.");
+                    }
+                    if (!drawing.CommitChanges("Rozciągnięcie promienia do średnicy"))
+                    {
+                        log("Rozciąganie promienia: CommitChanges() zwrócił false.");
+                        continue;
+                    }
+                    if (!HasSameDimension(view, tip, oppositeTip, axisView))
+                    {
+                        log("Rozciąganie promienia: ponowny odczyt widoku NIE znalazł średnicy - nic się NIE utrwaliło.");
+                        continue;
+                    }
+                    log($"Rozciągnięto wymiar promienia {offset:F2} mm do średnicy {diameter:F2} mm (nowy wymiar w miejsce starego), potwierdzone ponownym odczytem widoku.");
+                }
+            }
         }
 
         private static List<Candidate> FindChordCandidates(View view, TSM.Part part, bool longest)
@@ -491,7 +594,11 @@ namespace RoAxisDimensionRemover
             return result;
         }
 
-        private static bool HasSameDimension(View view, TSG.Point start, TSG.Point end)
+        // up != null: liczy się też kierunek pomiaru. Rozciągnięty promień
+        // (średnica, Up wzdłuż osi) i długość wcięcia (Up prostopadle) mają
+        // na [35095] DOKŁADNIE te same końce - bez porównania kierunku jeden
+        // udawałby drugi i brakujący wymiar nigdy by się nie wstawił.
+        private static bool HasSameDimension(View view, TSG.Point start, TSG.Point end, TSG.Vector up = null)
         {
             var objects = view.GetAllObjects(new[] { typeof(StraightDimension) });
             while (objects.MoveNext())
@@ -499,7 +606,10 @@ namespace RoAxisDimensionRemover
                 if (!(objects.Current is StraightDimension dimension)) continue;
                 bool sameOrder = Distance(dimension.StartPoint, start) <= NumericalZero && Distance(dimension.EndPoint, end) <= NumericalZero;
                 bool reverseOrder = Distance(dimension.StartPoint, end) <= NumericalZero && Distance(dimension.EndPoint, start) <= NumericalZero;
-                if (sameOrder || reverseOrder) return true;
+                if (!sameOrder && !reverseOrder) continue;
+                if (up == null) return true;
+                var dimUp = new TSG.Vector(dimension.UpDirection).GetNormal();
+                if (Math.Abs(dimUp.Dot(new TSG.Vector(up).GetNormal())) > 0.99) return true;
             }
             return false;
         }

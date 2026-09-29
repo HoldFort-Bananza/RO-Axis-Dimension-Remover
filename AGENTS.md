@@ -940,6 +940,77 @@ tak jak wcześniej z `21 mm` na `[35021]`. `--diag-view-bounds` zostaje w
 kodzie, gdyby ktoś kiedyś znalazł sposób na odzyskanie skali (np. przez
 inny obiekt o znanej relacji model↔papier).
 
+## Test na `[35095]` (2026-09-29): kasowanie + wstawianie + rozciąganie promienia
+
+Pierwszy test KASOWANIA na `[35095]` (wcześniej tylko wstawianie).
+Operator skasował 7 wymiarów do osi w dużym widoku (`21`,`21`,`11`,`11`,
+`19`,`22`,`13`). `407`, `353` i płaski `21` (promień) przetrwały — mimo że
+`353` i `21` siedziały w tych samych `StraightDimensionSet` co kasowane
+wymiary, kaskada NIE wystąpiła (log: łańcuchy malały 4→3→2, znikały
+pojedyncze wymiary). Potem „Wstaw” dodał 4 wymiary wcięcia
+(`35`/`42`/`90`/`42`). Operator: rysunek „opisuje” wszystko.
+
+**PUŁAPKA: diagnostyka po Mark cofała niezapisane zmiany.** `--diag-notch-raw
+"[35095]"` uruchomione PO kasowaniu przyciskiem przywróciło wszystkie 7
+skasowanych wymiarów. `SetActiveDrawing` na rysunku, który jest już
+otwarty, przeładowuje go, a model testowy nie zapisuje się (limit
+licencji), więc zmiany przepadły. Naprawione: `DiagRunner.OpenUnlessActive`
+— jeśli aktywny rysunek ma ten sam Mark, bierze go tak, jak jest, bez
+`SetActiveDrawing`. Wszystkie tryby `--diag-*` z Mark przez to przechodzą.
+
+**Nowa funkcja: rozciąganie promienia do średnicy** (prośba operatora,
+wskazana strzałkami na zrzucie — czekała od 2026-09-23, patrz PUŁAPKA 6).
+`NotchPilot.StretchRadiusToDiameter`, wołane z `InsertMissing` (przycisk
+„Wstaw”) dla każdej cięciwy DŁUGOŚCI. W widoku, gdzie ta cięciwa jest
+płaska, szuka płaskiego wymiaru, którego jeden koniec leży DOKŁADNIE
+(`SamePointToleranceMm = 0,01`) na końcu cięciwy (czubek cięcia), a drugi w
+połowie średnicy od niego mierząc prostopadle do osi (czyli na osi rury,
+tolerancja `AxisToleranceMm`). Taki wymiar zastępuje nowym, od czubka do
+czubka, w stylu/kierunku/odsunięciu starego. Na `[35095]` dokładnie 1
+trafienie: `21` (41,45;0)→(89,65;21,2) staje się `42` (0;-21,2)→(89,65;21,2).
+`407` (startuje z czubka, ale drugi koniec 42,4 mm dalej) i reszta się nie
+kwalifikują. Sprawdzone TYLKO na tym jednym złączu — nie wydawać przed
+drugim przypadkiem.
+
+**PUŁAPKA: `StraightDimension.Modify()` ze zmienionym `StartPoint`/`EndPoint`
+to fałszywy sukces.** Pierwsza wersja przesuwała punkt i wołała `Modify()`:
+`Modify()` i `CommitChanges()` zwróciły `true`, ponowny odczyt widoku W TYM
+SAMYM PROCESIE pokazał nowy punkt, a niezależny odczyt
+(`--diag-dimension-style`, osobny proces) — stary. Tekla zmiany nie
+zastosowała. Obecnie: `Insert()` nowego wymiaru, dopiero potem `Delete()`
+starego (przy porażce insertu nic nie ginie). Potwierdzone niezależnym
+odczytem. **Wniosek ogólny: odczyt w tym samym procesie nie jest
+dowodem — po każdej nowej operacji zapisu sprawdzać osobnym procesem.**
+
+**`HasSameDimension` porównuje teraz też kierunek (`UpDirection`).**
+Rozciągnięta średnica (`Up` wzdłuż osi) i długość wcięcia (`Up` w poprzek)
+mają na `[35095]` IDENTYCZNE końce — bez kierunku jedna udawałaby drugą i
+brakujący wymiar nigdy by się nie wstawił. Zmierzone: wymiary wstawione
+przez `InsertMissing` mają `UpDirection` równe przekazanemu `side`, więc
+ponowne kliknięcie „Wstaw” nic nie dubluje (dry-run po wszystkim: 0 braków).
+
+**Drugi przypadek rozciągania: `[35021]` (2026-09-29, kąt 19,9°).**
+Wybrany przez rozszerzony skaner (niżej). `21` (0;-21,2)→(7,68;0) stał się
+`42` (0;-21,2)→(15,35;21,2) — te same końce co istniejące `15` (długość),
+inny kierunek. Szerokość wcięcia `42` trafiła do DRUGIEGO widoku (tego z
+`171`), nie do widoku ze średnicą — obawa o zdublowane `42` w jednym
+widoku się nie potwierdziła (agent przewidział to błędnie przed testem).
+Linia szerokości stoi na środku rury (odsunięcie `Distance=92,32` z
+heurystyki `side`/wzorca), operator ocenił rysunek jako dobry. Niezależny
+odczyt potwierdził, ponowny dry-run: 0 braków. **Rozciąganie potwierdzone
+na dwóch rysunkach** — `[35095]` i `[35021]`.
+
+**`--diag-find-candidates` liczy też braki wymiaru wcięcia i promienie do
+rozciągnięcia** (woła `InsertMissing` w dry-run dla każdego rysunku z
+kandydatem do usunięcia). Skan 2298 rysunków trwa DŁUŻEJ niż 10 minut —
+uruchamiać w tle z przekierowaniem do pliku, nie jako jedno polecenie z
+limitem czasu. Wynik 2026-09-29: 74 rysunki z kandydatami do usunięcia, 22
+z promieniem do rozciągnięcia (po 1: m.in. `[35004]`, `[35016]`,
+`[35044]`, `[35270]`; po 2: `[35020]`; po 3: `[3.5013]` — znowu jest w
+modelu — `[35010]`, `[35013]`). Na `[35010]` przy 45° wychodzi kilka `42`
+w jednym widoku — niesprawdzone na żywo, pierwszy kandydat, jeśli pojawi
+się zgłoszenie o duplikatach.
+
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
 Para `21`/`21` na `[3.5013]` to NIE była duplikat. Reguła v4 (kasuj
@@ -1035,6 +1106,12 @@ profilu RO i geometrii bryły, nie ogólne dla Tekla Open API).
   wierzchołków różnych pętli w jedną listę — patrz sekcja "Wymiar wcięcia"
   wyżej, to był realny błąd w tej sesji (poprawiony). Zewnętrzny obrys =
   ten o większym rozstawie własnych wierzchołków.
+- **`StraightDimension.Modify()` po zmianie `StartPoint`/`EndPoint` nic nie
+  zmienia, choć zwraca `true`** (zmierzone 2026-09-29) — a odczyt w tym
+  samym procesie kłamie, że zmienił. Zmiana punktów = nowy `Insert()` +
+  `Delete()` starego.
+- **`SetActiveDrawing` na już otwartym rysunku go przeładowuje** i gubi
+  niezapisane zmiany (zmierzone 2026-09-29). Patrz `OpenUnlessActive`.
 - **`CoordinateSystem` (Origin/AxisX/AxisY) nie ma gotowej metody
   transformacji punktu do jej lokalnego układu** w publicznym Open API —
   trzeba liczyć ręcznie przez iloczyny skalarne (`Vector.Dot`), patrz
@@ -1114,7 +1191,9 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   podbita w `csproj` i `setup.iss`) →
   v0.3.1 (2026-09-29: guard `SinglePartDrawing` w `RemoveAxisDimensions`
   i `InsertMissing` — v0.3.0 potrafiła fałszywie kasować na rysunkach
-  zespołów). Release na GitHubie tworzy operator
+  zespołów) →
+  v0.3.2 (2026-09-29: rozciąganie promienia do średnicy, `HasSameDimension`
+  z kierunkiem, diagnostyka nie przeładowuje otwartego rysunku). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
