@@ -891,8 +891,20 @@ wątpliwości "czy to na pewno rura RO", bez zgadywania z wyglądu w 3D.
 **Guard na rysunki zespołów (2026-09-29):** `RemoveAxisDimensions` na
 wejściu odrzuca wszystko, co nie jest `SinglePartDrawing` (zmierzone:
 `[35095]` = `SinglePartDrawing`, przechodzi; `[225.130]` =
-`AssemblyDrawing`, odrzucony w każdym widoku). `NotchPilot.InsertMissing`
-NIE ma tego guarda — na `[225.130]` i tak nic nie wstawia (kąt 0°).
+`AssemblyDrawing`, odrzucony w każdym widoku). Guard celowo przepuszcza
+TYLKO `SinglePartDrawing` (allowlista, nie blocklista) — `CastUnitDrawing`,
+`GADrawing`, `MultiDrawing` nie były mierzone, więc są blokowane; dopisać
+typ dopiero po zmierzeniu go na żywym rysunku. Skutek uboczny:
+`--diag-find-candidates` (woła prawdziwą `RemoveAxisDimensions`) nie
+zgłasza już rysunków zespołów — lista 96 kandydatów z 25.09 jest
+nieaktualna.
+
+**Ten sam guard w `NotchPilot.InsertMissing` (2026-09-29):** na zespole
+metoda przeszłaby po WSZYSTKICH częściach i wstawiła wymiar wcięcia każdej
+skośnej rury — nikt nie potwierdził, że biuro tego chce na zespołach.
+Zweryfikowane `--diag-notch-fill-dryrun`: `[225.130]` odrzucony
+(`AssemblyDrawing`), `[35095]` bez zmian (te same 4 brakujące wymiary co
+28.09).
 
 ### Zgłoszony, ZBADANY i PORZUCONY: wymiar wcięcia może wyjść poza krawędź arkusza
 
@@ -1099,7 +1111,10 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   [v0.3.0](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/releases/tag/v0.3.0)
   (2026-09-28: wymiar wcięcia produkcyjny, guard RO, filtr kąta,
   `InsertMissing`; tag na `release`, `dev` i `release` identyczne, wersja
-  podbita w `csproj` i `setup.iss`). Release na GitHubie tworzy operator
+  podbita w `csproj` i `setup.iss`) →
+  v0.3.1 (2026-09-29: guard `SinglePartDrawing` w `RemoveAxisDimensions`
+  i `InsertMissing` — v0.3.0 potrafiła fałszywie kasować na rysunkach
+  zespołów). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.

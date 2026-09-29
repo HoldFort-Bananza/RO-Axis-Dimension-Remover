@@ -237,6 +237,16 @@ namespace RoAxisDimensionRemover
             int insertedCount = 0;
             void CountingLog(string s) { log(s); if (s.StartsWith("Wstawiono", StringComparison.Ordinal)) insertedCount++; }
 
+            // Ten sam zakres co RemoveAxisDimensions: reguła sprawdzona tylko na
+            // rysunkach pojedynczej części. Na zespole InsertMissing przeszedłby
+            // po WSZYSTKICH częściach i wstawił wymiar wcięcia każdej skośnej
+            // rury - czy biuro tego chce na zespołach, nikt nie potwierdził.
+            if (!(drawing is SinglePartDrawing))
+            {
+                log($"Rysunek typu {drawing.GetType().Name} - wymiar wcięcia wstawiam tylko na rysunkach pojedynczej części (SinglePartDrawing), nic nie wstawiam.");
+                return 0;
+            }
+
             var model = new TSM.Model();
             if (!model.GetConnectionStatus())
             {
