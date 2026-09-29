@@ -1089,10 +1089,12 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   `v0.2.0`-`v0.2.3` (historia `dryRun` true/false w trakcie diagnozy PUŁAPKI
   5, dwie z nich BŁĘDNIE miały `dryRun: false`) →
   [v0.2.4](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/releases/tag/v0.2.4)
-  (`dryRun: true`, opisuje jeszcze regułę v4). **Kod na `dev` jest od
-  2026-09-23 znacznie nowszy niż v0.2.4 (reguła v5, `dryRun: false`,
-  research nad wymiarem wcięcia) — numer wersji NIE był jeszcze podbity,
-  żadna nowsza wersja nie została opublikowana.** Sama flaga pre-release
+  (`dryRun: true`, opisuje jeszcze regułę v4) →
+  [v0.3.0](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/releases/tag/v0.3.0)
+  (2026-09-28: wymiar wcięcia produkcyjny, guard RO, filtr kąta,
+  `InsertMissing`; tag na `release`, `dev` i `release` identyczne, wersja
+  podbita w `csproj` i `setup.iss`). Release na GitHubie tworzy operator
+  ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
 
