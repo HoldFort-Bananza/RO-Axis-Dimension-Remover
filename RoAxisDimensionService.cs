@@ -90,6 +90,17 @@ namespace RoAxisDimensionRemover
                 return 0;
             }
 
+            // ZMIERZONE 2026-09-29 na [35681] (łuk poręczy "Bogen", RO48.3):
+            // 10 z 15 wymiarów widoku - w tym 63 i 29, opisujące gięcie -
+            // spełniało TouchesAxis, bo na giętej rurze prawie każdy punkt ma
+            // "głębię Z" względem cięciwy łuku. Reguła była projektowana i
+            // sprawdzana tylko na prostych rurach.
+            if (ViewHasBentPart(view))
+            {
+                log("Ten widok zawiera giętą rurę - reguła działa tylko na prostych rurach, nic nie kasuję.");
+                return 0;
+            }
+
             var objs = view.GetAllObjects();
             while (objs.MoveNext())
             {
@@ -143,6 +154,24 @@ namespace RoAxisDimensionRemover
         // = "RO42.4*3.2". Brak połączenia z Model albo brak części z takim
         // profilem w widoku = bezpieczny domyślny wynik "false" (nic nie
         // kasuj), nigdy "zgaduj, że to RO".
+        // Brak połączenia z Model = "true" (nic nie kasuj), tak jak w
+        // ViewHasRoProfile - nigdy nie zgadujemy, że rura jest prosta.
+        private static bool ViewHasBentPart(ViewBase view)
+        {
+            var model = new TSM.Model();
+            if (!model.GetConnectionStatus()) return true;
+            var parts = view.GetAllObjects(new[] { typeof(Part) });
+            while (parts.MoveNext())
+            {
+                if (!(parts.Current is Part drawingPart)) continue;
+                if (model.SelectModelObject(drawingPart.ModelIdentifier) is TSM.Part modelPart && !NotchPilot.IsStraight(modelPart))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private static bool ViewHasRoProfile(ViewBase view, Action<string> log)
         {
             var model = new TSM.Model();

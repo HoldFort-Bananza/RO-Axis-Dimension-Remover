@@ -115,9 +115,39 @@ namespace RoAxisDimensionRemover
                 {
                     Log($"[find] {drawing.Mark}: błąd dry-runu wstawiania ({ex.GetType().Name}: {ex.Message}).");
                 }
-                Log($"[find] {drawing.Mark} / {drawing.Name}: {candidateCount} do usunięcia, {missing} brakujących wymiarów wcięcia, {stretch} promieni do rozciągnięcia.");
+                string skipped = string.Join(" ", SkippedCutAngles(drawing).Select(a => $"{a:F1}°"));
+                Log($"[find] {drawing.Mark} / {drawing.Name}: {candidateCount} do usunięcia, {missing} brakujących wymiarów wcięcia, {stretch} promieni do rozciągnięcia" +
+                    (skipped.Length > 0 ? $", ściany odrzucone filtrem kąta: {skipped}." : "."));
             }
             Log($"[find] Przeskanowano {scanned} rysunków, {withCandidates} ma kandydatów.");
+        }
+
+        // Kąty ścian cięcia, które filtr MinCutAngleDegrees odrzuca - na tych
+        // końcach "Wstaw" nic nie doda, choć "Usuń" mógł coś skasować
+        // (ZMIERZONE 2026-09-29 na [35092]: koniec 8,7° z wymiarami 7 i 3 mm).
+        // Kąt dokładnie 0 (proste przycięcie) odpada już w CutFaces.
+        private static IEnumerable<double> SkippedCutAngles(Drawing drawing)
+        {
+            var model = new TSM.Model();
+            if (!model.GetConnectionStatus()) yield break;
+            var seen = new HashSet<string>();
+            foreach (var view in SheetViews(drawing))
+            {
+                var parts = view.GetAllObjects(new[] { typeof(Part) });
+                while (parts.MoveNext())
+                {
+                    if (!(parts.Current is Part drawingPart) || !seen.Add(drawingPart.ModelIdentifier.ToString())) continue;
+                    if (!(model.SelectModelObject(drawingPart.ModelIdentifier) is TSM.Part modelPart)) continue;
+                    foreach (var (_, outerLoop) in NotchPilot.CutFaces(modelPart.GetSolid(), NotchPilot.BeamAxis(modelPart)))
+                    {
+                        var centroid = NotchPilot.Centroid(outerLoop);
+                        double angle = NotchPilot.CutAngleDegrees(
+                            NotchPilot.FindChord(outerLoop, centroid, longest: true),
+                            NotchPilot.FindChord(outerLoop, centroid, longest: false));
+                        if (angle < NotchPilot.MinCutAngleDegrees) yield return angle;
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -384,6 +414,11 @@ namespace RoAxisDimensionRemover
                     TSM.Solid solid;
                     try { solid = modelPart.GetSolid(); }
                     catch { continue; }
+
+                    var centerLine = modelPart.GetCenterLine(false);
+                    var centerPoints = new List<TSG.Point>();
+                    if (centerLine != null) foreach (var p in centerLine) if (p is TSG.Point cp) centerPoints.Add(cp);
+                    Log($"[notch-raw]   oś części (GetCenterLine): {centerPoints.Count} punktów: {string.Join(" ", centerPoints.Select(PointStr))}");
 
                     int faceIndex = 0;
                     foreach (var (face, outerLoop) in NotchPilot.CutFaces(solid, NotchPilot.BeamAxis(modelPart)))

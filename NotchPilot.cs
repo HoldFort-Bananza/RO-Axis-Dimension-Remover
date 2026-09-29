@@ -291,6 +291,14 @@ namespace RoAxisDimensionRemover
                     if (!processedParts.Add(key)) continue;
                     if (!(model.SelectModelObject(drawingPart.ModelIdentifier) is TSM.Part modelPart)) continue;
 
+                    // Ten sam powód co w RemoveAxisDimensions ([35681]): na
+                    // giętej rurze oś Start->End to cięciwa łuku, więc kierunki
+                    // wymiaru wcięcia wyszłyby złe ([35603]: ściana 13,7°).
+                    if (!IsStraight(modelPart))
+                    {
+                        log($"Pomijam giętą rurę ({modelPart.Name} {modelPart.Profile?.ProfileString}) - wymiar wcięcia liczony tylko dla prostych rur.");
+                        continue;
+                    }
                     var axis = BeamAxis(modelPart);
                     foreach (var (majorChord, minorChord) in FindQualifyingChordPairs(modelPart, axis))
                     {
@@ -358,6 +366,26 @@ namespace RoAxisDimensionRemover
         {
             double ratio = Distance(minor.A, minor.B) / Distance(major.A, major.B);
             return Math.Acos(Math.Min(1.0, ratio)) * 180.0 / Math.PI;
+        }
+
+        // ZMIERZONE 2026-09-29: GetCenterLine(false) prostej rury ([35021])
+        // daje 2 punkty, łuku ([35681], [35603]) 7 punktów na łuku. Prosta =
+        // każdy punkt osi leży na linii pierwszy-ostatni (1 mm tolerancji).
+        // Brak osi = "nie wiadomo" = nie prosta (bezpieczniej nic nie robić).
+        private const double StraightToleranceMm = 1.0;
+
+        internal static bool IsStraight(TSM.Part part)
+        {
+            var points = new List<TSG.Point>();
+            var centerLine = part.GetCenterLine(false);
+            if (centerLine != null) foreach (var p in centerLine) if (p is TSG.Point point) points.Add(point);
+            if (points.Count < 2) return false;
+            var line = new TSG.Line(points[0], points[points.Count - 1]);
+            foreach (var point in points)
+            {
+                if (TSG.Distance.PointToLine(point, line) > StraightToleranceMm) return false;
+            }
+            return true;
         }
 
         internal static TSG.Vector BeamAxis(TSM.Part part)
