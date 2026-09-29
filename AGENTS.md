@@ -989,6 +989,28 @@ brakujący wymiar nigdy by się nie wstawił. Zmierzone: wymiary wstawione
 przez `InsertMissing` mają `UpDirection` równe przekazanemu `side`, więc
 ponowne kliknięcie „Wstaw” nic nie dubluje (dry-run po wszystkim: 0 braków).
 
+**Drugi przypadek rozciągania: `[35021]` (2026-09-29, kąt 19,9°).**
+Wybrany przez rozszerzony skaner (niżej). `21` (0;-21,2)→(7,68;0) stał się
+`42` (0;-21,2)→(15,35;21,2) — te same końce co istniejące `15` (długość),
+inny kierunek. Szerokość wcięcia `42` trafiła do DRUGIEGO widoku (tego z
+`171`), nie do widoku ze średnicą — obawa o zdublowane `42` w jednym
+widoku się nie potwierdziła (agent przewidział to błędnie przed testem).
+Linia szerokości stoi na środku rury (odsunięcie `Distance=92,32` z
+heurystyki `side`/wzorca), operator ocenił rysunek jako dobry. Niezależny
+odczyt potwierdził, ponowny dry-run: 0 braków. **Rozciąganie potwierdzone
+na dwóch rysunkach** — `[35095]` i `[35021]`.
+
+**`--diag-find-candidates` liczy też braki wymiaru wcięcia i promienie do
+rozciągnięcia** (woła `InsertMissing` w dry-run dla każdego rysunku z
+kandydatem do usunięcia). Skan 2298 rysunków trwa DŁUŻEJ niż 10 minut —
+uruchamiać w tle z przekierowaniem do pliku, nie jako jedno polecenie z
+limitem czasu. Wynik 2026-09-29: 74 rysunki z kandydatami do usunięcia, 22
+z promieniem do rozciągnięcia (po 1: m.in. `[35004]`, `[35016]`,
+`[35044]`, `[35270]`; po 2: `[35020]`; po 3: `[3.5013]` — znowu jest w
+modelu — `[35010]`, `[35013]`). Na `[35010]` przy 45° wychodzi kilka `42`
+w jednym widoku — niesprawdzone na żywo, pierwszy kandydat, jeśli pojawi
+się zgłoszenie o duplikatach.
+
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
 Para `21`/`21` na `[3.5013]` to NIE była duplikat. Reguła v4 (kasuj
@@ -1169,7 +1191,9 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   podbita w `csproj` i `setup.iss`) →
   v0.3.1 (2026-09-29: guard `SinglePartDrawing` w `RemoveAxisDimensions`
   i `InsertMissing` — v0.3.0 potrafiła fałszywie kasować na rysunkach
-  zespołów). Release na GitHubie tworzy operator
+  zespołów) →
+  v0.3.2 (2026-09-29: rozciąganie promienia do średnicy, `HasSameDimension`
+  z kierunkiem, diagnostyka nie przeładowuje otwartego rysunku). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.

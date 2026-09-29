@@ -99,7 +99,23 @@ namespace RoAxisDimensionRemover
                 if (candidateCount > 0)
                 {
                     withCandidates++;
-                    Log($"[find] {drawing.Mark} / {drawing.Name}: {candidateCount} kandydat(ów) do usunięcia (wymiar do osi).");
+                    // Ten sam InsertMissing co przycisk "Wstaw", w dry-run - liczy
+                    // braki wymiaru wcięcia i promienie do rozciągnięcia, żeby
+                    // wybrać rysunek testowy po danych, nie na oko.
+                    int missing = 0, stretch = 0;
+                    try
+                    {
+                        NotchPilot.InsertMissing(drawing, s =>
+                        {
+                            if (s.Contains("[dry-run] brakująca")) missing++;
+                            else if (s.Contains("[dry-run] rozciągnąłbym")) stretch++;
+                        }, dryRun: true);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"[find] {drawing.Mark}: błąd dry-runu wstawiania ({ex.GetType().Name}: {ex.Message}).");
+                    }
+                    Log($"[find] {drawing.Mark} / {drawing.Name}: {candidateCount} do usunięcia, {missing} brakujących wymiarów wcięcia, {stretch} promieni do rozciągnięcia.");
                 }
             }
             Log($"[find] Przeskanowano {scanned} rysunków, {withCandidates} ma kandydatów.");
