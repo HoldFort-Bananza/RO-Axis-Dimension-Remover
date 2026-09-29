@@ -27,7 +27,7 @@ namespace RoAxisDimensionRemover
     /// wymiar wcięcia), problem odróżniania duplikatu od pary prostopadłej
     /// znika - nie ma już decyzji "który zostaje".
     /// </summary>
-    public class RoAxisDimensionService
+    public static class RoAxisDimensionService
     {
         // mm na papierze. Promień profilu RO nigdy nie schodzi blisko zera,
         // więc ten margines bezpiecznie odróżnia "dokładnie na osi" od
@@ -52,20 +52,15 @@ namespace RoAxisDimensionRemover
         // widoku.
         internal const double SameJointDistanceMm = 300.0;
 
-        public class Result
-        {
-            public int ViewsChecked;
-            public int RemovedCount;
-        }
-
         /// <summary>
         /// Kasuje wszystkie wymiary "do osi" w JEDNYM widoku (ten, który
         /// operator wybrał Pickerem w MainForm - patrz PUŁAPKA 5 wyżej,
-        /// dlaczego to musi być per widok, nie cały arkusz naraz).
+        /// dlaczego to musi być per widok, nie cały arkusz naraz). Zwraca
+        /// liczbę skasowanych (w dry-run: znalezionych) wymiarów.
         /// </summary>
-        public Result RemoveAxisDimensions(Drawing drawing, ViewBase view, Action<string> log, bool dryRun = false)
+        public static int RemoveAxisDimensions(Drawing drawing, ViewBase view, Action<string> log, bool dryRun = false)
         {
-            var result = new Result { ViewsChecked = 1 };
+            int removedCount = 0;
 
             // ZMIERZONE 2026-09-28 na [225.130] (zespół balustrady ze śrubami
             // M16 i płytkami): 14 kandydatów, wszystkie fałszywe - to
@@ -74,7 +69,7 @@ namespace RoAxisDimensionRemover
             if (!(drawing is SinglePartDrawing))
             {
                 log($"Rysunek typu {drawing.GetType().Name} - narzędzie działa tylko na rysunkach pojedynczej części (SinglePartDrawing), nic nie kasuję.");
-                return result;
+                return 0;
             }
 
             // ZMIERZONE 2026-09-25: TouchesAxis jest czysto geometryczny
@@ -92,7 +87,7 @@ namespace RoAxisDimensionRemover
             if (!ViewHasRoProfile(view, log))
             {
                 log("Ten widok nie zawiera części o profilu RO - narzędzie jest ograniczone do profili RO, nic nie kasuję.");
-                return result;
+                return 0;
             }
 
             var objs = view.GetAllObjects();
@@ -110,7 +105,7 @@ namespace RoAxisDimensionRemover
                 // rury), ale to nie jest ten sam przypadek - odsiewamy go po
                 // własnej długości. Zdiagnozowane na [3.5013] w v4, patrz
                 // AGENTS.md.
-                double ownLength = PointDistance(sd.StartPoint, sd.EndPoint);
+                double ownLength = NotchPilot.Distance(sd.StartPoint, sd.EndPoint);
                 if (ownLength > SameJointDistanceMm)
                 {
                     if (dryRun)
@@ -123,24 +118,24 @@ namespace RoAxisDimensionRemover
                 double? value = GetDisplayedValue(sd);
                 string valueText = value.HasValue ? $"{value.Value:F0} mm" : "? (nie udało się odczytać wartości)";
                 log($"{(dryRun ? "Znaleziono" : "Kasuję")} wymiar do osi ({valueText}).  {DescribeDimensionSet(sd)}");
-                result.RemovedCount++;
+                removedCount++;
                 if (!dryRun)
                 {
                     sd.Delete();
                 }
             }
 
-            if (result.RemovedCount == 0)
+            if (removedCount == 0)
             {
                 log("Brak wymiarów do osi w tym widoku - nic do usunięcia.");
             }
 
-            if (result.RemovedCount > 0 && !dryRun)
+            if (removedCount > 0 && !dryRun)
             {
                 drawing.CommitChanges();
             }
 
-            return result;
+            return removedCount;
         }
 
         // "RO" to konwencja nazewnictwa profili w katalogu Tekli (rura
@@ -172,15 +167,8 @@ namespace RoAxisDimensionRemover
             return false;
         }
 
-        private static double PointDistance(Tekla.Structures.Geometry3d.Point p1, Tekla.Structures.Geometry3d.Point p2)
-        {
-            double dx = p1.X - p2.X, dy = p1.Y - p2.Y, dz = p1.Z - p2.Z;
-            return Math.Sqrt(dx * dx + dy * dy + dz * dz);
-        }
-
-        // internal: reużywane przez DiagRunner (--diag-notch-match), żeby
-        // dopasowanie ściany cięcia do wymiaru bazowało na TEJ SAMEJ regule
-        // wykrywania "dotyka osi", zamiast duplikować ją niezależnie.
+        // internal: reużywane przez DiagRunner, żeby diagnostyka bazowała na
+        // TEJ SAMEJ regule wykrywania "dotyka osi", zamiast duplikować ją.
         //
         // ZMIERZONE na żywym [35021] (operator zgłosił: program niepotrzebnie
         // kasuje "21 mm" - promień rury, potrzebny na budowie). Odczyt

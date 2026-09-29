@@ -25,8 +25,8 @@ ograniczenia, ma zostać szczegółowy, bo to baza do diagnozy).
 2. **Sprawdź `dryRun` w `MainForm.cs` (`RunButton_Click`) WPROST W PLIKU,
    nie z tego opisu, i sprawdź go NA BRANCHU, z którego faktycznie
    korzystasz** — `dev` i `release` mogą mieć RÓŻNY stan (patrz "Branche"
-   niżej). **Stan na 2026-09-23: `dryRun: false` — przycisk NAPRAWDĘ
-   kasuje**, brama bezpieczeństwa dla reguły v5 przeszła (patrz niżej).
+   niżej). **Stan na 2026-09-29 (v0.3.3): `dryRun: false` — przycisk
+   NAPRAWDĘ kasuje**, reguła v6 przeszła bramę 2026-09-23 (patrz niżej).
    `DiagRunner.cs` (tryb konsolowy `--diag-*`) ma `dryRun` na sztywno
    `true` NA ZAWSZE, niezależnie od tego stanu — to się nigdy nie zmienia,
    to jedyna droga do bezpiecznego sprawdzenia reguły bez człowieka przy
@@ -50,6 +50,77 @@ ograniczenia, ma zostać szczegółowy, bo to baza do diagnozy).
    momencie kliknięcia → dopiero wtedy `dryRun: false`. Nie pytaj "czy mogę
    włączyć realne kasowanie/tworzenie" retorycznie — naprawdę czekaj na
    wyraźne "tak" od człowieka, konkretnie na TO pytanie.
+
+## START SESJI TUTAJ — stan na koniec 2026-09-29
+
+Sekcje niżej to dziennik chronologiczny (23.09 → 29.09); ta jest skrótem
+aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
+starsze wpisy dziennika.
+
+**Wydanie:** v0.3.4 w przygotowaniu (PR `dev`→`release`, refaktor + poprawka paska; reguły bez zmian). Poprzednio: v0.3.3 — tag na `release`, instalator na GitHubie, operator ma
+ją zainstalowaną, skrót z pulpitu wskazuje na zainstalowaną kopię (NIE na
+`bin`). `dev` = `release` + 2 commity samej dokumentacji. **v0.3.2 miała
+błąd kasujący dane** (rozciąganie zamieniało wymiar całkowitej długości na
+`42`) — naprawione w v0.3.3, patrz sekcja „BŁĄD W WYDANEJ v0.3.2”.
+
+**Co robi program (dwa osobne przyciski):**
+1. „Usuń wymiary do osi” — jeden widok wskazany kliknięciem; guardy:
+   `SinglePartDrawing` + część o profilu `RO…` w widoku; reguła v6
+   (`TouchesAxis` z wymogiem głębi Z + filtr długości własnej 300 mm).
+2. „Wstaw wymiar wcięcia” — `NotchPilot.InsertMissing`, cały rysunek:
+   guard `SinglePartDrawing`; ściany cięcia ≥ 10°; długość i szerokość
+   wcięcia w widoku, gdzie cięciwa jest płaska; styl z widoku docelowego,
+   a gdy pusty — z innego widoku; `StretchRadiusToDiameter` zamienia płaski
+   promień przy skosie (czubek cięcia → oś, mierzony w poprzek, koniec na osi
+   w obrębie cięcia) na średnicę od czubka do czubka; `HasSameDimension`
+   porównuje końce i `UpDirection`, więc ponowne kliknięcie nic nie dubluje.
+
+**Potwierdzone na żywo przez operatora (pytanie „czy rysunek opisuje
+wszystko”):** `[35021]`, `[3.5013]` (znów jest w modelu — wcześniejsze
+wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
+(kasowanie + wstawianie + rozciąganie, `256` przetrwało). Rysunek zespołu
+`[225.130]` i blacha `[21050]` — poprawnie odrzucone.
+
+**Znane słabości (wszystkie zaakceptowane przez operatora):**
+- Położenie wstawionych wymiarów (`side` + `Distance` wzorca) bywa złe:
+  przy krawędzi arkusza (`35` na `[35095]`), na rurze (`42` na `[35021]`),
+  w cudzej ramce (`15` na `[35020]`). Najczęstsza poprawka ręczna.
+- Widok zawierający same wymiary do osi zostaje po „Usuń” pusty — operator:
+  takiego widoku się nie klika. „Wstaw” i tak go uzupełni stylem z innego
+  widoku.
+- Zagadka 24.09 (odrzucony koniec 45° na `[3.5013]`) nierozwiązana.
+- Picker wisi przy kliku w pustą część widoku — Esc.
+- Na `[35010]` przy 45° kilka `42` w jednym widoku — niesprawdzone na żywo.
+
+**Środowisko i pułapki, które dziś kosztowały czas:**
+- Model testowy (~19 tys. części) NIE zapisuje się (limit licencji 2500) —
+  zmiany na rysunku znikają po zamknięciu. Wygodne do testów.
+- Każdą nową operację zapisu weryfikować ODCZYTEM Z OSOBNEGO PROCESU
+  (`--diag-dimension-style`), nie logiem programu — `Modify()` z nowymi
+  punktami i odczyt w tym samym procesie kłamały.
+- `--diag-* "[Mark]"` nie przeładowuje już otwartego rysunku
+  (`OpenUnlessActive`) — wcześniej cofało niezapisane zmiany operatora.
+  Otwarcie INNEGO rysunku przez diag nadal zamyka bieżący.
+- `--diag-find-candidates` (cały model, 2298 rysunków) trwa > 10 min —
+  tylko w tle z wyjściem do pliku. Wynik 29.09: 74 rysunki z kandydatami,
+  22 z promieniem do rozciągnięcia (lista w sekcji „Test na `[35095]`”).
+- Wyjście konsoli jest w cp1250 — czytać przez `iconv -c -f cp1250 -t utf-8`.
+  Bez `-c` iconv urywa wyjście na znaku spoza cp1250 (`≈` w
+  `--diag-notch-raw`). Porównując dwa buildy, diffować surowe bajty.
+- 2026-09-29 (po v0.3.3): refaktor bez zmiany reguł — geometria tylko w
+  `NotchPilot`, `DiagRunner` z niej korzysta. Sprawdzone porównaniem
+  wyjścia starego i nowego builda na `[35095]`/`[35021]`/`[35020]`: wszystkie
+  tryby `--diag-*` identyczne co do bajtu (poza celowymi zmianami tekstu w
+  `--diag-notch` i `--diag-notch-match`).
+- Przy prośbie do operatora nazywać widok po tym, co w nim widać („górny,
+  z `256`”), nie po numerze z logu — numeracja widoków w diagnostyce nie
+  odpowiada położeniu na arkuszu (pomyłka z 29.09 na `[35020]`).
+
+**Proponowany następny krok** (operator nie zdecydował): 2–3 kolejne
+rysunki z listy skanu, tym samym cyklem (Usuń → Wstaw → odczyt z osobnego
+procesu → ocena operatora), najlepiej `[35016]`/`[35066]`/`[35092]` (7–8
+kandydatów do usunięcia) i `[35010]`. Dobierać też rysunki z wymiarem,
+który MA przetrwać — brak takiego w testach przepuścił błąd v0.3.2.
 
 ## STAN NA 2026-09-23 — reguła v6 (poprawka TouchesAxis), brama przeszła DRUGI RAZ tego dnia
 
@@ -182,8 +253,10 @@ zainstalowaną kopię (`%LOCALAPPDATA%\Programs\RoAxisDimensionRemover\`,
 która miała starą regułę v4 z 16 września — operator się na tym raz
 przejechał, widząc nieaktualne zachowanie). Efekt: przebudowanie projektu
 od razu aktualizuje to, co operator odpala z pulpitu — wygodne w tej fazie
-częstych zmian reguły. Gdy reguła będzie gotowa do dystrybucji, rozważyć
-przywrócenie skrótu na świeżo zbudowany instalator.
+częstych zmian reguły. **Od 2026-09-29 skrót znowu wskazuje na
+zainstalowaną kopię** (operator zainstalował v0.3.3) — przebudowanie
+projektu NIE zmienia tego, co operator odpala z pulpitu. Do testu nowej
+zmiany uruchamiać `bin\x64\Debug\net48\RoAxisDimensionRemover.exe` wprost.
 
 ## Wymiar wcięcia (cut fitting) — PRODUKCYJNE OD 2026-09-25, BEZ BLOKADY RYSUNKU
 
@@ -247,7 +320,7 @@ sprawdził na tym konkretnym złączu po zdjęciu blokady.
      policz środek cięciwy i jego odległość od centroidu pętli; pary
      "przechodzące przez środek" to te z najmniejszym takim offsetem
      (z tolerancją); wśród nich najdłuższa = długość, najkrótsza = szerokość.
-     Patrz `FindChord`/`Centroid`/`LoopSpan` w `DiagRunner.cs`.
+     Patrz `FindChord`/`Centroid`/`LoopSpan` w `NotchPilot.cs`.
 5. **Przeliczenie punktów bryły (globalne współrzędne modelu) na
    współrzędne widoku, żeby dało się z nich zrobić `StraightDimension`:**
    `View.DisplayCoordinateSystem` — dokumentacja wprost mówi "can be used
@@ -256,7 +329,7 @@ sprawdził na tym konkretnym złączu po zdjęciu blokady.
    gotowej metody transformacji w Open API — trzeba liczyć ręcznie:
    `relatywny = punkt - Origin`, potem rzut przez iloczyn skalarny na
    znormalizowane `AxisX`/`AxisY`/`AxisX.Cross(AxisY)`. Patrz
-   `ToViewSpace` w `DiagRunner.cs`.
+   `ToViewSpace` w `NotchPilot.cs`.
 6. **Silna walidacja przeliczenia**: przeliczona "szerokość cięcia" w
    układzie widoku wyszła `(7,68;-21,20;0,00) -> (7,68;21,20;0,00)` —
    współrzędna X (7,68) niemal identyczna z X starego, skasowanego wymiaru
@@ -1149,7 +1222,7 @@ profilu RO i geometrii bryły, nie ogólne dla Tekla Open API).
 - **`CoordinateSystem` (Origin/AxisX/AxisY) nie ma gotowej metody
   transformacji punktu do jej lokalnego układu** w publicznym Open API —
   trzeba liczyć ręcznie przez iloczyny skalarne (`Vector.Dot`), patrz
-  `ToViewSpace` w `DiagRunner.cs`.
+  `ToViewSpace` w `NotchPilot.cs`.
 
 ## Jak testować bez klikania w GUI
 
@@ -1176,8 +1249,10 @@ tego przełączyć z linii poleceń. `--diag-notch`/`--diag-dimension-style`
 nawet nie mają pojęcia `dryRun` — nic nie usuwają ani nie tworzą, tylko
 czytają (model przez `Tekla.Structures.Model.Model`, albo istniejące
 wymiary na rysunku). Log leci na `stdout` (przechwyć np.
-`> plik.txt 2>&1` albo uruchom w tle i przeczytaj output). `--diag-mark`
-woła `SetActiveDrawing(d, true)` — otwiera rysunek na ekranie.
+`> plik.txt 2>&1` albo uruchom w tle i przeczytaj output). Tryby z
+`"[Mark]"` otwierają rysunek na ekranie (`SetActiveDrawing(d, true)`),
+chyba że jest już aktywny — wtedy biorą go bez przeładowania
+(`OpenUnlessActive`, od 2026-09-29).
 
 `--diag-active`/`--diag-mark` przechodzą po WSZYSTKICH widokach na arkuszu
 (Picker wymaga GUI) — inaczej niż przycisk w `MainForm`, który działa na
@@ -1192,11 +1267,11 @@ blokuje proces, `taskkill` to jedyny sposób go zakończyć.**
 
 | Plik | Zawartość |
 |---|---|
-| `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI (reguła v5 — kasuje wszystko w widoku). Od 2026-09-25: `ViewHasRoProfile` na wejściu do `RemoveAxisDimensions` — bez części o profilu RO w widoku metoda nic nie sprawdza i nic nie kasuje (patrz "KRYTYCZNE ZNALEZISKO 2026-09-25") |
+| `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI (reguła v6 — kasuje wszystko w widoku, co spełnia `TouchesAxis`). Guardy na wejściu `RemoveAxisDimensions`: `SinglePartDrawing` (od 2026-09-29) i `ViewHasRoProfile` (od 2026-09-25) — przy którymkolwiek niespełnionym nic nie kasuje |
 | `MainForm.cs` | UI: główny przycisk kasowania, log do okna i do pliku (`dryRun: false` od 2026-09-23 — brama v5 przeszła). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie). Fokus na Teklę po operacji tylko gdy `!dryRun`. Plus jeden przycisk `_insertNotchButton` ("Wstaw wymiar wcięcia dla złączy na wybranym rysunku", handler `InsertNotchButton_Click`) — woła `NotchPilot.InsertMissing` (patrz "InsertMissing — insert napędzany geometrią" wyżej), bez blokady marki, uzupełnia brakujące wymiary wcięcia niezależnie od tego, czy wymiar do osi jeszcze istnieje |
-| `NotchPilot.cs` | TWORZENIE wymiaru wcięcia — PRODUKCYJNE od 2026-09-25 (`PilotDrawingMark`/blokada marki usunięte), metody `InsertWidth`/`InsertLength`. Potwierdzone wizualnie przez operatora na `[35021]` i `[3.5013]` (asymetria widoku długość/szerokość, patrz "Wymiar wcięcia"). Nierozwiązany problem "które złącze faktycznie potrzebuje wymiaru" (2026-09-24) NIE ma tu żadnej ochrony - świadoma decyzja operatora |
-| `Program.cs` | punkt wejścia; GUI domyślnie, `--diag-active`/`--diag-mark`/`--diag-notch`/`--diag-dimension-style`/`--diag-notch-raw` dla trybu konsolowego |
-| `DiagRunner.cs` | headless runner dry-run + `RunNotchDiag`/`TryLogNotchCandidate` (research geometrii wcięcia) + `RunDimensionStyleDiag` (styl istniejących wymiarów, źródło danych dla `NotchPilot`) + `RunNotchMatchDiag` (dopasowanie wymiar↔ściana cięcia po najbliższości w układzie widoku, patrz "Reguła dopasowania ściana↔wymiar") + `RunNotchInsertDryRun` (woła `NotchPilot` w dry-run dla każdego wymiaru do osi, potwierdzone na żywym [3.5013]) + `RunNotchRawDiag` (2026-09-25: zrzuca WSZYSTKICH kandydatów, obie cięciwy, bez filtra płaskości, z flagą płaska(Z≈0) — źródło danych dla poprawki asymetrii widoku, patrz "Poprawiona przyczyna i finalna naprawa") — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
+| `NotchPilot.cs` | TWORZENIE wymiaru wcięcia — produkcyjne (nazwa „Pilot” historyczna). Przycisk woła `InsertMissing` (guard `SinglePartDrawing`) → `FindQualifyingChordPairs` (ściany ≥ 10°) → `InsertResolvedIfMissing` (widok z płaską cięciwą, styl z tego widoku albo z innego) + `StretchRadiusToDiameter` (promień → średnica: `Insert()` nowego, potem `Delete()` starego). `HasSameDimension` porównuje końce i `UpDirection`. `InsertWidth`/`InsertLength` zostają tylko dla `--diag-notch-insert-dryrun`. Problem „które złącze faktycznie potrzebuje wymiaru” (24.09) bez ochrony — świadoma decyzja operatora |
+| `Program.cs` | punkt wejścia; GUI domyślnie, przełączniki `--diag-*` (pełna lista w „Jak testować bez klikania w GUI”) dla trybu konsolowego |
+| `DiagRunner.cs` | headless runner dry-run; całą geometrię (`CutFaces`, `FindChord`, `ToViewSpace`, `BeamAxis`) bierze z `NotchPilot`, żeby diagnostyka liczyła dokładnie to samo co przycisk (do 2026-09-29 miała własne kopie) + `RunNotchDiag` (research geometrii wcięcia) + `RunDimensionStyleDiag` (styl istniejących wymiarów, źródło danych dla `NotchPilot`) + `RunNotchMatchDiag` (dopasowanie wymiar↔ściana cięcia po najbliższości w układzie widoku, patrz "Reguła dopasowania ściana↔wymiar") + `RunNotchInsertDryRun` (woła `NotchPilot` w dry-run dla każdego wymiaru do osi, potwierdzone na żywym [3.5013]) + `RunNotchRawDiag` (2026-09-25: zrzuca WSZYSTKICH kandydatów, obie cięciwy, bez filtra płaskości, z flagą płaska(Z≈0) — źródło danych dla poprawki asymetrii widoku, patrz "Poprawiona przyczyna i finalna naprawa") + `RunFindCandidatesDiag` (cały model; od 2026-09-29 liczy też braki wymiaru wcięcia i promienie do rozciągnięcia) + `OpenUnlessActive` (nie przeładowuje otwartego rysunku) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) |
 | `TeklaWindowFocus.cs` | przełącza fokus Windows na główne okno Tekla Structures (Win32 `SetForegroundWindow`, nie API Tekli). **Nie wołać PRZED startem Pickera** — podejrzenie, że to psuje stan interaktywnej komendy Tekli |
 | `installer/setup.iss`, `installer/fetch-dependencies.ps1`, `installer/TeklaEULA.txt` | instalator Inno Setup — nie dołącza bibliotek Tekla, dociąga je z NuGet po instalacji |
@@ -1228,7 +1303,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   zespołów) →
   v0.3.2 (2026-09-29: rozciąganie promienia do średnicy, `HasSameDimension`
   z kierunkiem, diagnostyka nie przeładowuje otwartego rysunku; **miała błąd** — patrz „BŁĄD W WYDANEJ v0.3.2”) →
-  v0.3.3 (2026-09-29: rozciąganie nie rusza wymiaru całkowitej długości, styl wzorca z innego widoku). Release na GitHubie tworzy operator
+  v0.3.3 (2026-09-29: rozciąganie nie rusza wymiaru całkowitej długości, styl wzorca z innego widoku) →
+  v0.3.4 (2026-09-29: refaktor bez zmiany reguł — geometria tylko w `NotchPilot`; poprawka nakładania się przycisków pod paskiem „nowsza wersja”). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
@@ -1257,6 +1333,9 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   brak identyfikatorów.
 
 ## Następne kroki
+
+**Aktualna lista (2026-09-29) jest w sekcji „START SESJI TUTAJ” na górze
+pliku.** Punkty niżej to stan z 25.09, zostawione jako historia decyzji.
 
 1. **Reguła "który kandydat odpowiada któremu złączu/wymiarowi" —
    ROZWIĄZANA I POTWIERDZONA NA ŻYWO 2026-09-25** (druga runda tej samej
