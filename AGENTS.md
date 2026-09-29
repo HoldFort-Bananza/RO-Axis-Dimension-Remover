@@ -90,7 +90,20 @@ wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
   widoku.
 - Zagadka 24.09 (odrzucony koniec 45° na `[3.5013]`) nierozwiązana.
 - Picker wisi przy kliku w pustą część widoku — Esc.
-- Na `[35010]` przy 45° kilka `42` w jednym widoku — niesprawdzone na żywo.
+- ~~Na `[35010]` przy 45° kilka `42` w jednym widoku~~ — SPRAWDZONE
+  2026-09-29 (dry-run z widokiem w logu): to nie duplikaty. Szerokość
+  wcięcia zawsze trafia do INNEGO widoku niż rozciągnięta średnica (12
+  rysunków); dwa `42` w jednym widoku to średnica i długość cięcia, które
+  przy 45° mają tę samą wartość — jak na zaakceptowanym `[35095]`.
+- **OTWARTE, do decyzji operatora: szara strefa filtra kąta 8–9°.** Skan
+  29.09 (kolumna „ściany odrzucone filtrem kąta”): `[35092]` 8,7°,
+  `[35260]` 8,8°, `[35424]` 8,7°, `[35572]` 8,8°, `[35598]` 8,4°. Na tych
+  końcach „Usuń” kasuje wymiary do osi (na `[35092]`: `7` i `3` mm,
+  opisujące cięcie), a „Wstaw” nic nie dodaje, bo 8,7° < 10°. Punkty
+  pomiarowe: 4,8° (`[3.5027]`, `[35027]`, `[35030]`) — operator: „płaskie”;
+  8,4–8,8° — NIEOCENIONE; 13,7° i więcej — wstawiamy. Progu NIE zmieniono
+  (zmiana reguły = brama). Do pokazania operatorowi `[35092]` na żywo z
+  pytaniem, czy ten koniec jest „ścięty”.
 
 **Środowisko i pułapki, które dziś kosztowały czas:**
 - Model testowy (~19 tys. części) NIE zapisuje się (limit licencji 2500) —
@@ -115,6 +128,30 @@ wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
 - Przy prośbie do operatora nazywać widok po tym, co w nim widać („górny,
   z `256`”), nie po numerze z logu — numeracja widoków w diagnostyce nie
   odpowiada położeniu na arkuszu (pomyłka z 29.09 na `[35020]`).
+
+**Przegląd 2026-09-29 po południu (branch `sweep-2026-09-29`, NIE w
+`dev`/`release`, PR #35 = v0.3.4 go nie zawiera):**
+- **Gięte rury (łuki poręczy, `Bogen`) — ZNALEZIONA UTRATA DANYCH W v0.3.3.**
+  Na `[35681]` reguła v6 oznaczała 10 z 15 wymiarów jedynego zwymiarowanego
+  widoku (m.in. `63` i `29`, opisujące gięcie): oś Start→End to cięciwa
+  łuku, więc prawie każdy punkt ma „głębię Z” przy osi. Skan przed
+  poprawką: 16 z 74 rysunków z kandydatami to łuki (m.in. `[35555]`,
+  `[35577]`, `[35588]`, `[35599]`, `[35603]`, `[35638]`, `[35674]`–`[35681]`,
+  `[25031]`), zawsze z 0 wymiarów do wstawienia. Na `[35603]` ściana 13,7°
+  łuku dostałaby wymiar wcięcia wzdłuż złej osi. Poprawka:
+  `NotchPilot.IsStraight` (`GetCenterLine(false)`: prosta rura 2 punkty,
+  łuk 7 punktów na łuku — zmierzone), widok z giętą częścią pomijany w
+  `RemoveAxisDimensions`, gięta część pomijana w `InsertMissing`.
+  Zabezpieczenie tylko zawęża działanie — proste rury dają identyczne
+  liczby w dry-run. **Do czasu wydania: na widokach łuków NIE klikać
+  „Usuń” w v0.3.3/v0.3.4.**
+- Diagnostyka: dry-run `InsertMissing` podaje widok (`Origin`),
+  `--diag-notch-raw` kąt cięcia każdej ściany i oś części, skan modelu
+  kolumnę „ściany odrzucone filtrem kąta”; `--diag-* "[Mark]"` na rysunku
+  nieaktualnym względem modelu (`[3.5027]`) wypisuje komunikat zamiast
+  wyjątku.
+- Instalator sprawdzony: `fetch-dependencies.ps1` dociąga dokładnie 23
+  DLL-e, które kopiuje build — nic nie brakuje, nic zbędnego.
 
 **Proponowany następny krok** (operator nie zdecydował): 2–3 kolejne
 rysunki z listy skanu, tym samym cyklem (Usuń → Wstaw → odczyt z osobnego
@@ -1267,9 +1304,9 @@ blokuje proces, `taskkill` to jedyny sposób go zakończyć.**
 
 | Plik | Zawartość |
 |---|---|
-| `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI (reguła v6 — kasuje wszystko w widoku, co spełnia `TouchesAxis`). Guardy na wejściu `RemoveAxisDimensions`: `SinglePartDrawing` (od 2026-09-29) i `ViewHasRoProfile` (od 2026-09-25) — przy którymkolwiek niespełnionym nic nie kasuje |
+| `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI (reguła v6 — kasuje wszystko w widoku, co spełnia `TouchesAxis`). Guardy na wejściu `RemoveAxisDimensions`: `SinglePartDrawing` (od 2026-09-29), `ViewHasRoProfile` (od 2026-09-25) i `ViewHasBentPart` (od 2026-09-29, branch `sweep-2026-09-29`) — przy którymkolwiek niespełnionym nic nie kasuje |
 | `MainForm.cs` | UI: główny przycisk kasowania, log do okna i do pliku (`dryRun: false` od 2026-09-23 — brama v5 przeszła). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie). Fokus na Teklę po operacji tylko gdy `!dryRun`. Plus jeden przycisk `_insertNotchButton` ("Wstaw wymiar wcięcia dla złączy na wybranym rysunku", handler `InsertNotchButton_Click`) — woła `NotchPilot.InsertMissing` (patrz "InsertMissing — insert napędzany geometrią" wyżej), bez blokady marki, uzupełnia brakujące wymiary wcięcia niezależnie od tego, czy wymiar do osi jeszcze istnieje |
-| `NotchPilot.cs` | TWORZENIE wymiaru wcięcia — produkcyjne (nazwa „Pilot” historyczna). Przycisk woła `InsertMissing` (guard `SinglePartDrawing`) → `FindQualifyingChordPairs` (ściany ≥ 10°) → `InsertResolvedIfMissing` (widok z płaską cięciwą, styl z tego widoku albo z innego) + `StretchRadiusToDiameter` (promień → średnica: `Insert()` nowego, potem `Delete()` starego). `HasSameDimension` porównuje końce i `UpDirection`. `InsertWidth`/`InsertLength` zostają tylko dla `--diag-notch-insert-dryrun`. Problem „które złącze faktycznie potrzebuje wymiaru” (24.09) bez ochrony — świadoma decyzja operatora |
+| `NotchPilot.cs` | TWORZENIE wymiaru wcięcia — produkcyjne (nazwa „Pilot” historyczna). Przycisk woła `InsertMissing` (guard `SinglePartDrawing`, gięte części pomijane przez `IsStraight`) → `FindQualifyingChordPairs` (ściany ≥ 10°) → `InsertResolvedIfMissing` (widok z płaską cięciwą, styl z tego widoku albo z innego) + `StretchRadiusToDiameter` (promień → średnica: `Insert()` nowego, potem `Delete()` starego). `HasSameDimension` porównuje końce i `UpDirection`. `InsertWidth`/`InsertLength` zostają tylko dla `--diag-notch-insert-dryrun`. Problem „które złącze faktycznie potrzebuje wymiaru” (24.09) bez ochrony — świadoma decyzja operatora |
 | `Program.cs` | punkt wejścia; GUI domyślnie, przełączniki `--diag-*` (pełna lista w „Jak testować bez klikania w GUI”) dla trybu konsolowego |
 | `DiagRunner.cs` | headless runner dry-run; całą geometrię (`CutFaces`, `FindChord`, `ToViewSpace`, `BeamAxis`) bierze z `NotchPilot`, żeby diagnostyka liczyła dokładnie to samo co przycisk (do 2026-09-29 miała własne kopie) + `RunNotchDiag` (research geometrii wcięcia) + `RunDimensionStyleDiag` (styl istniejących wymiarów, źródło danych dla `NotchPilot`) + `RunNotchMatchDiag` (dopasowanie wymiar↔ściana cięcia po najbliższości w układzie widoku, patrz "Reguła dopasowania ściana↔wymiar") + `RunNotchInsertDryRun` (woła `NotchPilot` w dry-run dla każdego wymiaru do osi, potwierdzone na żywym [3.5013]) + `RunNotchRawDiag` (2026-09-25: zrzuca WSZYSTKICH kandydatów, obie cięciwy, bez filtra płaskości, z flagą płaska(Z≈0) — źródło danych dla poprawki asymetrii widoku, patrz "Poprawiona przyczyna i finalna naprawa") + `RunFindCandidatesDiag` (cały model; od 2026-09-29 liczy też braki wymiaru wcięcia i promienie do rozciągnięcia) + `OpenUnlessActive` (nie przeładowuje otwartego rysunku) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) |
