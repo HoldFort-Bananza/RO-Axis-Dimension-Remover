@@ -156,6 +156,19 @@ wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
 - Instalator sprawdzony: `fetch-dependencies.ps1` dociąga dokładnie 23
   DLL-e, które kopiuje build — nic nie brakuje, nic zbędnego.
 
+**NA JUTRO (koniec dnia 2026-09-29):**
+1. PR #35 (`dev`→`release`, v0.3.4: refaktor + poprawka paska) czeka na
+   merge przez operatora; potem tag `v0.3.4` na `release`, instalator już
+   zbudowany (`installer\output\RoAxisDimensionRemover-Setup-v0.3.4.exe`),
+   release na GitHubie tworzy operator.
+2. Szkic PR #36 (`sweep-2026-09-29`→`dev`): zabezpieczenie łuków +
+   diagnostyka. Zdecydować, czy wchodzi do v0.3.4 (wtedy przebudować
+   instalator), czy jako v0.3.5. Zabezpieczenie tylko zawęża działanie,
+   sprawdzone pełnym skanem; brama wymaga jeszcze spojrzenia operatora na
+   łuk (np. `[35681]`) z komunikatem „zawiera giętą rurę”.
+3. Pokazać operatorowi `[35092]` (koniec 8,7°) i zapytać, czy ten koniec
+   jest „ścięty” — od tego zależy próg `MinCutAngleDegrees`.
+
 **Proponowany następny krok** (operator nie zdecydował): 2–3 kolejne
 rysunki z listy skanu, tym samym cyklem (Usuń → Wstaw → odczyt z osobnego
 procesu → ocena operatora), najlepiej `[35016]`/`[35066]`/`[35092]` (7–8
