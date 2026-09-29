@@ -940,6 +940,55 @@ tak jak wcześniej z `21 mm` na `[35021]`. `--diag-view-bounds` zostaje w
 kodzie, gdyby ktoś kiedyś znalazł sposób na odzyskanie skali (np. przez
 inny obiekt o znanej relacji model↔papier).
 
+## Test na `[35095]` (2026-09-29): kasowanie + wstawianie + rozciąganie promienia
+
+Pierwszy test KASOWANIA na `[35095]` (wcześniej tylko wstawianie).
+Operator skasował 7 wymiarów do osi w dużym widoku (`21`,`21`,`11`,`11`,
+`19`,`22`,`13`). `407`, `353` i płaski `21` (promień) przetrwały — mimo że
+`353` i `21` siedziały w tych samych `StraightDimensionSet` co kasowane
+wymiary, kaskada NIE wystąpiła (log: łańcuchy malały 4→3→2, znikały
+pojedyncze wymiary). Potem „Wstaw” dodał 4 wymiary wcięcia
+(`35`/`42`/`90`/`42`). Operator: rysunek „opisuje” wszystko.
+
+**PUŁAPKA: diagnostyka po Mark cofała niezapisane zmiany.** `--diag-notch-raw
+"[35095]"` uruchomione PO kasowaniu przyciskiem przywróciło wszystkie 7
+skasowanych wymiarów. `SetActiveDrawing` na rysunku, który jest już
+otwarty, przeładowuje go, a model testowy nie zapisuje się (limit
+licencji), więc zmiany przepadły. Naprawione: `DiagRunner.OpenUnlessActive`
+— jeśli aktywny rysunek ma ten sam Mark, bierze go tak, jak jest, bez
+`SetActiveDrawing`. Wszystkie tryby `--diag-*` z Mark przez to przechodzą.
+
+**Nowa funkcja: rozciąganie promienia do średnicy** (prośba operatora,
+wskazana strzałkami na zrzucie — czekała od 2026-09-23, patrz PUŁAPKA 6).
+`NotchPilot.StretchRadiusToDiameter`, wołane z `InsertMissing` (przycisk
+„Wstaw”) dla każdej cięciwy DŁUGOŚCI. W widoku, gdzie ta cięciwa jest
+płaska, szuka płaskiego wymiaru, którego jeden koniec leży DOKŁADNIE
+(`SamePointToleranceMm = 0,01`) na końcu cięciwy (czubek cięcia), a drugi w
+połowie średnicy od niego mierząc prostopadle do osi (czyli na osi rury,
+tolerancja `AxisToleranceMm`). Taki wymiar zastępuje nowym, od czubka do
+czubka, w stylu/kierunku/odsunięciu starego. Na `[35095]` dokładnie 1
+trafienie: `21` (41,45;0)→(89,65;21,2) staje się `42` (0;-21,2)→(89,65;21,2).
+`407` (startuje z czubka, ale drugi koniec 42,4 mm dalej) i reszta się nie
+kwalifikują. Sprawdzone TYLKO na tym jednym złączu — nie wydawać przed
+drugim przypadkiem.
+
+**PUŁAPKA: `StraightDimension.Modify()` ze zmienionym `StartPoint`/`EndPoint`
+to fałszywy sukces.** Pierwsza wersja przesuwała punkt i wołała `Modify()`:
+`Modify()` i `CommitChanges()` zwróciły `true`, ponowny odczyt widoku W TYM
+SAMYM PROCESIE pokazał nowy punkt, a niezależny odczyt
+(`--diag-dimension-style`, osobny proces) — stary. Tekla zmiany nie
+zastosowała. Obecnie: `Insert()` nowego wymiaru, dopiero potem `Delete()`
+starego (przy porażce insertu nic nie ginie). Potwierdzone niezależnym
+odczytem. **Wniosek ogólny: odczyt w tym samym procesie nie jest
+dowodem — po każdej nowej operacji zapisu sprawdzać osobnym procesem.**
+
+**`HasSameDimension` porównuje teraz też kierunek (`UpDirection`).**
+Rozciągnięta średnica (`Up` wzdłuż osi) i długość wcięcia (`Up` w poprzek)
+mają na `[35095]` IDENTYCZNE końce — bez kierunku jedna udawałaby drugą i
+brakujący wymiar nigdy by się nie wstawił. Zmierzone: wymiary wstawione
+przez `InsertMissing` mają `UpDirection` równe przekazanemu `side`, więc
+ponowne kliknięcie „Wstaw” nic nie dubluje (dry-run po wszystkim: 0 braków).
+
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
 Para `21`/`21` na `[3.5013]` to NIE była duplikat. Reguła v4 (kasuj
@@ -1035,6 +1084,12 @@ profilu RO i geometrii bryły, nie ogólne dla Tekla Open API).
   wierzchołków różnych pętli w jedną listę — patrz sekcja "Wymiar wcięcia"
   wyżej, to był realny błąd w tej sesji (poprawiony). Zewnętrzny obrys =
   ten o większym rozstawie własnych wierzchołków.
+- **`StraightDimension.Modify()` po zmianie `StartPoint`/`EndPoint` nic nie
+  zmienia, choć zwraca `true`** (zmierzone 2026-09-29) — a odczyt w tym
+  samym procesie kłamie, że zmienił. Zmiana punktów = nowy `Insert()` +
+  `Delete()` starego.
+- **`SetActiveDrawing` na już otwartym rysunku go przeładowuje** i gubi
+  niezapisane zmiany (zmierzone 2026-09-29). Patrz `OpenUnlessActive`.
 - **`CoordinateSystem` (Origin/AxisX/AxisY) nie ma gotowej metody
   transformacji punktu do jej lokalnego układu** w publicznym Open API —
   trzeba liczyć ręcznie przez iloczyny skalarne (`Vector.Dot`), patrz
