@@ -67,6 +67,16 @@ namespace RoAxisDimensionRemover
         {
             var result = new Result { ViewsChecked = 1 };
 
+            // ZMIERZONE 2026-09-28 na [225.130] (zespół balustrady ze śrubami
+            // M16 i płytkami): 14 kandydatów, wszystkie fałszywe - to
+            // geometria detali śrubowych, nie skos rury. Reguła była
+            // projektowana i testowana tylko na rysunkach pojedynczej części.
+            if (!(drawing is SinglePartDrawing))
+            {
+                log($"Rysunek typu {drawing.GetType().Name} - narzędzie działa tylko na rysunkach pojedynczej części (SinglePartDrawing), nic nie kasuję.");
+                return result;
+            }
+
             // ZMIERZONE 2026-09-25: TouchesAxis jest czysto geometryczny
             // (współrzędna blisko zera + głębia Z + krótka długość) i NIC w
             // kodzie wcześniej nie sprawdzało, czy część jest w ogóle
