@@ -104,7 +104,14 @@ wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
 - `--diag-find-candidates` (cały model, 2298 rysunków) trwa > 10 min —
   tylko w tle z wyjściem do pliku. Wynik 29.09: 74 rysunki z kandydatami,
   22 z promieniem do rozciągnięcia (lista w sekcji „Test na `[35095]`”).
-- Wyjście konsoli jest w cp1250 — czytać przez `iconv -f cp1250 -t utf-8`.
+- Wyjście konsoli jest w cp1250 — czytać przez `iconv -c -f cp1250 -t utf-8`.
+  Bez `-c` iconv urywa wyjście na znaku spoza cp1250 (`≈` w
+  `--diag-notch-raw`). Porównując dwa buildy, diffować surowe bajty.
+- 2026-09-29 (po v0.3.3): refaktor bez zmiany reguł — geometria tylko w
+  `NotchPilot`, `DiagRunner` z niej korzysta. Sprawdzone porównaniem
+  wyjścia starego i nowego builda na `[35095]`/`[35021]`/`[35020]`: wszystkie
+  tryby `--diag-*` identyczne co do bajtu (poza celowymi zmianami tekstu w
+  `--diag-notch` i `--diag-notch-match`).
 - Przy prośbie do operatora nazywać widok po tym, co w nim widać („górny,
   z `256`”), nie po numerze z logu — numeracja widoków w diagnostyce nie
   odpowiada położeniu na arkuszu (pomyłka z 29.09 na `[35020]`).
@@ -313,7 +320,7 @@ sprawdził na tym konkretnym złączu po zdjęciu blokady.
      policz środek cięciwy i jego odległość od centroidu pętli; pary
      "przechodzące przez środek" to te z najmniejszym takim offsetem
      (z tolerancją); wśród nich najdłuższa = długość, najkrótsza = szerokość.
-     Patrz `FindChord`/`Centroid`/`LoopSpan` w `DiagRunner.cs`.
+     Patrz `FindChord`/`Centroid`/`LoopSpan` w `NotchPilot.cs`.
 5. **Przeliczenie punktów bryły (globalne współrzędne modelu) na
    współrzędne widoku, żeby dało się z nich zrobić `StraightDimension`:**
    `View.DisplayCoordinateSystem` — dokumentacja wprost mówi "can be used
@@ -322,7 +329,7 @@ sprawdził na tym konkretnym złączu po zdjęciu blokady.
    gotowej metody transformacji w Open API — trzeba liczyć ręcznie:
    `relatywny = punkt - Origin`, potem rzut przez iloczyn skalarny na
    znormalizowane `AxisX`/`AxisY`/`AxisX.Cross(AxisY)`. Patrz
-   `ToViewSpace` w `DiagRunner.cs`.
+   `ToViewSpace` w `NotchPilot.cs`.
 6. **Silna walidacja przeliczenia**: przeliczona "szerokość cięcia" w
    układzie widoku wyszła `(7,68;-21,20;0,00) -> (7,68;21,20;0,00)` —
    współrzędna X (7,68) niemal identyczna z X starego, skasowanego wymiaru
@@ -1215,7 +1222,7 @@ profilu RO i geometrii bryły, nie ogólne dla Tekla Open API).
 - **`CoordinateSystem` (Origin/AxisX/AxisY) nie ma gotowej metody
   transformacji punktu do jej lokalnego układu** w publicznym Open API —
   trzeba liczyć ręcznie przez iloczyny skalarne (`Vector.Dot`), patrz
-  `ToViewSpace` w `DiagRunner.cs`.
+  `ToViewSpace` w `NotchPilot.cs`.
 
 ## Jak testować bez klikania w GUI
 
@@ -1264,7 +1271,7 @@ blokuje proces, `taskkill` to jedyny sposób go zakończyć.**
 | `MainForm.cs` | UI: główny przycisk kasowania, log do okna i do pliku (`dryRun: false` od 2026-09-23 — brama v5 przeszła). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie). Fokus na Teklę po operacji tylko gdy `!dryRun`. Plus jeden przycisk `_insertNotchButton` ("Wstaw wymiar wcięcia dla złączy na wybranym rysunku", handler `InsertNotchButton_Click`) — woła `NotchPilot.InsertMissing` (patrz "InsertMissing — insert napędzany geometrią" wyżej), bez blokady marki, uzupełnia brakujące wymiary wcięcia niezależnie od tego, czy wymiar do osi jeszcze istnieje |
 | `NotchPilot.cs` | TWORZENIE wymiaru wcięcia — produkcyjne (nazwa „Pilot” historyczna). Przycisk woła `InsertMissing` (guard `SinglePartDrawing`) → `FindQualifyingChordPairs` (ściany ≥ 10°) → `InsertResolvedIfMissing` (widok z płaską cięciwą, styl z tego widoku albo z innego) + `StretchRadiusToDiameter` (promień → średnica: `Insert()` nowego, potem `Delete()` starego). `HasSameDimension` porównuje końce i `UpDirection`. `InsertWidth`/`InsertLength` zostają tylko dla `--diag-notch-insert-dryrun`. Problem „które złącze faktycznie potrzebuje wymiaru” (24.09) bez ochrony — świadoma decyzja operatora |
 | `Program.cs` | punkt wejścia; GUI domyślnie, przełączniki `--diag-*` (pełna lista w „Jak testować bez klikania w GUI”) dla trybu konsolowego |
-| `DiagRunner.cs` | headless runner dry-run + `RunNotchDiag`/`TryLogNotchCandidate` (research geometrii wcięcia) + `RunDimensionStyleDiag` (styl istniejących wymiarów, źródło danych dla `NotchPilot`) + `RunNotchMatchDiag` (dopasowanie wymiar↔ściana cięcia po najbliższości w układzie widoku, patrz "Reguła dopasowania ściana↔wymiar") + `RunNotchInsertDryRun` (woła `NotchPilot` w dry-run dla każdego wymiaru do osi, potwierdzone na żywym [3.5013]) + `RunNotchRawDiag` (2026-09-25: zrzuca WSZYSTKICH kandydatów, obie cięciwy, bez filtra płaskości, z flagą płaska(Z≈0) — źródło danych dla poprawki asymetrii widoku, patrz "Poprawiona przyczyna i finalna naprawa") + `RunFindCandidatesDiag` (cały model; od 2026-09-29 liczy też braki wymiaru wcięcia i promienie do rozciągnięcia) + `OpenUnlessActive` (nie przeładowuje otwartego rysunku) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
+| `DiagRunner.cs` | headless runner dry-run; całą geometrię (`CutFaces`, `FindChord`, `ToViewSpace`, `BeamAxis`) bierze z `NotchPilot`, żeby diagnostyka liczyła dokładnie to samo co przycisk (do 2026-09-29 miała własne kopie) + `RunNotchDiag` (research geometrii wcięcia) + `RunDimensionStyleDiag` (styl istniejących wymiarów, źródło danych dla `NotchPilot`) + `RunNotchMatchDiag` (dopasowanie wymiar↔ściana cięcia po najbliższości w układzie widoku, patrz "Reguła dopasowania ściana↔wymiar") + `RunNotchInsertDryRun` (woła `NotchPilot` w dry-run dla każdego wymiaru do osi, potwierdzone na żywym [3.5013]) + `RunNotchRawDiag` (2026-09-25: zrzuca WSZYSTKICH kandydatów, obie cięciwy, bez filtra płaskości, z flagą płaska(Z≈0) — źródło danych dla poprawki asymetrii widoku, patrz "Poprawiona przyczyna i finalna naprawa") + `RunFindCandidatesDiag` (cały model; od 2026-09-29 liczy też braki wymiaru wcięcia i promienie do rozciągnięcia) + `OpenUnlessActive` (nie przeładowuje otwartego rysunku) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) |
 | `TeklaWindowFocus.cs` | przełącza fokus Windows na główne okno Tekla Structures (Win32 `SetForegroundWindow`, nie API Tekli). **Nie wołać PRZED startem Pickera** — podejrzenie, że to psuje stan interaktywnej komendy Tekli |
 | `installer/setup.iss`, `installer/fetch-dependencies.ps1`, `installer/TeklaEULA.txt` | instalator Inno Setup — nie dołącza bibliotek Tekla, dociąga je z NuGet po instalacji |

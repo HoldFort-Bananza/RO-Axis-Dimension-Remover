@@ -17,7 +17,24 @@ namespace RoAxisDimensionRemover
     // geometrycznie ma ścianę cięcia (patrz AGENTS.md, "Następne kroki").
     internal static class NotchPilot
     {
-        private const double NumericalZero = 0.000001;
+        // Tolerancja błędu numerycznego projekcji, nie próg geometrii:
+        // zmierzone punkty pilota mają Z=0. Wspólna z DiagRunner.
+        internal const double NumericalZero = 0.000001;
+
+        // Ściana o mniejszym kącie cięcia to praktycznie proste zakończenie
+        // rury. ZMIERZONE 2026-09-25 na żywym [3.5027]: ta sama bryła może
+        // mieć ścianę pod PRAWDZIWYM, widocznym kątem (koniec "ścięty") i
+        // drugą, gdzie kąt jest tak mały, że koniec wygląda jak zwykłe
+        // płaskie zakończenie (operator: "z jednej strony płaskie") - mimo
+        // że OBIE kwalifikują się geometrycznie (>1 pętla, normalna
+        // niedokładnie równoległa do osi). Odróżnia je stosunek
+        // długość/szerokość cięcia (= 1/cos kąta cięcia): ~5° ([3.5027])
+        // pomijamy, ~19,9° ([35021]) i ~45° ([3.5013]/[3.5027]) wstawiamy.
+        // 10° to SZACUNEK (w połowie między 5° a 19,9°), nie pomiar - do
+        // doprecyzowania, gdy pojawi się złącze bliżej granicy. NIE
+        // rozwiązuje problemu z 24.09 ([3.5013] drugi koniec miał TEN SAM
+        // ~45° kąt, a operator go odrzucił z innego, nieznanego powodu).
+        private const double MinCutAngleDegrees = 10.0;
 
         public static bool InsertWidth(Drawing drawing, Action<string> log, TSG.Point referencePoint = null, bool dryRun = false, View referenceView = null)
         {
@@ -96,14 +113,12 @@ namespace RoAxisDimensionRemover
                 }
             }
 
-            var candidates = flatCandidates;
-
             Candidate width;
-            if (candidates.Count == 1)
+            if (flatCandidates.Count == 1)
             {
-                width = candidates[0];
+                width = flatCandidates[0];
             }
-            else if (candidates.Count > 1 && referencePoint != null)
+            else if (flatCandidates.Count > 1 && referencePoint != null)
             {
                 // Reguła dopasowania ściana↔wymiar, zaprojektowana i
                 // zweryfikowana ODCZYTOWO na [35021] i [3.5013] przez
@@ -115,9 +130,9 @@ namespace RoAxisDimensionRemover
                 // końce [3.5013] (~5775 mm od siebie vs 15-18 mm do
                 // właściwej ściany). Loguje wybór jawnie - nie cicho, jak
                 // ostrzega komentarz przy zbieraniu kandydatów wyżej.
-                width = candidates[0];
+                width = flatCandidates[0];
                 double bestDistance = Distance(referencePoint, Midpoint(width));
-                foreach (var candidate in candidates)
+                foreach (var candidate in flatCandidates)
                 {
                     double distance = Distance(referencePoint, Midpoint(candidate));
                     if (distance < bestDistance)
@@ -126,11 +141,11 @@ namespace RoAxisDimensionRemover
                         width = candidate;
                     }
                 }
-                log($"Znaleziono {candidates.Count} płaskich kandydatów {label} - wybrano najbliższy punktowi referencyjnemu (odległość {bestDistance:F2} mm).");
+                log($"Znaleziono {flatCandidates.Count} płaskich kandydatów {label} - wybrano najbliższy punktowi referencyjnemu (odległość {bestDistance:F2} mm).");
             }
             else
             {
-                log($"WSTRZYMANO: znaleziono {candidates.Count} płaskich kandydatów {label}; wymagany jest dokładnie jeden (albo punkt referencyjny do wyboru najbliższego).");
+                log($"WSTRZYMANO: znaleziono {flatCandidates.Count} płaskich kandydatów {label}; wymagany jest dokładnie jeden (albo punkt referencyjny do wyboru najbliższego).");
                 return false;
             }
 
@@ -276,13 +291,7 @@ namespace RoAxisDimensionRemover
                     if (!processedParts.Add(key)) continue;
                     if (!(model.SelectModelObject(drawingPart.ModelIdentifier) is TSM.Part modelPart)) continue;
 
-                    TSG.Vector axis = null;
-                    if (modelPart is TSM.Beam beam)
-                    {
-                        var delta = beam.EndPoint - beam.StartPoint;
-                        axis = new TSG.Vector(delta.X, delta.Y, delta.Z).GetNormal();
-                    }
-
+                    var axis = BeamAxis(modelPart);
                     foreach (var (majorChord, minorChord) in FindQualifyingChordPairs(modelPart, axis))
                     {
                         InsertResolvedIfMissing(views, drawing, majorChord, longest: true, label: "długości", axis, CountingLog, dryRun);
@@ -300,7 +309,30 @@ namespace RoAxisDimensionRemover
         // żeby dało się to policzyć raz na część, nie raz na widok.
         private static IEnumerable<((TSG.Point A, TSG.Point B) Major, (TSG.Point A, TSG.Point B) Minor)> FindQualifyingChordPairs(TSM.Part part, TSG.Vector axis)
         {
-            var faces = part.GetSolid().GetFaceEnumerator();
+            foreach (var (_, outerLoop) in CutFaces(part.GetSolid(), axis))
+            {
+                var centroid = Centroid(outerLoop);
+                var majorChord = FindChord(outerLoop, centroid, longest: true);
+                var minorChord = FindChord(outerLoop, centroid, longest: false);
+                double majorLength = Distance(majorChord.A, majorChord.B);
+                double minorLength = Distance(minorChord.A, minorChord.B);
+                double cutAngleDegrees = Math.Acos(Math.Min(1.0, minorLength / majorLength)) * 180.0 / Math.PI;
+                if (cutAngleDegrees < MinCutAngleDegrees) continue;
+
+                yield return (majorChord, minorChord);
+            }
+        }
+
+        // Ściany cięcia bryły razem z ich zewnętrzną pętlą, BEZ filtra kąta
+        // (diagnostyka chce widzieć też te odrzucone). Profil RO jest pusty w
+        // środku, więc ściana cięcia to PIERŚCIEŃ: >1 pętla, a zewnętrzny
+        // obrys to pętla o większym rozstawie - porównanie lokalne do jednej
+        // ściany, nie do całej bryły. Wierzchołków różnych pętli nie wolno
+        // zlewać w jedną listę (dawało bezsensowne cięciwy - patrz AGENTS.md).
+        // Normalna ~równoległa do osi belki = proste przycięcie, nie skos.
+        internal static IEnumerable<(Face Face, List<TSG.Point> OuterLoop)> CutFaces(TSM.Solid solid, TSG.Vector axis)
+        {
+            var faces = solid.GetFaceEnumerator();
             while (faces.MoveNext())
             {
                 if (!(faces.Current is Face face)) continue;
@@ -317,23 +349,18 @@ namespace RoAxisDimensionRemover
                 if (loops.Count < 2) continue;
                 if (axis != null && Math.Abs(new TSG.Vector(face.Normal).GetNormal().Dot(axis)) > 0.999) continue;
 
-                List<TSG.Point> faceOuterLoop = null;
+                List<TSG.Point> outerLoop = null;
                 foreach (var loop in loops)
-                    if (faceOuterLoop == null || LoopSpan(loop) > LoopSpan(faceOuterLoop)) faceOuterLoop = loop;
-
-                // Ten sam próg i ten sam powód co w FindChordCandidates -
-                // patrz komentarz tam (PUŁAPKA [3.5027], ~5° pomijamy).
-                const double MinCutAngleDegrees = 10.0;
-                var centroid = Centroid(faceOuterLoop);
-                var majorChord = FindChord(faceOuterLoop, centroid, longest: true);
-                var minorChord = FindChord(faceOuterLoop, centroid, longest: false);
-                double majorLength = Distance(majorChord.A, majorChord.B);
-                double minorLength = Distance(minorChord.A, minorChord.B);
-                double cutAngleDegrees = Math.Acos(Math.Min(1.0, minorLength / majorLength)) * 180.0 / Math.PI;
-                if (cutAngleDegrees < MinCutAngleDegrees) continue;
-
-                yield return (majorChord, minorChord);
+                    if (outerLoop == null || LoopSpan(loop) > LoopSpan(outerLoop)) outerLoop = loop;
+                yield return (face, outerLoop);
             }
+        }
+
+        internal static TSG.Vector BeamAxis(TSM.Part part)
+        {
+            if (!(part is TSM.Beam beam)) return null;
+            var delta = beam.EndPoint - beam.StartPoint;
+            return new TSG.Vector(delta.X, delta.Y, delta.Z).GetNormal();
         }
 
         // Dla cięciwy w WSPÓŁRZĘDNYCH MODELU: szuka WŚRÓD WSZYSTKICH widoków
@@ -364,9 +391,8 @@ namespace RoAxisDimensionRemover
             }
             if (flatView == null)
             {
-                // Zmierzone jako możliwe (patrz komentarz w InsertTest
-                // przy "Problem głębi (Z)"), nie traktować jako błąd - po
-                // prostu ta konkretna cięciwa nie da się narysować płasko
+                // Zmierzone jako możliwe (patrz AGENTS.md, "Problem głębi
+                // (Z)"), nie błąd - ta cięciwa po prostu nie wychodzi płasko
                 // w żadnym z widoków na tym arkuszu.
                 return;
             }
@@ -460,8 +486,8 @@ namespace RoAxisDimensionRemover
                 var perpView = new TSG.Vector(-axisView.Y, axisView.X, 0);
                 double diameter = Math.Abs(new TSG.Vector(b.X - a.X, b.Y - a.Y, b.Z - a.Z).Dot(perpView));
 
-                // Najpierw lista, potem Modify() - bez zmieniania rysunku w
-                // trakcie przechodzenia jego enumeratorem.
+                // Najpierw lista, potem Insert()/Delete() - bez zmieniania
+                // rysunku w trakcie przechodzenia jego enumeratorem.
                 var dimensions = new List<StraightDimension>();
                 var objects = view.GetAllObjects(new[] { typeof(StraightDimension) });
                 while (objects.MoveNext()) if (objects.Current is StraightDimension sd) dimensions.Add(sd);
@@ -551,68 +577,12 @@ namespace RoAxisDimensionRemover
         private static List<Candidate> FindChordCandidates(View view, TSM.Part part, bool longest)
         {
             var result = new List<Candidate>();
-            TSG.Vector axis = null;
-            if (part is TSM.Beam beam)
+            var cs = view.DisplayCoordinateSystem;
+            var axis = BeamAxis(part);
+            var axisView = axis == null ? null : ToViewSpaceVector(axis, cs);
+            foreach (var (major, minor) in FindQualifyingChordPairs(part, axis))
             {
-                var delta = beam.EndPoint - beam.StartPoint;
-                axis = new TSG.Vector(delta.X, delta.Y, delta.Z).GetNormal();
-            }
-            TSG.Vector axisView = axis == null ? null : ToViewSpaceVector(axis, view.DisplayCoordinateSystem);
-
-            var faces = part.GetSolid().GetFaceEnumerator();
-            while (faces.MoveNext())
-            {
-                if (!(faces.Current is Face face)) continue;
-                var loops = new List<List<TSG.Point>>();
-                var enumerator = face.GetLoopEnumerator();
-                while (enumerator.MoveNext())
-                {
-                    if (!(enumerator.Current is Loop loop)) continue;
-                    var points = new List<TSG.Point>();
-                    var vertices = loop.GetVertexEnumerator();
-                    while (vertices.MoveNext()) if (vertices.Current is TSG.Point p) points.Add(p);
-                    if (points.Count > 4) loops.Add(points);
-                }
-                if (loops.Count < 2) continue;
-                if (axis != null && Math.Abs(new TSG.Vector(face.Normal).GetNormal().Dot(axis)) > 0.999) continue;
-
-                // Zewnętrzny obrys TEJ JEDNEJ ściany = pętla o większym
-                // rozstawie - porównanie zostaje lokalne do ściany, nie do
-                // całej bryły (patrz komentarz w InsertTest).
-                List<TSG.Point> faceOuterLoop = null;
-                foreach (var loop in loops)
-                    if (faceOuterLoop == null || LoopSpan(loop) > LoopSpan(faceOuterLoop)) faceOuterLoop = loop;
-
-                // ZMIERZONE 2026-09-25 na żywym [3.5027]: ta sama bryła może
-                // mieć ścianę cięcia pod PRAWDZIWYM, widocznym kątem (koniec
-                // "ścięty" - operator to potwierdził wizualnie) i drugą,
-                // gdzie kąt jest tak mały, że koniec wygląda jak zwykłe
-                // płaskie zakończenie rury (operator: "z jednej strony
-                // płaskie") - mimo że OBIE geometrycznie kwalifikują się
-                // jako "ściana cięcia" (>1 pętla, normalna niedokładnie
-                // równoległa do osi). Odróżnia je stosunek długość/szerokość
-                // cięcia (= 1/cos kąta cięcia): zmierzone punkty danych -
-                // ~5° (koniec płaski, [3.5027]) pomijamy, ~19,9° ([35021]) i
-                // ~45° ([3.5013]/[3.5027] drugi koniec) - wstawiamy. Próg
-                // 10° to SZACUNEK (mniej więcej w połowie między 5° a 19,9°
-                // na tych trzech punktach), nie pomiar - do doprecyzowania,
-                // gdy pojawią się kolejne złącza bliżej granicy. NIE
-                // rozwiązuje osobnego, wciąż otwartego problemu z 24.09
-                // ([3.5013] drugi koniec miał TEN SAM ~45° kąt co pierwszy,
-                // a mimo to operator go odrzucił z innego, nieznanego
-                // powodu) - to tylko odsiewa przypadki, gdzie kąt sam w
-                // sobie jest pomijalny.
-                const double MinCutAngleDegrees = 10.0;
-                var centroid = Centroid(faceOuterLoop);
-                var majorChord = FindChord(faceOuterLoop, centroid, longest: true);
-                var minorChord = FindChord(faceOuterLoop, centroid, longest: false);
-                double majorLength = Distance(majorChord.A, majorChord.B);
-                double minorLength = Distance(minorChord.A, minorChord.B);
-                double cutAngleDegrees = Math.Acos(Math.Min(1.0, minorLength / majorLength)) * 180.0 / Math.PI;
-                if (cutAngleDegrees < MinCutAngleDegrees) continue;
-
-                var pair = longest ? majorChord : minorChord;
-                var cs = view.DisplayCoordinateSystem;
+                var pair = longest ? major : minor;
                 result.Add(new Candidate { View = view, Start = ToViewSpace(pair.A, cs), End = ToViewSpace(pair.B, cs), AxisView = axisView });
             }
             return result;
@@ -627,10 +597,7 @@ namespace RoAxisDimensionRemover
             var objects = view.GetAllObjects(new[] { typeof(StraightDimension) });
             while (objects.MoveNext())
             {
-                if (!(objects.Current is StraightDimension dimension)) continue;
-                bool sameOrder = Distance(dimension.StartPoint, start) <= NumericalZero && Distance(dimension.EndPoint, end) <= NumericalZero;
-                bool reverseOrder = Distance(dimension.StartPoint, end) <= NumericalZero && Distance(dimension.EndPoint, start) <= NumericalZero;
-                if (!sameOrder && !reverseOrder) continue;
+                if (!(objects.Current is StraightDimension dimension) || !SameEnds(dimension, start, end)) continue;
                 if (up == null) return true;
                 var dimUp = new TSG.Vector(dimension.UpDirection).GetNormal();
                 if (Math.Abs(dimUp.Dot(new TSG.Vector(up).GetNormal())) > 0.99) return true;
@@ -643,31 +610,39 @@ namespace RoAxisDimensionRemover
             var objects = view.GetAllObjects(new[] { typeof(StraightDimension) });
             while (objects.MoveNext())
             {
-                if (!(objects.Current is StraightDimension dimension)) continue;
-                bool sameOrder = Distance(dimension.StartPoint, start) <= NumericalZero && Distance(dimension.EndPoint, end) <= NumericalZero;
-                bool reverseOrder = Distance(dimension.StartPoint, end) <= NumericalZero && Distance(dimension.EndPoint, start) <= NumericalZero;
-                if (!sameOrder && !reverseOrder) return dimension;
+                if (objects.Current is StraightDimension dimension && !SameEnds(dimension, start, end)) return dimension;
             }
             return null;
         }
 
+        private static bool SameEnds(StraightDimension dimension, TSG.Point start, TSG.Point end)
+        {
+            bool sameOrder = Distance(dimension.StartPoint, start) <= NumericalZero && Distance(dimension.EndPoint, end) <= NumericalZero;
+            bool reverseOrder = Distance(dimension.StartPoint, end) <= NumericalZero && Distance(dimension.EndPoint, start) <= NumericalZero;
+            return sameOrder || reverseOrder;
+        }
+
         private sealed class Candidate { public View View; public TSG.Point Start; public TSG.Point End; public TSG.Vector AxisView; }
 
-        private static double LoopSpan(List<TSG.Point> loop)
+        internal static double LoopSpan(List<TSG.Point> loop)
         {
             double max = 0;
             for (int i = 0; i < loop.Count; i++) for (int j = i + 1; j < loop.Count; j++) max = Math.Max(max, Distance(loop[i], loop[j]));
             return max;
         }
 
-        private static TSG.Point Centroid(List<TSG.Point> loop)
+        internal static TSG.Point Centroid(List<TSG.Point> loop)
         {
             double x = 0, y = 0, z = 0;
             foreach (var point in loop) { x += point.X; y += point.Y; z += point.Z; }
             return new TSG.Point(x / loop.Count, y / loop.Count, z / loop.Count);
         }
 
-        private static (TSG.Point A, TSG.Point B) FindChord(List<TSG.Point> loop, TSG.Point centroid, bool longest)
+        // Cięciwa = para wierzchołków, której środek leży najbliżej centroidu
+        // pętli (odporne na kolejność wierzchołków); wśród nich najdłuższa
+        // (długość cięcia) albo najkrótsza (szerokość). Tolerancja 5%
+        // rozpiętości, bo przy dyskretnej elipsie offset rzadko jest zerem.
+        internal static (TSG.Point A, TSG.Point B) FindChord(List<TSG.Point> loop, TSG.Point centroid, bool longest)
         {
             double minimumOffset = double.MaxValue;
             var pairs = new List<(TSG.Point A, TSG.Point B, double Offset)>();
@@ -688,20 +663,20 @@ namespace RoAxisDimensionRemover
         private static TSG.Point Midpoint(Candidate c) =>
             new TSG.Point((c.Start.X + c.End.X) / 2, (c.Start.Y + c.End.Y) / 2, (c.Start.Z + c.End.Z) / 2);
 
-        private static double Distance(TSG.Point a, TSG.Point b)
+        internal static double Distance(TSG.Point a, TSG.Point b)
         {
             double x = a.X - b.X, y = a.Y - b.Y, z = a.Z - b.Z;
             return Math.Sqrt(x * x + y * y + z * z);
         }
 
-        private static TSG.Point ToViewSpace(TSG.Point point, TSG.CoordinateSystem cs)
+        // Ręczny rzut na osie układu widoku - CoordinateSystem w Open API nie
+        // ma metody Transform, a dokumentacja DisplayCoordinateSystem mówi
+        // wprost, że służy do przeliczania punktów modelu do widoku.
+        internal static TSG.Point ToViewSpace(TSG.Point point, TSG.CoordinateSystem cs)
         {
             var relative = point - cs.Origin;
-            var x = new TSG.Vector(cs.AxisX); x.Normalize();
-            var y = new TSG.Vector(cs.AxisY); y.Normalize();
-            var z = TSG.Vector.Cross(x, y);
-            var vector = new TSG.Vector(relative.X, relative.Y, relative.Z);
-            return new TSG.Point(vector.Dot(x), vector.Dot(y), vector.Dot(z));
+            var v = ToViewSpaceVector(new TSG.Vector(relative.X, relative.Y, relative.Z), cs);
+            return new TSG.Point(v.X, v.Y, v.Z);
         }
 
         // Jak ToViewSpace, ale dla KIERUNKU (wektora), nie punktu - bez

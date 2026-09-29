@@ -6,12 +6,12 @@ using Tekla.Structures.Drawing;
 namespace RoAxisDimensionRemover
 {
     /// <summary>
-    /// UI: jeden przycisk, podpis stanu, log. Logika w RoAxisDimensionService.
-    /// v0.1 - bez nasłuchu zdarzeń Tekli, stan odświeża się przy fokusie okna.
+    /// UI: dwa przyciski (usuń wymiary do osi, wstaw wymiar wcięcia), podpis
+    /// stanu, log. Logika w RoAxisDimensionService i NotchPilot. Bez nasłuchu
+    /// zdarzeń Tekli - stan odświeża się przy fokusie okna.
     /// </summary>
     public class MainForm : Form
     {
-        private readonly RoAxisDimensionService _service = new RoAxisDimensionService();
         private bool _busy;
 
         private Button _runButton;
@@ -134,6 +134,7 @@ namespace RoAxisDimensionRemover
             _updateBanner.Visible = true;
 
             _runButton.Top += UpdateBannerHeight;
+            _insertNotchButton.Top += UpdateBannerHeight;
             _statusLabel.Top += UpdateBannerHeight;
             _logBox.Top += UpdateBannerHeight;
             Height += UpdateBannerHeight;
@@ -266,15 +267,15 @@ namespace RoAxisDimensionRemover
                 // "czy rysunek nadal opisuje wszystko co musi" (tak) oraz na
                 // pytanie o realne kasowanie ("tak").
                 const bool dryRun = false;
-                var result = _service.RemoveAxisDimensions(drawing, view, Log, dryRun);
+                int removedCount = RoAxisDimensionService.RemoveAxisDimensions(drawing, view, Log, dryRun);
                 _statusLabel.Text = dryRun
-                    ? $"Gotowe (dry-run). Widok: {viewLabel}. Znaleziono {result.RemovedCount} wymiarów do usunięcia - nic nie skasowano. Sprawdź log, czy wygląda poprawnie."
-                    : $"Gotowe. Widok: {viewLabel}. Usunięto {result.RemovedCount} wymiarów. Sprawdź wizualnie w Tekli (Ctrl+Z cofa, jeśli coś jest nie tak).";
+                    ? $"Gotowe (dry-run). Widok: {viewLabel}. Znaleziono {removedCount} wymiarów do usunięcia - nic nie skasowano. Sprawdź log, czy wygląda poprawnie."
+                    : $"Gotowe. Widok: {viewLabel}. Usunięto {removedCount} wymiarów. Sprawdź wizualnie w Tekli (Ctrl+Z cofa, jeśli coś jest nie tak).";
 
                 // Fokus na Teklę (do Ctrl+Z) ma sens TYLKO gdy coś realnie
-                // skasowano - w dry-run (obecny stan na sztywno) nie ma czego
-                // cofać, a przenoszenie fokusu na Teklę zabierało operatorowi
-                // z oczu wynik, który właśnie się pojawił w tym oknie.
+                // skasowano - w dry-run nie ma czego cofać, a przenoszenie
+                // fokusu na Teklę zabierało operatorowi z oczu wynik, który
+                // właśnie się pojawił w tym oknie.
                 if (!dryRun)
                 {
                     TeklaWindowFocus.BringToFront(Log);
@@ -294,11 +295,11 @@ namespace RoAxisDimensionRemover
         }
 
         /// <summary>
-        /// Wstawia wymiary wcięcia (szerokość + długość) dla KAŻDEGO wymiaru
-        /// do osi znalezionego na aktywnym rysunku (ten sam warunek co
-        /// RoAxisDimensionService.RemoveAxisDimensions). Bez blokady
-        /// rysunku od 2026-09-25 (decyzja operatora) - program NIE
-        /// odróżnia jeszcze złącza, które faktycznie potrzebuje wymiaru
+        /// Uzupełnia brakujące wymiary wcięcia (szerokość + długość) dla
+        /// każdej kwalifikującej się ściany cięcia na aktywnym rysunku
+        /// (NotchPilot.InsertMissing - napędzane geometrią, nie wymiarami do
+        /// osi). Bez blokady rysunku od 2026-09-25 (decyzja operatora) -
+        /// program NIE odróżnia jeszcze złącza, które faktycznie potrzebuje wymiaru
         /// wcięcia, od takiego, które tylko geometrycznie ma ścianę cięcia
         /// (patrz AGENTS.md, "Następne kroki") - obejrzeć wynik w Tekli.
         /// </summary>
