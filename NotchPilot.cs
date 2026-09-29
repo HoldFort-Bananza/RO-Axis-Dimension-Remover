@@ -34,7 +34,7 @@ namespace RoAxisDimensionRemover
         // doprecyzowania, gdy pojawi się złącze bliżej granicy. NIE
         // rozwiązuje problemu z 24.09 ([3.5013] drugi koniec miał TEN SAM
         // ~45° kąt, a operator go odrzucił z innego, nieznanego powodu).
-        private const double MinCutAngleDegrees = 10.0;
+        internal const double MinCutAngleDegrees = 10.0;
 
         public static bool InsertWidth(Drawing drawing, Action<string> log, TSG.Point referencePoint = null, bool dryRun = false, View referenceView = null)
         {
@@ -201,7 +201,7 @@ namespace RoAxisDimensionRemover
             {
                 log($"[dry-run] {label} wcięcia: wstawiłbym {displayedValue:F2} mm (rzut, nie surowy dystans cięciwy {Distance(width.Start, width.End):F2} mm), " +
                     $"Start=({width.Start.X:F2};{width.Start.Y:F2};{width.Start.Z:F2}) " +
-                    $"End=({width.End.X:F2};{width.End.Y:F2};{width.End.Z:F2}) - styl wzięty z istniejącego wymiaru w widoku. Nic nie zmieniono.");
+                    $"End=({width.End.X:F2};{width.End.Y:F2};{width.End.Z:F2}) {ViewTag(width.View)} - styl wzięty z istniejącego wymiaru w widoku. Nic nie zmieniono.");
                 return true;
             }
 
@@ -314,10 +314,7 @@ namespace RoAxisDimensionRemover
                 var centroid = Centroid(outerLoop);
                 var majorChord = FindChord(outerLoop, centroid, longest: true);
                 var minorChord = FindChord(outerLoop, centroid, longest: false);
-                double majorLength = Distance(majorChord.A, majorChord.B);
-                double minorLength = Distance(minorChord.A, minorChord.B);
-                double cutAngleDegrees = Math.Acos(Math.Min(1.0, minorLength / majorLength)) * 180.0 / Math.PI;
-                if (cutAngleDegrees < MinCutAngleDegrees) continue;
+                if (CutAngleDegrees(majorChord, minorChord) < MinCutAngleDegrees) continue;
 
                 yield return (majorChord, minorChord);
             }
@@ -354,6 +351,13 @@ namespace RoAxisDimensionRemover
                     if (outerLoop == null || LoopSpan(loop) > LoopSpan(outerLoop)) outerLoop = loop;
                 yield return (face, outerLoop);
             }
+        }
+
+        // Kąt cięcia z proporcji cięciw: długość = szerokość / cos(kąt).
+        internal static double CutAngleDegrees((TSG.Point A, TSG.Point B) major, (TSG.Point A, TSG.Point B) minor)
+        {
+            double ratio = Distance(minor.A, minor.B) / Distance(major.A, major.B);
+            return Math.Acos(Math.Min(1.0, ratio)) * 180.0 / Math.PI;
         }
 
         internal static TSG.Vector BeamAxis(TSM.Part part)
@@ -435,7 +439,7 @@ namespace RoAxisDimensionRemover
 
             if (dryRun)
             {
-                log($"[dry-run] brakująca {label} wcięcia: wstawiłbym {displayedValue:F2} mm, Start=({start.X:F2};{start.Y:F2};{start.Z:F2}) End=({end.X:F2};{end.Y:F2};{end.Z:F2}). Nic nie zmieniono.");
+                log($"[dry-run] brakująca {label} wcięcia: wstawiłbym {displayedValue:F2} mm, Start=({start.X:F2};{start.Y:F2};{start.Z:F2}) End=({end.X:F2};{end.Y:F2};{end.Z:F2}) {ViewTag(flatView)}. Nic nie zmieniono.");
                 return;
             }
 
@@ -527,7 +531,7 @@ namespace RoAxisDimensionRemover
 
                     if (dryRun)
                     {
-                        log($"[dry-run] rozciągnąłbym wymiar promienia {offset:F2} mm do średnicy {diameter:F2} mm: koniec ({other.X:F2};{other.Y:F2}) -> ({oppositeTip.X:F2};{oppositeTip.Y:F2}). Nic nie zmieniono.");
+                        log($"[dry-run] rozciągnąłbym wymiar promienia {offset:F2} mm do średnicy {diameter:F2} mm: koniec ({other.X:F2};{other.Y:F2}) -> ({oppositeTip.X:F2};{oppositeTip.Y:F2}) {ViewTag(view)}. Nic nie zmieniono.");
                         continue;
                     }
 
@@ -659,6 +663,11 @@ namespace RoAxisDimensionRemover
             var pick = longest ? throughCenter[throughCenter.Count - 1] : throughCenter[0];
             return (pick.A, pick.B);
         }
+
+        // ZMIERZONE 2026-09-25: bez widoku w logu dry-run nie da się
+        // zauważyć, że dwa wymiary trafiłyby do różnych (albo tego samego)
+        // widoku - View.Name bywa puste, Origin odróżnia widoki arkusza.
+        private static string ViewTag(View view) => $"widok Origin=({view.Origin.X:F2};{view.Origin.Y:F2})";
 
         private static TSG.Point Midpoint(Candidate c) =>
             new TSG.Point((c.Start.X + c.End.X) / 2, (c.Start.Y + c.End.Y) / 2, (c.Start.Z + c.End.Z) / 2);

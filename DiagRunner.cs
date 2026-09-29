@@ -392,7 +392,9 @@ namespace RoAxisDimensionRemover
                         var centroid = NotchPilot.Centroid(outerLoop);
                         var major = NotchPilot.FindChord(outerLoop, centroid, longest: true);
                         var minor = NotchPilot.FindChord(outerLoop, centroid, longest: false);
-                        Log($"[notch-raw]   ściana#{faceIndex} Normal=({face.Normal.X:F2};{face.Normal.Y:F2};{face.Normal.Z:F2})");
+                        double angle = NotchPilot.CutAngleDegrees(major, minor);
+                        string verdict = angle < NotchPilot.MinCutAngleDegrees ? "pomijana przez filtr kąta" : "kwalifikuje się";
+                        Log($"[notch-raw]   ściana#{faceIndex} Normal=({face.Normal.X:F2};{face.Normal.Y:F2};{face.Normal.Z:F2}) kąt cięcia={angle:F1}° ({verdict})");
                         LogRawChord("długość", NotchPilot.ToViewSpace(major.A, cs), NotchPilot.ToViewSpace(major.B, cs));
                         LogRawChord("szerokość", NotchPilot.ToViewSpace(minor.A, cs), NotchPilot.ToViewSpace(minor.B, cs));
                     }
@@ -606,7 +608,18 @@ namespace RoAxisDimensionRemover
             {
                 return active;
             }
-            dh.SetActiveDrawing(drawing, true);
+            // ZMIERZONE 2026-09-29 na [3.5027]: rysunek nieaktualny względem
+            // modelu nie da się otworzyć bez aktualizacji. Aktualizacja to
+            // zmiana rysunku, więc diagnostyka jej nie robi - tylko mówi.
+            try
+            {
+                dh.SetActiveDrawing(drawing, true);
+            }
+            catch (CannotPerformOperationDrawingNotUpToDateException)
+            {
+                Log($"Rysunek {drawing.Mark} jest nieaktualny względem modelu - zaktualizuj go w Tekli, potem uruchom diagnostykę ponownie.");
+                return null;
+            }
             return drawing;
         }
 
