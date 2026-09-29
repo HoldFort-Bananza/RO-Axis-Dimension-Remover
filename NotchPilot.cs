@@ -386,10 +386,20 @@ namespace RoAxisDimensionRemover
             }
 
             var reference = FindReferenceDimension(flatView, start, end);
+            // Zmierzone 2026-09-29 na [35020]: "Usuń" skasował oba wymiary w
+            // widoku (8 i 21 do osi) i "Wstaw" nie miał tam wzorca stylu -
+            // koniec 19,9° został bez opisu. Operator wybrał: styl z innego
+            // widoku tego samego rysunku, żeby wymiar wcięcia zastąpił
+            // skasowane (dokładnie to, co człowiek zrobiłby rozciągając je).
+            foreach (var other in views)
+            {
+                if (reference != null) break;
+                if (!ReferenceEquals(other, flatView)) reference = FindReferenceDimension(other, start, end);
+            }
             var referenceSet = reference?.GetDimensionSet() as StraightDimensionSet;
             if (referenceSet?.Attributes == null)
             {
-                log($"WSTRZYMANO {label}: nie znaleziono istniejącego wymiaru jako wzorca stylu w tym widoku.");
+                log($"WSTRZYMANO {label}: nie znaleziono istniejącego wymiaru jako wzorca stylu na tym rysunku.");
                 return;
             }
 
@@ -474,6 +484,20 @@ namespace RoAxisDimensionRemover
                     // czubka, mierząc prostopadle do osi.
                     double offset = Math.Abs(new TSG.Vector(other.X - tip.X, other.Y - tip.Y, 0).Dot(perpView));
                     if (Math.Abs(offset - diameter / 2) > RoAxisDimensionService.AxisToleranceMm) continue;
+
+                    // Sam warunek "czubek + oś" łapał też wymiar CAŁKOWITEJ
+                    // długości rury - zmierzone 2026-09-29 na [35010]: 2677 mm
+                    // od (0;0) (punkt referencyjny, na osi) do czubka cięcia
+                    // (2677,2;-21,2). v0.3.2 zastąpiłaby go wymiarem 42 mm.
+                    // Promień: mierzy W POPRZEK rury (Up wzdłuż osi - wszystkie
+                    // zmierzone promienie na [35095]/[35021]/[35010]), a jego
+                    // koniec na osi leży wzdłuż osi w obrębie cięcia. 2677 nie
+                    // spełnia żadnego z tych dwóch warunków.
+                    var up = new TSG.Vector(dimension.UpDirection).GetNormal();
+                    if (Math.Abs(up.Dot(axisView.GetNormal())) < 0.99) continue;
+                    double tA = new TSG.Vector(a.X, a.Y, 0).Dot(axisView), tB = new TSG.Vector(b.X, b.Y, 0).Dot(axisView);
+                    double tOther = new TSG.Vector(other.X, other.Y, 0).Dot(axisView);
+                    if (tOther < Math.Min(tA, tB) - SamePointToleranceMm || tOther > Math.Max(tA, tB) + SamePointToleranceMm) continue;
 
                     if (dryRun)
                     {
