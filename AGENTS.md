@@ -182,8 +182,10 @@ zainstalowaną kopię (`%LOCALAPPDATA%\Programs\RoAxisDimensionRemover\`,
 która miała starą regułę v4 z 16 września — operator się na tym raz
 przejechał, widząc nieaktualne zachowanie). Efekt: przebudowanie projektu
 od razu aktualizuje to, co operator odpala z pulpitu — wygodne w tej fazie
-częstych zmian reguły. Gdy reguła będzie gotowa do dystrybucji, rozważyć
-przywrócenie skrótu na świeżo zbudowany instalator.
+częstych zmian reguły. **Od 2026-09-29 skrót znowu wskazuje na
+zainstalowaną kopię** (operator zainstalował v0.3.3) — przebudowanie
+projektu NIE zmienia tego, co operator odpala z pulpitu. Do testu nowej
+zmiany uruchamiać `bin\x64\Debug\net48\RoAxisDimensionRemover.exe` wprost.
 
 ## Wymiar wcięcia (cut fitting) — PRODUKCYJNE OD 2026-09-25, BEZ BLOKADY RYSUNKU
 
