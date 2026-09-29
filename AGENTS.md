@@ -1011,6 +1011,40 @@ modelu — `[35010]`, `[35013]`). Na `[35010]` przy 45° wychodzi kilka `42`
 w jednym widoku — niesprawdzone na żywo, pierwszy kandydat, jeśli pojawi
 się zgłoszenie o duplikatach.
 
+## BŁĄD W WYDANEJ v0.3.2 (znaleziony 2026-09-29, naprawiony w v0.3.3): rozciąganie zjadało całkowitą długość
+
+Przegląd dry-runu `[35010]` pokazał, że jedno z trzech „rozciągnięć” to
+wymiar CAŁKOWITEJ DŁUGOŚCI `2677` — od punktu referencyjnego (0;0) na osi
+do czubka cięcia (2677,2;-21,2). Spełniał oba warunki v0.3.2 (koniec na
+czubku, drugi pół średnicy w poprzek) i zostałby zastąpiony wymiarem `42`
+— **utrata długości rury**. Ten sam przypadek: `[35020]` (`256`),
+`[35013]`, `[3.5013]`. Na `[35095]`/`[35021]` takiego wymiaru nie ma,
+dlatego oba testy v0.3.2 tego nie złapały (lekcja: testować też na
+rysunku, gdzie jest wymiar, który MA przetrwać).
+
+Poprawka (`StretchRadiusToDiameter`), dwa dodatkowe warunki, oba zmierzone
+na wszystkich znanych promieniach (`[35095]`, `[35021]`, `[35010]`,
+`[35020]`): `UpDirection` równoległe do osi rury (promień mierzy W POPRZEK;
+`2677`/`256` mają `Up` w poprzek, czyli mierzą wzdłuż), oraz koniec na osi
+leży wzdłuż osi w obrębie cięcia. Dry-run po poprawce: `[35013]`/`[3.5013]`
+3→2, `[35010]` 3→2, `[35020]` 2→1 — wypadły wyłącznie wymiary całkowitej
+długości; `[35095]`/`[35021]` bez zmian. **Na żywo na `[35020]`: `256`
+przetrwało, `21` przy końcu 45° → `42`.**
+
+**Pusty widok bez wzorca stylu (też `[35020]`).** Dolny widok miał tylko
+dwa wymiary do osi (`21`, `8` — oba z głębią Z, więc słusznie wg reguły
+v6); po „Usuń” był pusty i „Wstaw” wstrzymał długość/szerokość („nie
+znaleziono wzorca stylu w tym widoku”) — koniec 19,9° bez opisu. Operator
+najpierw: „oba powinny zostać (potem człowiek je rozciągnie na całą
+długość i szerokość ścięcia)”, potem wybrał wariant: program wstawia
+wymiary wcięcia sam, ze stylem z INNEGO widoku rysunku (to ten sam wynik
+co ręczne rozciągnięcie). `InsertResolvedIfMissing` szuka wzorca najpierw
+w widoku docelowym, potem w pozostałych. Na żywo: dolny widok dostał `15`
+(długość 19,9°) i `42` (szerokość 45°); `15` stoi nad rurą i wchodzi w
+obszar górnej ramki (kierunek `side` + `Distance` wzorca) — operator: „do
+przyjęcia”. Operator dodał praktyczną zasadę: takiego widoku (same
+wymiary do osi) i tak się nie klika — „Usuń” działa tylko po kliknięciu.
+
 ## Historia: PUŁAPKA 5 (dotyczyła reguły v4, ZASTĄPIONEJ przez v5 wyżej)
 
 Para `21`/`21` na `[3.5013]` to NIE była duplikat. Reguła v4 (kasuj
@@ -1193,7 +1227,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   i `InsertMissing` — v0.3.0 potrafiła fałszywie kasować na rysunkach
   zespołów) →
   v0.3.2 (2026-09-29: rozciąganie promienia do średnicy, `HasSameDimension`
-  z kierunkiem, diagnostyka nie przeładowuje otwartego rysunku). Release na GitHubie tworzy operator
+  z kierunkiem, diagnostyka nie przeładowuje otwartego rysunku; **miała błąd** — patrz „BŁĄD W WYDANEJ v0.3.2”) →
+  v0.3.3 (2026-09-29: rozciąganie nie rusza wymiaru całkowitej długości, styl wzorca z innego widoku). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
