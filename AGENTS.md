@@ -57,7 +57,7 @@ Sekcje niżej to dziennik chronologiczny (23.09 → 29.09); ta jest skrótem
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.3 — tag na `release`, instalator na GitHubie, operator ma
+**Wydanie:** v0.3.4 w przygotowaniu (PR `dev`→`release`, refaktor + poprawka paska; reguły bez zmian). Poprzednio: v0.3.3 — tag na `release`, instalator na GitHubie, operator ma
 ją zainstalowaną, skrót z pulpitu wskazuje na zainstalowaną kopię (NIE na
 `bin`). `dev` = `release` + 2 commity samej dokumentacji. **v0.3.2 miała
 błąd kasujący dane** (rozciąganie zamieniało wymiar całkowitej długości na
@@ -1303,7 +1303,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   zespołów) →
   v0.3.2 (2026-09-29: rozciąganie promienia do średnicy, `HasSameDimension`
   z kierunkiem, diagnostyka nie przeładowuje otwartego rysunku; **miała błąd** — patrz „BŁĄD W WYDANEJ v0.3.2”) →
-  v0.3.3 (2026-09-29: rozciąganie nie rusza wymiaru całkowitej długości, styl wzorca z innego widoku). Release na GitHubie tworzy operator
+  v0.3.3 (2026-09-29: rozciąganie nie rusza wymiaru całkowitej długości, styl wzorca z innego widoku) →
+  v0.3.4 (2026-09-29: refaktor bez zmiany reguł — geometria tylko w `NotchPilot`; poprawka nakładania się przycisków pod paskiem „nowsza wersja”). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
