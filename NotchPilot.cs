@@ -34,7 +34,7 @@ namespace RoAxisDimensionRemover
         // doprecyzowania, gdy pojawi się złącze bliżej granicy. NIE
         // rozwiązuje problemu z 24.09 ([3.5013] drugi koniec miał TEN SAM
         // ~45° kąt, a operator go odrzucił z innego, nieznanego powodu).
-        private const double MinCutAngleDegrees = 10.0;
+        internal const double MinCutAngleDegrees = 10.0;
 
         public static bool InsertWidth(Drawing drawing, Action<string> log, TSG.Point referencePoint = null, bool dryRun = false, View referenceView = null)
         {
@@ -201,7 +201,7 @@ namespace RoAxisDimensionRemover
             {
                 log($"[dry-run] {label} wcięcia: wstawiłbym {displayedValue:F2} mm (rzut, nie surowy dystans cięciwy {Distance(width.Start, width.End):F2} mm), " +
                     $"Start=({width.Start.X:F2};{width.Start.Y:F2};{width.Start.Z:F2}) " +
-                    $"End=({width.End.X:F2};{width.End.Y:F2};{width.End.Z:F2}) - styl wzięty z istniejącego wymiaru w widoku. Nic nie zmieniono.");
+                    $"End=({width.End.X:F2};{width.End.Y:F2};{width.End.Z:F2}) {ViewTag(width.View)} - styl wzięty z istniejącego wymiaru w widoku. Nic nie zmieniono.");
                 return true;
             }
 
@@ -291,6 +291,14 @@ namespace RoAxisDimensionRemover
                     if (!processedParts.Add(key)) continue;
                     if (!(model.SelectModelObject(drawingPart.ModelIdentifier) is TSM.Part modelPart)) continue;
 
+                    // Ten sam powód co w RemoveAxisDimensions ([35681]): na
+                    // giętej rurze oś Start->End to cięciwa łuku, więc kierunki
+                    // wymiaru wcięcia wyszłyby złe ([35603]: ściana 13,7°).
+                    if (!IsStraight(modelPart))
+                    {
+                        log($"Pomijam giętą rurę ({modelPart.Name} {modelPart.Profile?.ProfileString}) - wymiar wcięcia liczony tylko dla prostych rur.");
+                        continue;
+                    }
                     var axis = BeamAxis(modelPart);
                     foreach (var (majorChord, minorChord) in FindQualifyingChordPairs(modelPart, axis))
                     {
@@ -314,10 +322,7 @@ namespace RoAxisDimensionRemover
                 var centroid = Centroid(outerLoop);
                 var majorChord = FindChord(outerLoop, centroid, longest: true);
                 var minorChord = FindChord(outerLoop, centroid, longest: false);
-                double majorLength = Distance(majorChord.A, majorChord.B);
-                double minorLength = Distance(minorChord.A, minorChord.B);
-                double cutAngleDegrees = Math.Acos(Math.Min(1.0, minorLength / majorLength)) * 180.0 / Math.PI;
-                if (cutAngleDegrees < MinCutAngleDegrees) continue;
+                if (CutAngleDegrees(majorChord, minorChord) < MinCutAngleDegrees) continue;
 
                 yield return (majorChord, minorChord);
             }
@@ -354,6 +359,39 @@ namespace RoAxisDimensionRemover
                     if (outerLoop == null || LoopSpan(loop) > LoopSpan(outerLoop)) outerLoop = loop;
                 yield return (face, outerLoop);
             }
+        }
+
+        // Kąt cięcia z proporcji cięciw: długość = szerokość / cos(kąt).
+        internal static double CutAngleDegrees((TSG.Point A, TSG.Point B) major, (TSG.Point A, TSG.Point B) minor)
+        {
+            double ratio = Distance(minor.A, minor.B) / Distance(major.A, major.B);
+            return Math.Acos(Math.Min(1.0, ratio)) * 180.0 / Math.PI;
+        }
+
+        // ZMIERZONE 2026-09-29: GetCenterLine(false) prostej rury ([35021])
+        // daje 2 punkty, łuku ([35681], [35603]) 7 punktów na łuku. Prosta =
+        // każdy odcinek osi ma ten sam kierunek. Pierwsza wersja mierzyła
+        // odległość punktów od linii pierwszy-ostatni (1 mm) i przepuściła
+        // krótki łuk [35678] (~17 mm długości, gięty o ~17°) - kierunek
+        // odcinków łapie zgięcie niezależnie od długości. 0,5° to margines
+        // na zaokrąglenia; łuki mają kilka stopni na odcinek.
+        // Brak osi = "nie wiadomo" = nie prosta (bezpieczniej nic nie robić).
+        private const double StraightToleranceDegrees = 0.5;
+
+        internal static bool IsStraight(TSM.Part part)
+        {
+            var points = new List<TSG.Point>();
+            var centerLine = part.GetCenterLine(false);
+            if (centerLine != null) foreach (var p in centerLine) if (p is TSG.Point point) points.Add(point);
+            if (points.Count < 2) return false;
+            var first = new TSG.Vector(points[1] - points[0]).GetNormal();
+            double minDot = Math.Cos(StraightToleranceDegrees * Math.PI / 180.0);
+            for (int i = 1; i < points.Count - 1; i++)
+            {
+                var segment = new TSG.Vector(points[i + 1] - points[i]).GetNormal();
+                if (segment.Dot(first) < minDot) return false;
+            }
+            return true;
         }
 
         internal static TSG.Vector BeamAxis(TSM.Part part)
@@ -435,7 +473,7 @@ namespace RoAxisDimensionRemover
 
             if (dryRun)
             {
-                log($"[dry-run] brakująca {label} wcięcia: wstawiłbym {displayedValue:F2} mm, Start=({start.X:F2};{start.Y:F2};{start.Z:F2}) End=({end.X:F2};{end.Y:F2};{end.Z:F2}). Nic nie zmieniono.");
+                log($"[dry-run] brakująca {label} wcięcia: wstawiłbym {displayedValue:F2} mm, Start=({start.X:F2};{start.Y:F2};{start.Z:F2}) End=({end.X:F2};{end.Y:F2};{end.Z:F2}) {ViewTag(flatView)}. Nic nie zmieniono.");
                 return;
             }
 
@@ -527,7 +565,7 @@ namespace RoAxisDimensionRemover
 
                     if (dryRun)
                     {
-                        log($"[dry-run] rozciągnąłbym wymiar promienia {offset:F2} mm do średnicy {diameter:F2} mm: koniec ({other.X:F2};{other.Y:F2}) -> ({oppositeTip.X:F2};{oppositeTip.Y:F2}). Nic nie zmieniono.");
+                        log($"[dry-run] rozciągnąłbym wymiar promienia {offset:F2} mm do średnicy {diameter:F2} mm: koniec ({other.X:F2};{other.Y:F2}) -> ({oppositeTip.X:F2};{oppositeTip.Y:F2}) {ViewTag(view)}. Nic nie zmieniono.");
                         continue;
                     }
 
@@ -659,6 +697,11 @@ namespace RoAxisDimensionRemover
             var pick = longest ? throughCenter[throughCenter.Count - 1] : throughCenter[0];
             return (pick.A, pick.B);
         }
+
+        // ZMIERZONE 2026-09-25: bez widoku w logu dry-run nie da się
+        // zauważyć, że dwa wymiary trafiłyby do różnych (albo tego samego)
+        // widoku - View.Name bywa puste, Origin odróżnia widoki arkusza.
+        private static string ViewTag(View view) => $"widok Origin=({view.Origin.X:F2};{view.Origin.Y:F2})";
 
         private static TSG.Point Midpoint(Candidate c) =>
             new TSG.Point((c.Start.X + c.End.X) / 2, (c.Start.Y + c.End.Y) / 2, (c.Start.Z + c.End.Z) / 2);
