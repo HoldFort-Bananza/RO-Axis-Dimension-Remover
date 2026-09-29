@@ -134,16 +134,19 @@ wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
 - **Gięte rury (łuki poręczy, `Bogen`) — ZNALEZIONA UTRATA DANYCH W v0.3.3.**
   Na `[35681]` reguła v6 oznaczała 10 z 15 wymiarów jedynego zwymiarowanego
   widoku (m.in. `63` i `29`, opisujące gięcie): oś Start→End to cięciwa
-  łuku, więc prawie każdy punkt ma „głębię Z” przy osi. Skan przed
-  poprawką: 16 z 74 rysunków z kandydatami to łuki (m.in. `[35555]`,
-  `[35577]`, `[35588]`, `[35599]`, `[35603]`, `[35638]`, `[35674]`–`[35681]`,
-  `[25031]`), zawsze z 0 wymiarów do wstawienia. Na `[35603]` ściana 13,7°
+  łuku, więc prawie każdy punkt ma „głębię Z” przy osi. 13 z 74 rysunków
+  z kandydatami to łuki: `[25031]`, `[35555]`, `[35577]`, `[35588]`,
+  `[35599]`, `[35603]`, `[35638]`, `[35674]`, `[35675]`, `[35677]`,
+  `[35678]`, `[35679]`, `[35681]`. Na `[35603]` ściana 13,7°
   łuku dostałaby wymiar wcięcia wzdłuż złej osi. Poprawka:
   `NotchPilot.IsStraight` (`GetCenterLine(false)`: prosta rura 2 punkty,
-  łuk 7 punktów na łuku — zmierzone), widok z giętą częścią pomijany w
-  `RemoveAxisDimensions`, gięta część pomijana w `InsertMissing`.
-  Zabezpieczenie tylko zawęża działanie — proste rury dają identyczne
-  liczby w dry-run. **Do czasu wydania: na widokach łuków NIE klikać
+  łuk 7 punktów na łuku — zmierzone; prosta = wszystkie odcinki osi w tym
+  samym kierunku, 0,5°), widok z giętą częścią pomijany w
+  `RemoveAxisDimensions`, gięta część pomijana w `InsertMissing`. Pierwsza
+  wersja (odległość osi od prostej ≤ 1 mm) przepuściła krótki łuk
+  `[35678]` (~17 mm, gięty o ~17°). Ponowny pełny skan: 74 → 61 rysunków
+  z kandydatami, wypadły dokładnie te 13 łuków, na pozostałych liczby
+  identyczne co do jednej. **Do czasu wydania: na widokach łuków NIE klikać
   „Usuń” w v0.3.3/v0.3.4.**
 - Diagnostyka: dry-run `InsertMissing` podaje widok (`Origin`),
   `--diag-notch-raw` kąt cięcia każdej ściany i oś części, skan modelu

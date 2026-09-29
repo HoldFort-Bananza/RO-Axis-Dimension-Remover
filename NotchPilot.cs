@@ -370,9 +370,13 @@ namespace RoAxisDimensionRemover
 
         // ZMIERZONE 2026-09-29: GetCenterLine(false) prostej rury ([35021])
         // daje 2 punkty, łuku ([35681], [35603]) 7 punktów na łuku. Prosta =
-        // każdy punkt osi leży na linii pierwszy-ostatni (1 mm tolerancji).
+        // każdy odcinek osi ma ten sam kierunek. Pierwsza wersja mierzyła
+        // odległość punktów od linii pierwszy-ostatni (1 mm) i przepuściła
+        // krótki łuk [35678] (~17 mm długości, gięty o ~17°) - kierunek
+        // odcinków łapie zgięcie niezależnie od długości. 0,5° to margines
+        // na zaokrąglenia; łuki mają kilka stopni na odcinek.
         // Brak osi = "nie wiadomo" = nie prosta (bezpieczniej nic nie robić).
-        private const double StraightToleranceMm = 1.0;
+        private const double StraightToleranceDegrees = 0.5;
 
         internal static bool IsStraight(TSM.Part part)
         {
@@ -380,10 +384,12 @@ namespace RoAxisDimensionRemover
             var centerLine = part.GetCenterLine(false);
             if (centerLine != null) foreach (var p in centerLine) if (p is TSG.Point point) points.Add(point);
             if (points.Count < 2) return false;
-            var line = new TSG.Line(points[0], points[points.Count - 1]);
-            foreach (var point in points)
+            var first = new TSG.Vector(points[1] - points[0]).GetNormal();
+            double minDot = Math.Cos(StraightToleranceDegrees * Math.PI / 180.0);
+            for (int i = 1; i < points.Count - 1; i++)
             {
-                if (TSG.Distance.PointToLine(point, line) > StraightToleranceMm) return false;
+                var segment = new TSG.Vector(points[i + 1] - points[i]).GetNormal();
+                if (segment.Dot(first) < minDot) return false;
             }
             return true;
         }
