@@ -888,6 +888,12 @@ mm zgodne z `--diag-dimension-style` po insercie.
 obok każdej znalezionej części) - przydatne przy każdej przyszłej
 wątpliwości "czy to na pewno rura RO", bez zgadywania z wyglądu w 3D.
 
+**Guard na rysunki zespołów (2026-09-29):** `RemoveAxisDimensions` na
+wejściu odrzuca wszystko, co nie jest `SinglePartDrawing` (zmierzone:
+`[35095]` = `SinglePartDrawing`, przechodzi; `[225.130]` =
+`AssemblyDrawing`, odrzucony w każdym widoku). `NotchPilot.InsertMissing`
+NIE ma tego guarda — na `[225.130]` i tak nic nie wstawia (kąt 0°).
+
 ### Zgłoszony, ZBADANY i PORZUCONY: wymiar wcięcia może wyjść poza krawędź arkusza
 
 Na `[35095]` wstawiona długość (`35 mm`) wylądowała blisko/za krawędzią
