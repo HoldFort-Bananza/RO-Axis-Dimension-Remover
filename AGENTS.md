@@ -57,7 +57,7 @@ Sekcje niżej to dziennik chronologiczny (23.09 → 29.09); ta jest skrótem
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.4 w przygotowaniu (PR `dev`→`release`, refaktor + poprawka paska; reguły bez zmian). Poprzednio: v0.3.3 — tag na `release`, instalator na GitHubie, operator ma
+**Wydanie:** v0.3.4 w przygotowaniu — PR #35 (refaktor + poprawka paska) i #36 (zabezpieczenie łuków + diagnostyka) zmergowane 2026-09-29, drugi PR `dev`→`release` niesie #36 do wydania; tag i instalator dopiero z tego stanu. Poprzednio: v0.3.3 — tag na `release`, instalator na GitHubie, operator ma
 ją zainstalowaną, skrót z pulpitu wskazuje na zainstalowaną kopię (NIE na
 `bin`). `dev` = `release` + 2 commity samej dokumentacji. **v0.3.2 miała
 błąd kasujący dane** (rozciąganie zamieniało wymiar całkowitej długości na
