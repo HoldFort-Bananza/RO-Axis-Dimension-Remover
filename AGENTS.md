@@ -208,8 +208,12 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    okrągłej rury to ZAWSZE średnica. Operator: zostawić bez zmian (opcje
    „średnica raz na rysunek” / „raz na widok” odrzucone). Szerokość przy
    stromym ścięciu ma końce przesunięte o 10,6 mm wzdłuż rury (wartość OK).
-4. Następne z listy: `[35016]`, `[35010]` (podgląd: pięć `21`, `42`, `8`
-   do usunięcia na `[35016]`; na `[35010]` `2677` nie jest kandydatem).
+4. `[35016]` sprawdzony na żywo (2026-09-30, v0.3.6, „jest dobrze”): rura
+   856, ścięcia 19,9° i 45°. Skasowane `8`, `42` (pełna długość ścięcia
+   45°, ale z końcem na osi — „Wstaw” dodał ją z powrotem w drugim widoku),
+   pięć `21`; `856` i `15` przetrwały.
+5. Następny z listy: `[35010]` (`2677` nie jest kandydatem, 2 promienie do
+   rozciągnięcia).
 3. 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
    otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
    (Lively/mpv, ~27% GPU). Po jej zamknięciu i czystej reinstalacji
