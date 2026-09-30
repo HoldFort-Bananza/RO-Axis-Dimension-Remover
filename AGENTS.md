@@ -57,7 +57,10 @@ Sekcje niżej to dziennik chronologiczny (23.09 → 29.09); ta jest skrótem
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.6 (2026-09-30) = v0.3.5 + ochrona całkowitej długości
+**Wydanie:** v0.3.7 (2026-09-30) = v0.3.6 + log w oknie czyszczony
+dopiero przy innym rysunku (PR #46), reguły bez zmian; instalator
+`installer\output\RoAxisDimensionRemover-Setup-v0.3.7.exe`. Wcześniej
+v0.3.6 (2026-09-30) = v0.3.5 + ochrona całkowitej długości
 krótkich rur przy „Usuń” + rozciąganie promienia do osi na drugim końcu
 (PR #42); instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.6.exe`.
 Wcześniej v0.3.5 (2026-09-30) = v0.3.4 + próg kąta cięcia 6,5° (PR
@@ -1445,7 +1448,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   v0.3.3 (2026-09-29: rozciąganie nie rusza wymiaru całkowitej długości, styl wzorca z innego widoku) →
   v0.3.4 (2026-09-29: gięte rury pomijane przy kasowaniu i wstawianiu, diagnostyka widoku/kąta cięcia, refaktor bez zmiany reguł — geometria tylko w `NotchPilot`, poprawka nakładania się przycisków pod paskiem „nowsza wersja”) →
   v0.3.5 (2026-09-30: próg kąta cięcia 10° → 6,5°, PR #39) →
-  v0.3.6 (2026-09-30: „Usuń” nie kasuje całkowitej długości krótkich rur, rozciąganie promienia do osi na drugim końcu, PR #42). Release na GitHubie tworzy operator
+  v0.3.6 (2026-09-30: „Usuń” nie kasuje całkowitej długości krótkich rur, rozciąganie promienia do osi na drugim końcu, PR #42) →
+  v0.3.7 (2026-09-30: log w oknie czyszczony dopiero przy innym rysunku, PR #46, reguły bez zmian). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
