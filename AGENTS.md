@@ -212,8 +212,10 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    856, ścięcia 19,9° i 45°. Skasowane `8`, `42` (pełna długość ścięcia
    45°, ale z końcem na osi — „Wstaw” dodał ją z powrotem w drugim widoku),
    pięć `21`; `856` i `15` przetrwały.
-5. Następny z listy: `[35010]` (`2677` nie jest kandydatem, 2 promienie do
-   rozciągnięcia).
+5. `[35010]` sprawdzony na żywo (2026-09-30, v0.3.6, „ma wszystko”): rura
+   2677, oba końce 45°. Skasowane dwa `21` do osi, `2677` i `42` (długość
+   ścięcia) przetrwały; oba promienie → `42`, „Wstaw” dodał długość i dwie
+   szerokości. Lista „proponowanych” rysunków z 29.09 wyczerpana.
 3. 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
    otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
    (Lively/mpv, ~27% GPU). Po jej zamknięciu i czystej reinstalacji
