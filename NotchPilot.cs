@@ -30,11 +30,15 @@ namespace RoAxisDimensionRemover
         // niedokładnie równoległa do osi). Odróżnia je stosunek
         // długość/szerokość cięcia (= 1/cos kąta cięcia): ~5° ([3.5027])
         // pomijamy, ~19,9° ([35021]) i ~45° ([3.5013]/[3.5027]) wstawiamy.
-        // 10° to SZACUNEK (w połowie między 5° a 19,9°), nie pomiar - do
-        // doprecyzowania, gdy pojawi się złącze bliżej granicy. NIE
+        // 2026-09-30: operator ocenił koniec 8,7° na [35092] jako ścięty
+        // (wymiar 3 mm do osi to "pół ścięcia", ma być pełne 7). Przy
+        // starym progu 10° "Usuń" kasował tam wymiary do osi, a "Wstaw" nic
+        // nie dodawał. 6,5° = połowa między 4,8° (płaskie) a 8,4° (najniższy
+        // kąt z szarej strefy: [35092], [35260], [35424], [35572], [35598]).
+        // Nadal SZACUNEK między dwoma zmierzonymi punktami. NIE
         // rozwiązuje problemu z 24.09 ([3.5013] drugi koniec miał TEN SAM
         // ~45° kąt, a operator go odrzucił z innego, nieznanego powodu).
-        internal const double MinCutAngleDegrees = 10.0;
+        internal const double MinCutAngleDegrees = 6.5;
 
         public static bool InsertWidth(Drawing drawing, Action<string> log, TSG.Point referencePoint = null, bool dryRun = false, View referenceView = null)
         {
