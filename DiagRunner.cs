@@ -63,8 +63,14 @@ namespace RoAxisDimensionRemover
         /// choć jeden wymiar do osi. Cel: dobierać rysunki testowe po
         /// danych. Trwa > 10 min na całym modelu - uruchamiać w tle.
         /// </summary>
-        public static void RunFindCandidatesDiag()
+        // marksFile: plik z listą Mark (po jednym w linii) - skan tylko tych
+        // rysunków, z logiem każdego wymiaru. Pełny skan 2298 rysunków
+        // trwał 2026-09-30 ponad godzinę (Tekla urosła do 6 GB), a do
+        // porównania reguł przed/po wystarczą rysunki, które mają kandydatów.
+        public static void RunFindCandidatesDiag(string marksFile = null)
         {
+            var only = marksFile == null ? null : new HashSet<string>(
+                System.IO.File.ReadAllLines(marksFile).Select(l => l.Trim()).Where(l => l.Length > 0));
             var dh = new DrawingHandler();
             if (!dh.GetConnectionStatus())
             {
@@ -77,12 +83,14 @@ namespace RoAxisDimensionRemover
             // pokazywałby fałszywe trafienia na innych profilach, które
             // guardy RemoveAxisDimensions mają właśnie wykluczyć (ZMIERZONE
             // 2026-09-25 na [21050]).
-            void Silent(string s) { } // per-dimension log tu nie interesuje - liczy się tylko suma
             int scanned = 0, withCandidates = 0;
             var drawings = dh.GetDrawings();
             while (drawings.MoveNext())
             {
                 var drawing = drawings.Current;
+                if (only != null && !only.Contains(drawing.Mark)) continue;
+                // Pełny skan: per-dimension log nie interesuje, liczy się suma.
+                void Silent(string s) { if (only != null && s.StartsWith("[diag] wymiar dotyka osi (") || only != null && s.StartsWith("Znaleziono")) Log($"[find]   {drawing.Mark}: {s}"); }
                 scanned++;
                 int candidateCount = 0;
                 try
@@ -108,7 +116,7 @@ namespace RoAxisDimensionRemover
                     NotchPilot.InsertMissing(drawing, s =>
                     {
                         if (s.Contains("[dry-run] brakująca")) missing++;
-                        else if (s.Contains("[dry-run] rozciągnąłbym")) stretch++;
+                        else if (s.Contains("[dry-run] rozciągnąłbym")) { stretch++; if (only != null) Log($"[find]   {drawing.Mark}: {s}"); }
                     }, dryRun: true);
                 }
                 catch (Exception ex)

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Tekla.Structures.Drawing;
 using TSM = Tekla.Structures.Model;
+using TSG = Tekla.Structures.Geometry3d;
 
 namespace RoAxisDimensionRemover
 {
@@ -101,6 +102,7 @@ namespace RoAxisDimensionRemover
                 return 0;
             }
 
+            var cutZones = CutZones(view);
             var objs = view.GetAllObjects();
             while (objs.MoveNext())
             {
@@ -128,6 +130,24 @@ namespace RoAxisDimensionRemover
 
                 double? value = GetDisplayedValue(sd);
                 string valueText = value.HasValue ? $"{value.Value:F0} mm" : "? (nie udało się odczytać wartości)";
+
+                // ZMIERZONE 2026-09-30 na [35260]: rura ma 105 mm, więc jej
+                // całkowita długość (0 -> 104,95, koniec w płaszczyźnie widoku,
+                // początek w głębi) spełniała TouchesAxis i mieściła się w
+                // filtrze 300 mm wyżej - "Usuń" skasowałby długość rury, a
+                // "Wstaw" jej nie odtwarza. Artefakt skosu leży z definicji
+                // przy ścięciu: oba końce wzdłuż osi w obrębie jednej ściany
+                // cięcia. Wszystkie kasowania potwierdzone przez operatora
+                // ([35021], [3.5013], [35092]) spełniają ten warunek.
+                if (!InCutZone(sd, cutZones))
+                {
+                    if (dryRun)
+                    {
+                        log($"[diag] wymiar dotyka osi ({valueText}), ale nie leży w obrębie ścięcia - to nie artefakt skosu, pomijam. Start=({sd.StartPoint.X:F2};{sd.StartPoint.Y:F2};{sd.StartPoint.Z:F2}) End=({sd.EndPoint.X:F2};{sd.EndPoint.Y:F2};{sd.EndPoint.Z:F2})");
+                    }
+                    continue;
+                }
+
                 log($"{(dryRun ? "Znaleziono" : "Kasuję")} wymiar do osi ({valueText}).  {DescribeDimensionSet(sd)}");
                 removedCount++;
                 if (!dryRun)
@@ -171,6 +191,55 @@ namespace RoAxisDimensionRemover
             }
             return false;
         }
+
+        // Odcinek wzdłuż osi rury (w układzie widoku), który zajmuje ściana
+        // cięcia. Punkty ściany są w globalnych współrzędnych modelu, wymiary w
+        // układzie widoku - przeliczenie tak jak w NotchPilot. Brak View albo
+        // połączenia z Model = brak odcinków = nic nie kasujemy.
+        private static List<(TSG.Vector Axis, double Min, double Max)> CutZones(ViewBase viewBase)
+        {
+            var zones = new List<(TSG.Vector Axis, double Min, double Max)>();
+            var model = new TSM.Model();
+            if (!(viewBase is View view) || !model.GetConnectionStatus()) return zones;
+            var cs = view.DisplayCoordinateSystem;
+            var parts = view.GetAllObjects(new[] { typeof(Part) });
+            while (parts.MoveNext())
+            {
+                if (!(parts.Current is Part drawingPart)) continue;
+                if (!(model.SelectModelObject(drawingPart.ModelIdentifier) is TSM.Part modelPart)) continue;
+                var axisModel = NotchPilot.BeamAxis(modelPart);
+                if (axisModel == null) continue;
+                var axis = NotchPilot.ToViewSpaceVector(axisModel, cs);
+                foreach (var (_, outerLoop) in NotchPilot.CutFaces(modelPart.GetSolid(), axisModel))
+                {
+                    double min = double.MaxValue, max = double.MinValue;
+                    foreach (var point in outerLoop)
+                    {
+                        double t = AlongAxis(NotchPilot.ToViewSpace(point, cs), axis);
+                        min = Math.Min(min, t);
+                        max = Math.Max(max, t);
+                    }
+                    zones.Add((axis, min, max));
+                }
+            }
+            return zones;
+        }
+
+        private static bool InCutZone(StraightDimension sd, List<(TSG.Vector Axis, double Min, double Max)> zones)
+        {
+            foreach (var (axis, min, max) in zones)
+            {
+                double tStart = AlongAxis(sd.StartPoint, axis), tEnd = AlongAxis(sd.EndPoint, axis);
+                if (tStart >= min - AxisToleranceMm && tStart <= max + AxisToleranceMm
+                    && tEnd >= min - AxisToleranceMm && tEnd <= max + AxisToleranceMm)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static double AlongAxis(TSG.Point p, TSG.Vector axis) => p.X * axis.X + p.Y * axis.Y + p.Z * axis.Z;
 
         private static bool ViewHasRoProfile(ViewBase view, Action<string> log)
         {

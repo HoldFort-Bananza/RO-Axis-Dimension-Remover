@@ -16,7 +16,7 @@ namespace RoAxisDimensionRemover
                 case "--diag-active": DiagRunner.RunOnActiveDrawing(); return;
                 case "--diag-notch": DiagRunner.RunNotchDiag(); return;
                 case "--diag-dimension-style": DiagRunner.RunDimensionStyleDiag(); return;
-                case "--diag-find-candidates": DiagRunner.RunFindCandidatesDiag(); return;
+                case "--diag-find-candidates": DiagRunner.RunFindCandidatesDiag(mark); return;
                 case "--diag-mark" when mark != null: DiagRunner.RunOnMark(mark); return;
                 case "--diag-notch-match" when mark != null: DiagRunner.RunNotchMatchDiag(mark); return;
                 case "--diag-notch-insert-dryrun" when mark != null: DiagRunner.RunNotchInsertDryRun(mark); return;
