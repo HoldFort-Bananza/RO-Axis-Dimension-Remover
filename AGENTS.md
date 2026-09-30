@@ -57,8 +57,11 @@ Sekcje niżej to dziennik chronologiczny (23.09 → 29.09); ta jest skrótem
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.5 (2026-09-30) = v0.3.4 + próg kąta cięcia 6,5° (PR
-#39, #40); instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.5.exe`,
+**Wydanie:** v0.3.6 (2026-09-30) = v0.3.5 + ochrona całkowitej długości
+krótkich rur przy „Usuń” + rozciąganie promienia do osi na drugim końcu
+(PR #42); instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.6.exe`.
+Wcześniej v0.3.5 (2026-09-30) = v0.3.4 + próg kąta cięcia 6,5° (PR
+#39, #40),
 release na GitHubie tworzy operator. Wcześniej v0.3.4 — tag na `release`
 (2026-09-29, PR #35, #36, #37). v0.3.4 = porządki bez zmiany reguł +
 poprawka paska + **pomijanie giętych rur** (v0.3.3 kasowała na łukach dobre
@@ -166,17 +169,43 @@ wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
 - Instalator sprawdzony: `fetch-dependencies.ps1` dociąga dokładnie 23
   DLL-e, które kopiuje build — nic nie brakuje, nic zbędnego.
 
+**BŁĄD W v0.3.5 I STARSZYCH (znaleziony 2026-09-30 na `[35260]`): „Usuń”
+kasował całkowitą długość KRÓTKIEJ rury.** Rura 105 mm: wymiar `105`
+(0 → 104,95, jeden koniec w głębi Z, drugi w płaszczyźnie widoku)
+spełniał `TouchesAxis` i mieścił się w filtrze 300 mm. Poprawka
+(`RoAxisDimensionService.CutZones`/`InCutZone`): kasujemy tylko wymiar,
+którego OBA końce leżą wzdłuż osi w obrębie jednej ściany cięcia (rzut
+zewnętrznej pętli ściany na oś w układzie widoku). Skan 61 rysunków z
+kandydatami (lista w `~/scans/marks.txt`, tryb `--diag-find-candidates
+<plik>`): 230 → 224, wypadło 6 wymiarów — `105` `[35260]`, `143`
+`[2.5048]`, `93` `[35659]`, `46` `[2.5142]` (wszystkie od X=0, czyli
+całkowite długości), `25` `[35244]` i `112` `[35076]` (NIEOCENIONE przez
+operatora). Na pozostałych 55 rysunkach liczby bez zmian. Brama przeszła
+na `[35260]`: skasowane tylko `4`, `105` przetrwało.
+
+**Rozciąganie promienia: zdjęty warunek „koniec na osi w obrębie cięcia”**
+(2026-09-30). Odrzucał promień `24` na `[35260]` — od czubka do osi na
+DRUGIM końcu krótkiej rury (operator: „24 to powinno być 48”). Wymiary
+całkowitej długości odrzuca już sam warunek `Up` wzdłuż osi. Skan 61
+rysunków: 22 → 23 rozciągnięcia, jedyne nowe to `[35101]` (`17` → `34`).
+Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
+
 **NA DALEJ (stan 2026-09-30):**
-1. Release v0.3.4 jest na GitHubie z instalatorem; operator ma jeszcze
-   zainstalowaną v0.3.3 — do zainstalowania (łuki!).
-2. Próg 6,5° wydany w v0.3.5 (2026-09-30). Pozostałe cztery rysunki
-   szarej strefy (`[35260]`, `[35424]`, `[35572]`, `[35598]`) — tylko
-   dry-run, operator wydał bez oglądania na żywo.
+1. Obie poprawki wyżej wydane w v0.3.6. Operator ma zainstalowaną v0.3.5 —
+   do zainstalowania (krótkie rury!).
+2. Pokazać operatorowi `25` na `[35244]` i `112` na `[35076]` — czy mają
+   zostać (poprawka ich już nie kasuje).
+3. Próg 6,5° wydany w v0.3.5. Z szarej strefy na żywo sprawdzone
+   `[35092]` i `[35260]`; `[35424]`, `[35572]`, `[35598]` tylko dry-run.
 3. 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
    otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
    (Lively/mpv, ~27% GPU). Po jej zamknięciu i czystej reinstalacji
    sterownika NVIDIA — spokój. Jeśli wróci: `%USERPROFILE%\gpu-log.csv`
    (logger `gpu-log.ps1`, co 2 s) pokaże stan karty przed padem.
+
+- Pełny `--diag-find-candidates` 30.09 trwał ponad godzinę (Tekla urosła
+  do 6 GB) — do porównań reguł używać wersji z plikiem listy Mark (4,5 min
+  na 61 rysunków).
 
 **Proponowany następny krok** (operator nie zdecydował): 2–3 kolejne
 rysunki z listy skanu, tym samym cyklem (Usuń → Wstaw → odczyt z osobnego
@@ -1368,7 +1397,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   z kierunkiem, diagnostyka nie przeładowuje otwartego rysunku; **miała błąd** — patrz „BŁĄD W WYDANEJ v0.3.2”) →
   v0.3.3 (2026-09-29: rozciąganie nie rusza wymiaru całkowitej długości, styl wzorca z innego widoku) →
   v0.3.4 (2026-09-29: gięte rury pomijane przy kasowaniu i wstawianiu, diagnostyka widoku/kąta cięcia, refaktor bez zmiany reguł — geometria tylko w `NotchPilot`, poprawka nakładania się przycisków pod paskiem „nowsza wersja”) →
-  v0.3.5 (2026-09-30: próg kąta cięcia 10° → 6,5°, PR #39). Release na GitHubie tworzy operator
+  v0.3.5 (2026-09-30: próg kąta cięcia 10° → 6,5°, PR #39) →
+  v0.3.6 (2026-09-30: „Usuń” nie kasuje całkowitej długości krótkich rur, rozciąganie promienia do osi na drugim końcu, PR #42). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.

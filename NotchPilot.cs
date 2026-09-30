@@ -558,14 +558,15 @@ namespace RoAxisDimensionRemover
                     // od (0;0) (punkt referencyjny, na osi) do czubka cięcia
                     // (2677,2;-21,2). v0.3.2 zastąpiłaby go wymiarem 42 mm.
                     // Promień: mierzy W POPRZEK rury (Up wzdłuż osi - wszystkie
-                    // zmierzone promienie na [35095]/[35021]/[35010]), a jego
-                    // koniec na osi leży wzdłuż osi w obrębie cięcia. 2677 nie
-                    // spełnia żadnego z tych dwóch warunków.
+                    // zmierzone promienie na [35095]/[35021]/[35010]); 2677 i
+                    // 256 ([35020]) mają Up w poprzek, czyli mierzą wzdłuż.
+                    // Do 2026-09-30 był też drugi warunek: koniec na osi w
+                    // obrębie cięcia. Odrzucał promień 24 na [35260], idący od
+                    // czubka do osi na DRUGIM końcu krótkiej rury (X=0) - operator:
+                    // "24 to powinno być 48". Wymiar w poprzek od czubka do osi
+                    // pokazuje promień bez względu na to, gdzie na osi się kończy.
                     var up = new TSG.Vector(dimension.UpDirection).GetNormal();
                     if (Math.Abs(up.Dot(axisView.GetNormal())) < 0.99) continue;
-                    double tA = new TSG.Vector(a.X, a.Y, 0).Dot(axisView), tB = new TSG.Vector(b.X, b.Y, 0).Dot(axisView);
-                    double tOther = new TSG.Vector(other.X, other.Y, 0).Dot(axisView);
-                    if (tOther < Math.Min(tA, tB) - SamePointToleranceMm || tOther > Math.Max(tA, tB) + SamePointToleranceMm) continue;
 
                     if (dryRun)
                     {
@@ -731,7 +732,7 @@ namespace RoAxisDimensionRemover
         // przeliczenia osi belki (z modelu) na układ widoku, żeby wymiar
         // wcięcia dało się narysować równolegle/prostopadle do PRAWDZIWEJ
         // osi profilu, nie do przypadkowego kierunku.
-        private static TSG.Vector ToViewSpaceVector(TSG.Vector v, TSG.CoordinateSystem cs)
+        internal static TSG.Vector ToViewSpaceVector(TSG.Vector v, TSG.CoordinateSystem cs)
         {
             var x = new TSG.Vector(cs.AxisX); x.Normalize();
             var y = new TSG.Vector(cs.AxisY); y.Normalize();
