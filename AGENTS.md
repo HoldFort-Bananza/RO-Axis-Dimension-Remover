@@ -227,6 +227,23 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    przy operacji na INNYM rysunku (`MainForm.BeginLog`, porównanie Mark),
    nie przy każdym kliku. Log zostaje po przełączeniu rysunku aż do
    pierwszego kliku — operator: „zostawmy tak”, bez zegara.
+8. Dalsze testy na żywo (2026-09-30 po południu, v0.3.6, „opisuje”):
+   `[35028]` (537, 45°/44,8°; płaskie `23` — od osi na końcu do punktu w
+   połowie ścięcia — ZOSTAJE, operator bez uwag), `[35052]` (537, dwa 45°;
+   `42` do osi skasowane w jednym widoku, „Wstaw” dodał je w drugim),
+   `[3.5029]` (537, 44,8°/45°, lustro `[35028]`).
+9. **Koniec poniżej progu kąta może zostać bez wymiarów** — `[35027]`
+   (373, 44,9°/4,8°, 2026-09-30): „Usuń” skasował `21`, `21`, `2` przy
+   końcu 4,8° (cut-zone liczy KAŻDĄ ścianę cięcia, filtr kąta dotyczy tylko
+   wstawiania), „Wstaw” nic tam nie dodał; zostały `373` i adnotacja kąta
+   `4.75°`. Operator: rysunek opisuje wszystko. `373` ma głębię Z i dotyka
+   osi — chroni go tylko filtr 300 mm, cut-zone też by go odrzucił.
+10. `[35019]` (806, 19,9°/45°, 2026-09-30, „przeszedł”): `15` i `42` do osi
+   skasowane w jednym widoku, „Wstaw” dodał je w drugim. **Nowy przypadek
+   złego położenia: dwie szerokości `42` (po jednej na koniec) wstawione
+   jedna na drugiej** — ten sam kierunek odsunięcia (`Up`=(1,0,0)), więc
+   ta sama strona rury; operator przesunął ręcznie. Znana słabość `side`/
+   `Distance`, tym razem z nakładaniem.
 3. 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
    otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
    (Lively/mpv, ~27% GPU). Po jej zamknięciu i czystej reinstalacji
