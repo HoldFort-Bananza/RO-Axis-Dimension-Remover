@@ -238,6 +238,12 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    wstawiania), „Wstaw” nic tam nie dodał; zostały `373` i adnotacja kąta
    `4.75°`. Operator: rysunek opisuje wszystko. `373` ma głębię Z i dotyka
    osi — chroni go tylko filtr 300 mm, cut-zone też by go odrzucił.
+10. `[35019]` (806, 19,9°/45°, 2026-09-30, „przeszedł”): `15` i `42` do osi
+   skasowane w jednym widoku, „Wstaw” dodał je w drugim. **Nowy przypadek
+   złego położenia: dwie szerokości `42` (po jednej na koniec) wstawione
+   jedna na drugiej** — ten sam kierunek odsunięcia (`Up`=(1,0,0)), więc
+   ta sama strona rury; operator przesunął ręcznie. Znana słabość `side`/
+   `Distance`, tym razem z nakładaniem.
 3. 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
    otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
    (Lively/mpv, ~27% GPU). Po jej zamknięciu i czystej reinstalacji
