@@ -57,9 +57,10 @@ Sekcje niżej to dziennik chronologiczny (23.09 → 29.09); ta jest skrótem
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.4 — tag na `release` (2026-09-29, PR #35, #36, #37);
-instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.4.exe`,
-release na GitHubie tworzy operator. v0.3.4 = porządki bez zmiany reguł +
+**Wydanie:** v0.3.5 (2026-09-30) = v0.3.4 + próg kąta cięcia 6,5° (PR
+#39, #40); instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.5.exe`,
+release na GitHubie tworzy operator. Wcześniej v0.3.4 — tag na `release`
+(2026-09-29, PR #35, #36, #37). v0.3.4 = porządki bez zmiany reguł +
 poprawka paska + **pomijanie giętych rur** (v0.3.3 kasowała na łukach dobre
 wymiary — patrz „Przegląd 2026-09-29 po południu”). Skrót z pulpitu
 wskazuje na zainstalowaną kopię (NIE na `bin`). **v0.3.2 miała błąd
@@ -100,15 +101,20 @@ wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
   wcięcia zawsze trafia do INNEGO widoku niż rozciągnięta średnica (12
   rysunków); dwa `42` w jednym widoku to średnica i długość cięcia, które
   przy 45° mają tę samą wartość — jak na zaakceptowanym `[35095]`.
-- **OTWARTE, do decyzji operatora: szara strefa filtra kąta 8–9°.** Skan
-  29.09 (kolumna „ściany odrzucone filtrem kąta”): `[35092]` 8,7°,
-  `[35260]` 8,8°, `[35424]` 8,7°, `[35572]` 8,8°, `[35598]` 8,4°. Na tych
-  końcach „Usuń” kasuje wymiary do osi (na `[35092]`: `7` i `3` mm,
-  opisujące cięcie), a „Wstaw” nic nie dodaje, bo 8,7° < 10°. Punkty
-  pomiarowe: 4,8° (`[3.5027]`, `[35027]`, `[35030]`) — operator: „płaskie”;
-  8,4–8,8° — NIEOCENIONE; 13,7° i więcej — wstawiamy. Progu NIE zmieniono
-  (zmiana reguły = brama). Do pokazania operatorowi `[35092]` na żywo z
-  pytaniem, czy ten koniec jest „ścięty”.
+- **ROZSTRZYGNIĘTE 2026-09-30: szara strefa filtra kąta 8–9° → próg
+  `MinCutAngleDegrees` 10° → 6,5°.** Skan 29.09: `[35092]` 8,7°, `[35260]`
+  8,8°, `[35424]` 8,7°, `[35572]` 8,8°, `[35598]` 8,4° — przy 10° „Usuń”
+  kasował tam wymiary do osi, a „Wstaw” nic nie dodawał. Operator na żywym
+  `[35092]`: koniec 8,7° jest ścięty, `7` (długość skosu 6,52) dobre, `3`
+  złe („pół ścięcia”). 6,5° = połowa między 4,8° (płaskie) a 8,4°.
+  Dry-run na pięciu rysunkach: przy 10° zainstalowana kopia nic nie
+  dodaje, przy 6,5° dochodzi szerokość (`42`/`48`) i długość skosu
+  (`7`), a na `[35424]`/`[35598]` długości nie dubluje (płaski wymiar już
+  jest). Na `[35598]` szerokość lekko po skosie (rura ze spadkiem 4 mm w Z),
+  wartość i tak `48`. **Brama przeszła na `[35092]`:** Usuń w dolnym widoku
+  (znikły `42`/`3`/`21`/`21`) → Wstaw (4 wymiary: `42`, `42`, `7`, `42`) →
+  niezależny odczyt zgodny z dry-runem → operator: „ma wszystko”.
+  Pozostałe cztery rysunki — tylko dry-run, nie oglądane na żywo.
 
 **Środowisko i pułapki, które dziś kosztowały czas:**
 - Model testowy (~19 tys. części) NIE zapisuje się (limit licencji 2500) —
@@ -160,12 +166,17 @@ wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
 - Instalator sprawdzony: `fetch-dependencies.ps1` dociąga dokładnie 23
   DLL-e, które kopiuje build — nic nie brakuje, nic zbędnego.
 
-**NA JUTRO (koniec dnia 2026-09-29):**
-1. Sprawdzić, czy operator utworzył release v0.3.4 na GitHubie z
-   instalatorem (tag już jest) i czy go zainstalował.
-2. Pokazać operatorowi `[35092]` (koniec 8,7°) i zapytać, czy ten koniec
-   jest „ścięty” — od tego zależy próg `MinCutAngleDegrees` (szara strefa
-   8–9°, pięć rysunków).
+**NA DALEJ (stan 2026-09-30):**
+1. Release v0.3.4 jest na GitHubie z instalatorem; operator ma jeszcze
+   zainstalowaną v0.3.3 — do zainstalowania (łuki!).
+2. Próg 6,5° wydany w v0.3.5 (2026-09-30). Pozostałe cztery rysunki
+   szarej strefy (`[35260]`, `[35424]`, `[35572]`, `[35598]`) — tylko
+   dry-run, operator wydał bez oglądania na żywo.
+3. 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
+   otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
+   (Lively/mpv, ~27% GPU). Po jej zamknięciu i czystej reinstalacji
+   sterownika NVIDIA — spokój. Jeśli wróci: `%USERPROFILE%\gpu-log.csv`
+   (logger `gpu-log.ps1`, co 2 s) pokaże stan karty przed padem.
 
 **Proponowany następny krok** (operator nie zdecydował): 2–3 kolejne
 rysunki z listy skanu, tym samym cyklem (Usuń → Wstaw → odczyt z osobnego
@@ -881,6 +892,7 @@ zewnętrznej pętli ściany (`Math.Acos(minor/major)`), i jeśli wychodzący
 kąt jest mniejszy niż próg, CAŁA ściana jest pomijana (nie trafia do puli
 kandydatów w ogóle, ani dla długości, ani dla szerokości).
 
+**(2026-09-30: próg obniżony do 6,5° — patrz „START SESJI TUTAJ”.)**
 **Próg `10°` to SZACUNEK, nie pomiar** - w połowie między jedynymi trzema
 zmierzonymi punktami danych: `~4,8°` (pomiń, `[3.5027]`), `~19,9°`
 (wstaw, `[35021]`), `~45°` (wstaw, `[3.5013]`/`[3.5027]` drugi koniec).
@@ -1355,7 +1367,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   v0.3.2 (2026-09-29: rozciąganie promienia do średnicy, `HasSameDimension`
   z kierunkiem, diagnostyka nie przeładowuje otwartego rysunku; **miała błąd** — patrz „BŁĄD W WYDANEJ v0.3.2”) →
   v0.3.3 (2026-09-29: rozciąganie nie rusza wymiaru całkowitej długości, styl wzorca z innego widoku) →
-  v0.3.4 (2026-09-29: gięte rury pomijane przy kasowaniu i wstawianiu, diagnostyka widoku/kąta cięcia, refaktor bez zmiany reguł — geometria tylko w `NotchPilot`, poprawka nakładania się przycisków pod paskiem „nowsza wersja”). Release na GitHubie tworzy operator
+  v0.3.4 (2026-09-29: gięte rury pomijane przy kasowaniu i wstawianiu, diagnostyka widoku/kąta cięcia, refaktor bez zmiany reguł — geometria tylko w `NotchPilot`, poprawka nakładania się przycisków pod paskiem „nowsza wersja”) →
+  v0.3.5 (2026-09-30: próg kąta cięcia 10° → 6,5°, PR #39). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
