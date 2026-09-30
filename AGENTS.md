@@ -199,8 +199,17 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    `[35598]`, `[35424]`, `[35572]`. Wzorzec za każdym razem ten sam: „Usuń”
    kasuje `24` i `4` (pół ścięcia), całkowita długość przetrwa, „Wstaw”
    dodaje `48` i — jeśli brak — `7` (pełne ścięcie).
-3. `[35066]`: „Usuń” skasowałby m.in. `72` i `90` — długie jak na artefakt,
-   choć w obrębie ścięcia. Przed kliknięciem pokazać operatorowi.
+3. `[35066]` sprawdzony na żywo (2026-09-30, v0.3.6): rura 550, ścięcia
+   63,9° (długie, do X=89,73) i 25,1°. „Usuń” skasował `72` i `18` (punkt
+   w połowie krawędzi ścięcia — operator: „do wywalenia”), `90`, `11`,
+   `11`, `21`, `10`; łańcuch `21`+`11`+`11` się nie rozsypał, promień
+   przetrwał. „Wstaw”: `90` i `20` (długości), `42` ×2 (szerokości),
+   promień → `42`. Średnica jest więc na rysunku 3 razy — szerokość ścięcia
+   okrągłej rury to ZAWSZE średnica. Operator: zostawić bez zmian (opcje
+   „średnica raz na rysunek” / „raz na widok” odrzucone). Szerokość przy
+   stromym ścięciu ma końce przesunięte o 10,6 mm wzdłuż rury (wartość OK).
+4. Następne z listy: `[35016]`, `[35010]` (podgląd: pięć `21`, `42`, `8`
+   do usunięcia na `[35016]`; na `[35010]` `2677` nie jest kandydatem).
 3. 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
    otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
    (Lively/mpv, ~27% GPU). Po jej zamknięciu i czystej reinstalacji
