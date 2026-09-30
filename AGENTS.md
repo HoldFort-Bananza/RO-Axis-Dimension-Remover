@@ -179,8 +179,10 @@ zewnętrznej pętli ściany na oś w układzie widoku). Skan 61 rysunków z
 kandydatami (lista w `~/scans/marks.txt`, tryb `--diag-find-candidates
 <plik>`): 230 → 224, wypadło 6 wymiarów — `105` `[35260]`, `143`
 `[2.5048]`, `93` `[35659]`, `46` `[2.5142]` (wszystkie od X=0, czyli
-całkowite długości), `25` `[35244]` i `112` `[35076]` (NIEOCENIONE przez
-operatora). Na pozostałych 55 rysunkach liczby bez zmian. Brama przeszła
+całkowite długości), `25` `[35244]` (odległość śruby od krawędzi blachy)
+i `112` `[35076]` (od krawędzi belki do początku ścięcia, belka 154) —
+oba ocenione przez operatora 2026-09-30 jako potrzebne. Wszystkie 6
+wypadłych wymiarów MA przetrwać. Na pozostałych 55 rysunkach liczby bez zmian. Brama przeszła
 na `[35260]`: skasowane tylko `4`, `105` przetrwało.
 
 **Rozciąganie promienia: zdjęty warunek „koniec na osi w obrębie cięcia”**
@@ -191,11 +193,8 @@ rysunków: 22 → 23 rozciągnięcia, jedyne nowe to `[35101]` (`17` → `34`).
 Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
 
 **NA DALEJ (stan 2026-09-30):**
-1. Obie poprawki wyżej wydane w v0.3.6. Operator ma zainstalowaną v0.3.5 —
-   do zainstalowania (krótkie rury!).
-2. Pokazać operatorowi `25` na `[35244]` i `112` na `[35076]` — czy mają
-   zostać (poprawka ich już nie kasuje).
-3. Próg 6,5° wydany w v0.3.5. Z szarej strefy na żywo sprawdzone
+1. Obie poprawki wyżej wydane w v0.3.6, operator ją zainstalował.
+2. Próg 6,5° wydany w v0.3.5. Z szarej strefy na żywo sprawdzone
    `[35092]` i `[35260]`; `[35424]`, `[35572]`, `[35598]` tylko dry-run.
 3. 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
    otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
