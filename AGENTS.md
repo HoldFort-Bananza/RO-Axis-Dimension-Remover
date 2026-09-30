@@ -227,6 +227,10 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    przy operacji na INNYM rysunku (`MainForm.BeginLog`, porównanie Mark),
    nie przy każdym kliku. Log zostaje po przełączeniu rysunku aż do
    pierwszego kliku — operator: „zostawmy tak”, bez zegara.
+8. Dalsze testy na żywo (2026-09-30 po południu, v0.3.6, „opisuje”):
+   `[35028]` (537, 45°/44,8°; płaskie `23` — od osi na końcu do punktu w
+   połowie ścięcia — ZOSTAJE, operator bez uwag), `[35052]` (537, dwa 45°;
+   `42` do osi skasowane w jednym widoku, „Wstaw” dodał je w drugim).
 3. 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
    otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
    (Lively/mpv, ~27% GPU). Po jej zamknięciu i czystej reinstalacji
