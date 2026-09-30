@@ -57,18 +57,23 @@ Sekcje niżej to dziennik chronologiczny (23.09 → 29.09); ta jest skrótem
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.4 w przygotowaniu — PR #35 (refaktor + poprawka paska) i #36 (zabezpieczenie łuków + diagnostyka) zmergowane 2026-09-29, drugi PR `dev`→`release` niesie #36 do wydania; tag i instalator dopiero z tego stanu. Poprzednio: v0.3.3 — tag na `release`, instalator na GitHubie, operator ma
-ją zainstalowaną, skrót z pulpitu wskazuje na zainstalowaną kopię (NIE na
-`bin`). `dev` = `release` + 2 commity samej dokumentacji. **v0.3.2 miała
-błąd kasujący dane** (rozciąganie zamieniało wymiar całkowitej długości na
-`42`) — naprawione w v0.3.3, patrz sekcja „BŁĄD W WYDANEJ v0.3.2”.
+**Wydanie:** v0.3.4 — tag na `release` (2026-09-29, PR #35, #36, #37);
+instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.4.exe`,
+release na GitHubie tworzy operator. v0.3.4 = porządki bez zmiany reguł +
+poprawka paska + **pomijanie giętych rur** (v0.3.3 kasowała na łukach dobre
+wymiary — patrz „Przegląd 2026-09-29 po południu”). Skrót z pulpitu
+wskazuje na zainstalowaną kopię (NIE na `bin`). **v0.3.2 miała błąd
+kasujący dane** (rozciąganie zamieniało wymiar całkowitej długości na `42`)
+— naprawione w v0.3.3, patrz sekcja „BŁĄD W WYDANEJ v0.3.2”.
 
 **Co robi program (dwa osobne przyciski):**
 1. „Usuń wymiary do osi” — jeden widok wskazany kliknięciem; guardy:
-   `SinglePartDrawing` + część o profilu `RO…` w widoku; reguła v6
+   `SinglePartDrawing` + część o profilu `RO…` w widoku + brak giętej
+   części w widoku (od v0.3.4); reguła v6
    (`TouchesAxis` z wymogiem głębi Z + filtr długości własnej 300 mm).
 2. „Wstaw wymiar wcięcia” — `NotchPilot.InsertMissing`, cały rysunek:
-   guard `SinglePartDrawing`; ściany cięcia ≥ 10°; długość i szerokość
+   guard `SinglePartDrawing`; gięte części pomijane (od v0.3.4); ściany
+   cięcia ≥ 10°; długość i szerokość
    wcięcia w widoku, gdzie cięciwa jest płaska; styl z widoku docelowego,
    a gdy pusty — z innego widoku; `StretchRadiusToDiameter` zamienia płaski
    promień przy skosie (czubek cięcia → oś, mierzony w poprzek, koniec na osi
@@ -129,8 +134,7 @@ wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
   z `256`”), nie po numerze z logu — numeracja widoków w diagnostyce nie
   odpowiada położeniu na arkuszu (pomyłka z 29.09 na `[35020]`).
 
-**Przegląd 2026-09-29 po południu (branch `sweep-2026-09-29`, NIE w
-`dev`/`release`, PR #35 = v0.3.4 go nie zawiera):**
+**Przegląd 2026-09-29 po południu (PR #36, wydane w v0.3.4):**
 - **Gięte rury (łuki poręczy, `Bogen`) — ZNALEZIONA UTRATA DANYCH W v0.3.3.**
   Na `[35681]` reguła v6 oznaczała 10 z 15 wymiarów jedynego zwymiarowanego
   widoku (m.in. `63` i `29`, opisujące gięcie): oś Start→End to cięciwa
@@ -146,8 +150,8 @@ wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
   wersja (odległość osi od prostej ≤ 1 mm) przepuściła krótki łuk
   `[35678]` (~17 mm, gięty o ~17°). Ponowny pełny skan: 74 → 61 rysunków
   z kandydatami, wypadły dokładnie te 13 łuków, na pozostałych liczby
-  identyczne co do jednej. **Do czasu wydania: na widokach łuków NIE klikać
-  „Usuń” w v0.3.3/v0.3.4.**
+  identyczne co do jednej. **W v0.3.3 i starszych na widokach łuków NIE klikać
+  „Usuń”.**
 - Diagnostyka: dry-run `InsertMissing` podaje widok (`Origin`),
   `--diag-notch-raw` kąt cięcia każdej ściany i oś części, skan modelu
   kolumnę „ściany odrzucone filtrem kąta”; `--diag-* "[Mark]"` na rysunku
@@ -157,17 +161,11 @@ wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
   DLL-e, które kopiuje build — nic nie brakuje, nic zbędnego.
 
 **NA JUTRO (koniec dnia 2026-09-29):**
-1. PR #35 (`dev`→`release`, v0.3.4: refaktor + poprawka paska) czeka na
-   merge przez operatora; potem tag `v0.3.4` na `release`, instalator już
-   zbudowany (`installer\output\RoAxisDimensionRemover-Setup-v0.3.4.exe`),
-   release na GitHubie tworzy operator.
-2. Szkic PR #36 (`sweep-2026-09-29`→`dev`): zabezpieczenie łuków +
-   diagnostyka. Zdecydować, czy wchodzi do v0.3.4 (wtedy przebudować
-   instalator), czy jako v0.3.5. Zabezpieczenie tylko zawęża działanie,
-   sprawdzone pełnym skanem; brama wymaga jeszcze spojrzenia operatora na
-   łuk (np. `[35681]`) z komunikatem „zawiera giętą rurę”.
-3. Pokazać operatorowi `[35092]` (koniec 8,7°) i zapytać, czy ten koniec
-   jest „ścięty” — od tego zależy próg `MinCutAngleDegrees`.
+1. Sprawdzić, czy operator utworzył release v0.3.4 na GitHubie z
+   instalatorem (tag już jest) i czy go zainstalował.
+2. Pokazać operatorowi `[35092]` (koniec 8,7°) i zapytać, czy ten koniec
+   jest „ścięty” — od tego zależy próg `MinCutAngleDegrees` (szara strefa
+   8–9°, pięć rysunków).
 
 **Proponowany następny krok** (operator nie zdecydował): 2–3 kolejne
 rysunki z listy skanu, tym samym cyklem (Usuń → Wstaw → odczyt z osobnego
@@ -1320,7 +1318,7 @@ blokuje proces, `taskkill` to jedyny sposób go zakończyć.**
 
 | Plik | Zawartość |
 |---|---|
-| `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI (reguła v6 — kasuje wszystko w widoku, co spełnia `TouchesAxis`). Guardy na wejściu `RemoveAxisDimensions`: `SinglePartDrawing` (od 2026-09-29), `ViewHasRoProfile` (od 2026-09-25) i `ViewHasBentPart` (od 2026-09-29, branch `sweep-2026-09-29`) — przy którymkolwiek niespełnionym nic nie kasuje |
+| `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI (reguła v6 — kasuje wszystko w widoku, co spełnia `TouchesAxis`). Guardy na wejściu `RemoveAxisDimensions`: `SinglePartDrawing` (od 2026-09-29), `ViewHasRoProfile` (od 2026-09-25) i `ViewHasBentPart` (od v0.3.4) — przy którymkolwiek niespełnionym nic nie kasuje |
 | `MainForm.cs` | UI: główny przycisk kasowania, log do okna i do pliku (`dryRun: false` od 2026-09-23 — brama v5 przeszła). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie). Fokus na Teklę po operacji tylko gdy `!dryRun`. Plus jeden przycisk `_insertNotchButton` ("Wstaw wymiar wcięcia dla złączy na wybranym rysunku", handler `InsertNotchButton_Click`) — woła `NotchPilot.InsertMissing` (patrz "InsertMissing — insert napędzany geometrią" wyżej), bez blokady marki, uzupełnia brakujące wymiary wcięcia niezależnie od tego, czy wymiar do osi jeszcze istnieje |
 | `NotchPilot.cs` | TWORZENIE wymiaru wcięcia — produkcyjne (nazwa „Pilot” historyczna). Przycisk woła `InsertMissing` (guard `SinglePartDrawing`, gięte części pomijane przez `IsStraight`) → `FindQualifyingChordPairs` (ściany ≥ 10°) → `InsertResolvedIfMissing` (widok z płaską cięciwą, styl z tego widoku albo z innego) + `StretchRadiusToDiameter` (promień → średnica: `Insert()` nowego, potem `Delete()` starego). `HasSameDimension` porównuje końce i `UpDirection`. `InsertWidth`/`InsertLength` zostają tylko dla `--diag-notch-insert-dryrun`. Problem „które złącze faktycznie potrzebuje wymiaru” (24.09) bez ochrony — świadoma decyzja operatora |
 | `Program.cs` | punkt wejścia; GUI domyślnie, przełączniki `--diag-*` (pełna lista w „Jak testować bez klikania w GUI”) dla trybu konsolowego |
@@ -1357,7 +1355,7 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   v0.3.2 (2026-09-29: rozciąganie promienia do średnicy, `HasSameDimension`
   z kierunkiem, diagnostyka nie przeładowuje otwartego rysunku; **miała błąd** — patrz „BŁĄD W WYDANEJ v0.3.2”) →
   v0.3.3 (2026-09-29: rozciąganie nie rusza wymiaru całkowitej długości, styl wzorca z innego widoku) →
-  v0.3.4 (2026-09-29: refaktor bez zmiany reguł — geometria tylko w `NotchPilot`; poprawka nakładania się przycisków pod paskiem „nowsza wersja”). Release na GitHubie tworzy operator
+  v0.3.4 (2026-09-29: gięte rury pomijane przy kasowaniu i wstawianiu, diagnostyka widoku/kąta cięcia, refaktor bez zmiany reguł — geometria tylko w `NotchPilot`, poprawka nakładania się przycisków pod paskiem „nowsza wersja”). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
