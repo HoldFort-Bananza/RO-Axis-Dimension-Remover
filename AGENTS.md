@@ -57,7 +57,10 @@ Sekcje niżej to dziennik chronologiczny (23.09 → 29.09); ta jest skrótem
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.6 (2026-09-30) = v0.3.5 + ochrona całkowitej długości
+**Wydanie:** v0.3.7 (2026-09-30) = v0.3.6 + log w oknie czyszczony
+dopiero przy innym rysunku (PR #46), reguły bez zmian; instalator
+`installer\output\RoAxisDimensionRemover-Setup-v0.3.7.exe`. Wcześniej
+v0.3.6 (2026-09-30) = v0.3.5 + ochrona całkowitej długości
 krótkich rur przy „Usuń” + rozciąganie promienia do osi na drugim końcu
 (PR #42); instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.6.exe`.
 Wcześniej v0.3.5 (2026-09-30) = v0.3.4 + próg kąta cięcia 6,5° (PR
@@ -179,8 +182,10 @@ zewnętrznej pętli ściany na oś w układzie widoku). Skan 61 rysunków z
 kandydatami (lista w `~/scans/marks.txt`, tryb `--diag-find-candidates
 <plik>`): 230 → 224, wypadło 6 wymiarów — `105` `[35260]`, `143`
 `[2.5048]`, `93` `[35659]`, `46` `[2.5142]` (wszystkie od X=0, czyli
-całkowite długości), `25` `[35244]` i `112` `[35076]` (NIEOCENIONE przez
-operatora). Na pozostałych 55 rysunkach liczby bez zmian. Brama przeszła
+całkowite długości), `25` `[35244]` (odległość śruby od krawędzi blachy)
+i `112` `[35076]` (od krawędzi belki do początku ścięcia, belka 154) —
+oba ocenione przez operatora 2026-09-30 jako potrzebne. Wszystkie 6
+wypadłych wymiarów MA przetrwać. Na pozostałych 55 rysunkach liczby bez zmian. Brama przeszła
 na `[35260]`: skasowane tylko `4`, `105` przetrwało.
 
 **Rozciąganie promienia: zdjęty warunek „koniec na osi w obrębie cięcia”**
@@ -191,12 +196,57 @@ rysunków: 22 → 23 rozciągnięcia, jedyne nowe to `[35101]` (`17` → `34`).
 Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
 
 **NA DALEJ (stan 2026-09-30):**
-1. Obie poprawki wyżej wydane w v0.3.6. Operator ma zainstalowaną v0.3.5 —
-   do zainstalowania (krótkie rury!).
-2. Pokazać operatorowi `25` na `[35244]` i `112` na `[35076]` — czy mają
-   zostać (poprawka ich już nie kasuje).
-3. Próg 6,5° wydany w v0.3.5. Z szarej strefy na żywo sprawdzone
-   `[35092]` i `[35260]`; `[35424]`, `[35572]`, `[35598]` tylko dry-run.
+1. Obie poprawki wyżej wydane w v0.3.6, operator ją zainstalował.
+2. Próg 6,5° wydany w v0.3.5. Cała szara strefa sprawdzona na żywo
+   (2026-09-30, v0.3.6, ocena operatora „tak”): `[35092]`, `[35260]`,
+   `[35598]`, `[35424]`, `[35572]`. Wzorzec za każdym razem ten sam: „Usuń”
+   kasuje `24` i `4` (pół ścięcia), całkowita długość przetrwa, „Wstaw”
+   dodaje `48` i — jeśli brak — `7` (pełne ścięcie).
+3. `[35066]` sprawdzony na żywo (2026-09-30, v0.3.6): rura 550, ścięcia
+   63,9° (długie, do X=89,73) i 25,1°. „Usuń” skasował `72` i `18` (punkt
+   w połowie krawędzi ścięcia — operator: „do wywalenia”), `90`, `11`,
+   `11`, `21`, `10`; łańcuch `21`+`11`+`11` się nie rozsypał, promień
+   przetrwał. „Wstaw”: `90` i `20` (długości), `42` ×2 (szerokości),
+   promień → `42`. Średnica jest więc na rysunku 3 razy — szerokość ścięcia
+   okrągłej rury to ZAWSZE średnica. Operator: zostawić bez zmian (opcje
+   „średnica raz na rysunek” / „raz na widok” odrzucone). Szerokość przy
+   stromym ścięciu ma końce przesunięte o 10,6 mm wzdłuż rury (wartość OK).
+4. `[35016]` sprawdzony na żywo (2026-09-30, v0.3.6, „jest dobrze”): rura
+   856, ścięcia 19,9° i 45°. Skasowane `8`, `42` (pełna długość ścięcia
+   45°, ale z końcem na osi — „Wstaw” dodał ją z powrotem w drugim widoku),
+   pięć `21`; `856` i `15` przetrwały.
+5. `[35010]` sprawdzony na żywo (2026-09-30, v0.3.6, „ma wszystko”): rura
+   2677, oba końce 45°. Skasowane dwa `21` do osi, `2677` i `42` (długość
+   ścięcia) przetrwały; oba promienie → `42`, „Wstaw” dodał długość i dwie
+   szerokości. Lista „proponowanych” rysunków z 29.09 wyczerpana.
+6. Rysunki „Einzelteil Bogen” z kandydatami (`[35085]`, `[35086]`, `[35091]`)
+   to PROSTE rury (oś z 2 punktów, `Handlauf RO42.4`) — „Bogen” to tylko
+   nazwa rysunku, guard łuków działa poprawnie. Na żywo (2026-09-30,
+   v0.3.6, „opisuje wszystko”): `[35085]` (550, 63,9°/25,1°, lustro
+   `[35066]`), `[35091]` (537, dwa 45°, długości `42` już były), `[35098]`
+   (407, 64,3°/39,6°, rura ze spadkiem; łańcuch `19`+`352`+`20`+`16`
+   malał po jednym, `352` przetrwało samo — ma >300 mm).
+7. Log w oknie programu (2026-09-30, prośba operatora): czyści się dopiero
+   przy operacji na INNYM rysunku (`MainForm.BeginLog`, porównanie Mark),
+   nie przy każdym kliku. Log zostaje po przełączeniu rysunku aż do
+   pierwszego kliku — operator: „zostawmy tak”, bez zegara.
+8. Dalsze testy na żywo (2026-09-30 po południu, v0.3.6, „opisuje”):
+   `[35028]` (537, 45°/44,8°; płaskie `23` — od osi na końcu do punktu w
+   połowie ścięcia — ZOSTAJE, operator bez uwag), `[35052]` (537, dwa 45°;
+   `42` do osi skasowane w jednym widoku, „Wstaw” dodał je w drugim),
+   `[3.5029]` (537, 44,8°/45°, lustro `[35028]`).
+9. **Koniec poniżej progu kąta może zostać bez wymiarów** — `[35027]`
+   (373, 44,9°/4,8°, 2026-09-30): „Usuń” skasował `21`, `21`, `2` przy
+   końcu 4,8° (cut-zone liczy KAŻDĄ ścianę cięcia, filtr kąta dotyczy tylko
+   wstawiania), „Wstaw” nic tam nie dodał; zostały `373` i adnotacja kąta
+   `4.75°`. Operator: rysunek opisuje wszystko. `373` ma głębię Z i dotyka
+   osi — chroni go tylko filtr 300 mm, cut-zone też by go odrzucił.
+10. `[35019]` (806, 19,9°/45°, 2026-09-30, „przeszedł”): `15` i `42` do osi
+   skasowane w jednym widoku, „Wstaw” dodał je w drugim. **Nowy przypadek
+   złego położenia: dwie szerokości `42` (po jednej na koniec) wstawione
+   jedna na drugiej** — ten sam kierunek odsunięcia (`Up`=(1,0,0)), więc
+   ta sama strona rury; operator przesunął ręcznie. Znana słabość `side`/
+   `Distance`, tym razem z nakładaniem.
 3. 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
    otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
    (Lively/mpv, ~27% GPU). Po jej zamknięciu i czystej reinstalacji
@@ -1398,7 +1448,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   v0.3.3 (2026-09-29: rozciąganie nie rusza wymiaru całkowitej długości, styl wzorca z innego widoku) →
   v0.3.4 (2026-09-29: gięte rury pomijane przy kasowaniu i wstawianiu, diagnostyka widoku/kąta cięcia, refaktor bez zmiany reguł — geometria tylko w `NotchPilot`, poprawka nakładania się przycisków pod paskiem „nowsza wersja”) →
   v0.3.5 (2026-09-30: próg kąta cięcia 10° → 6,5°, PR #39) →
-  v0.3.6 (2026-09-30: „Usuń” nie kasuje całkowitej długości krótkich rur, rozciąganie promienia do osi na drugim końcu, PR #42). Release na GitHubie tworzy operator
+  v0.3.6 (2026-09-30: „Usuń” nie kasuje całkowitej długości krótkich rur, rozciąganie promienia do osi na drugim końcu, PR #42) →
+  v0.3.7 (2026-09-30: log w oknie czyszczony dopiero przy innym rysunku, PR #46, reguły bez zmian). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
