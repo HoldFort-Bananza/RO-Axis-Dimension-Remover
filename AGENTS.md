@@ -194,8 +194,13 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
 
 **NA DALEJ (stan 2026-09-30):**
 1. Obie poprawki wyżej wydane w v0.3.6, operator ją zainstalował.
-2. Próg 6,5° wydany w v0.3.5. Z szarej strefy na żywo sprawdzone
-   `[35092]` i `[35260]`; `[35424]`, `[35572]`, `[35598]` tylko dry-run.
+2. Próg 6,5° wydany w v0.3.5. Cała szara strefa sprawdzona na żywo
+   (2026-09-30, v0.3.6, ocena operatora „tak”): `[35092]`, `[35260]`,
+   `[35598]`, `[35424]`, `[35572]`. Wzorzec za każdym razem ten sam: „Usuń”
+   kasuje `24` i `4` (pół ścięcia), całkowita długość przetrwa, „Wstaw”
+   dodaje `48` i — jeśli brak — `7` (pełne ścięcie).
+3. `[35066]`: „Usuń” skasowałby m.in. `72` i `90` — długie jak na artefakt,
+   choć w obrębie ścięcia. Przed kliknięciem pokazać operatorowi.
 3. 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
    otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
    (Lively/mpv, ~27% GPU). Po jej zamknięciu i czystej reinstalacji
