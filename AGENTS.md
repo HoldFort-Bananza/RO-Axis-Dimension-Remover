@@ -216,6 +216,17 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    2677, oba końce 45°. Skasowane dwa `21` do osi, `2677` i `42` (długość
    ścięcia) przetrwały; oba promienie → `42`, „Wstaw” dodał długość i dwie
    szerokości. Lista „proponowanych” rysunków z 29.09 wyczerpana.
+6. Rysunki „Einzelteil Bogen” z kandydatami (`[35085]`, `[35086]`, `[35091]`)
+   to PROSTE rury (oś z 2 punktów, `Handlauf RO42.4`) — „Bogen” to tylko
+   nazwa rysunku, guard łuków działa poprawnie. Na żywo (2026-09-30,
+   v0.3.6, „opisuje wszystko”): `[35085]` (550, 63,9°/25,1°, lustro
+   `[35066]`), `[35091]` (537, dwa 45°, długości `42` już były), `[35098]`
+   (407, 64,3°/39,6°, rura ze spadkiem; łańcuch `19`+`352`+`20`+`16`
+   malał po jednym, `352` przetrwało samo — ma >300 mm).
+7. Log w oknie programu (2026-09-30, prośba operatora): czyści się dopiero
+   przy operacji na INNYM rysunku (`MainForm.BeginLog`, porównanie Mark),
+   nie przy każdym kliku. Log zostaje po przełączeniu rysunku aż do
+   pierwszego kliku — operator: „zostawmy tak”, bez zegara.
 3. 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
    otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
    (Lively/mpv, ~27% GPU). Po jej zamknięciu i czystej reinstalacji

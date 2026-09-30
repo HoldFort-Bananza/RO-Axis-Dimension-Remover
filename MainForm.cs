@@ -14,6 +14,12 @@ namespace RoAxisDimensionRemover
     {
         private bool _busy;
 
+        // Operator (2026-09-30): log ma zostać przez wszystkie operacje na
+        // jednym rysunku (Usuń w kilku widokach, potem Wstaw), a czyścić się
+        // dopiero przy przejściu na inny. Tekla nie daje zdarzenia zamknięcia
+        // rysunku, więc porównujemy Mark aktywnego rysunku przy każdym kliku.
+        private string _logDrawingMark;
+
         private Button _runButton;
         private Button _insertNotchButton;
         private TextBox _logBox;
@@ -196,8 +202,6 @@ namespace RoAxisDimensionRemover
         {
             if (_busy) return;
 
-            _logBox.Clear();
-            Log($"===== {DateTime.Now:HH:mm:ss} USUŃ WYMIARY DO OSI =====");
             _busy = true;
             _runButton.Enabled = false;
 
@@ -215,6 +219,7 @@ namespace RoAxisDimensionRemover
                     _statusLabel.Text = "Brak otwartego rysunku.";
                     return;
                 }
+                BeginLog(drawing, "USUŃ WYMIARY DO OSI");
 
                 // Podejrzenie: zawieszenie zaczęło się po dodaniu
                 // TeklaWindowFocus.BringToFront() TUŻ PRZED startem pickera -
@@ -313,8 +318,6 @@ namespace RoAxisDimensionRemover
                 return;
             }
 
-            _logBox.Clear();
-            Log($"===== {DateTime.Now:HH:mm:ss} WSTAWIANIE WYMIARU WCIĘCIA =====");
             _busy = true;
             try
             {
@@ -330,6 +333,7 @@ namespace RoAxisDimensionRemover
                     _statusLabel.Text = "Brak otwartego rysunku.";
                     return;
                 }
+                BeginLog(drawing, "WSTAWIANIE WYMIARU WCIĘCIA");
 
                 int insertedCount = NotchPilot.InsertMissing(drawing, Log);
                 bool anyInserted = insertedCount > 0;
@@ -421,6 +425,20 @@ namespace RoAxisDimensionRemover
         // znika razem z sesją. Jeden plik na uruchomienie.
         private static readonly string DiagLogPath = System.IO.Path.Combine(
             Application.StartupPath, "logs", $"session_{DateTime.Now:yyyyMMdd_HHmmss}.log");
+
+        private void BeginLog(Drawing drawing, string operation)
+        {
+            if (drawing.Mark != _logDrawingMark)
+            {
+                _logBox.Clear();
+                _logDrawingMark = drawing.Mark;
+            }
+            else
+            {
+                Log("");
+            }
+            Log($"===== {DateTime.Now:HH:mm:ss} {operation} ({drawing.Mark}) =====");
+        }
 
         private void Log(string message)
         {
