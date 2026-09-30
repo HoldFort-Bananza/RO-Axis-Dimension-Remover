@@ -57,8 +57,11 @@ Sekcje niżej to dziennik chronologiczny (23.09 → 29.09); ta jest skrótem
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.5 (2026-09-30) = v0.3.4 + próg kąta cięcia 6,5° (PR
-#39, #40); instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.5.exe`,
+**Wydanie:** v0.3.6 (2026-09-30) = v0.3.5 + ochrona całkowitej długości
+krótkich rur przy „Usuń” + rozciąganie promienia do osi na drugim końcu
+(PR #42); instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.6.exe`.
+Wcześniej v0.3.5 (2026-09-30) = v0.3.4 + próg kąta cięcia 6,5° (PR
+#39, #40),
 release na GitHubie tworzy operator. Wcześniej v0.3.4 — tag na `release`
 (2026-09-29, PR #35, #36, #37). v0.3.4 = porządki bez zmiany reguł +
 poprawka paska + **pomijanie giętych rur** (v0.3.3 kasowała na łukach dobre
@@ -188,8 +191,8 @@ rysunków: 22 → 23 rozciągnięcia, jedyne nowe to `[35101]` (`17` → `34`).
 Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
 
 **NA DALEJ (stan 2026-09-30):**
-1. Operator ma zainstalowaną v0.3.5. Obie poprawki wyżej są na `dev`,
-   niewydane — do v0.3.6.
+1. Obie poprawki wyżej wydane w v0.3.6. Operator ma zainstalowaną v0.3.5 —
+   do zainstalowania (krótkie rury!).
 2. Pokazać operatorowi `25` na `[35244]` i `112` na `[35076]` — czy mają
    zostać (poprawka ich już nie kasuje).
 3. Próg 6,5° wydany w v0.3.5. Z szarej strefy na żywo sprawdzone
@@ -1394,7 +1397,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   z kierunkiem, diagnostyka nie przeładowuje otwartego rysunku; **miała błąd** — patrz „BŁĄD W WYDANEJ v0.3.2”) →
   v0.3.3 (2026-09-29: rozciąganie nie rusza wymiaru całkowitej długości, styl wzorca z innego widoku) →
   v0.3.4 (2026-09-29: gięte rury pomijane przy kasowaniu i wstawianiu, diagnostyka widoku/kąta cięcia, refaktor bez zmiany reguł — geometria tylko w `NotchPilot`, poprawka nakładania się przycisków pod paskiem „nowsza wersja”) →
-  v0.3.5 (2026-09-30: próg kąta cięcia 10° → 6,5°, PR #39). Release na GitHubie tworzy operator
+  v0.3.5 (2026-09-30: próg kąta cięcia 10° → 6,5°, PR #39) →
+  v0.3.6 (2026-09-30: „Usuń” nie kasuje całkowitej długości krótkich rur, rozciąganie promienia do osi na drugim końcu, PR #42). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
