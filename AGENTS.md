@@ -57,9 +57,10 @@ Sekcje niżej to dziennik chronologiczny (23.09 → 29.09); ta jest skrótem
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.4 — tag na `release` (2026-09-29, PR #35, #36, #37);
-instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.4.exe`,
-release na GitHubie tworzy operator. v0.3.4 = porządki bez zmiany reguł +
+**Wydanie:** v0.3.5 (2026-09-30) = v0.3.4 + próg kąta cięcia 6,5° (PR
+#39, #40); instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.5.exe`,
+release na GitHubie tworzy operator. Wcześniej v0.3.4 — tag na `release`
+(2026-09-29, PR #35, #36, #37). v0.3.4 = porządki bez zmiany reguł +
 poprawka paska + **pomijanie giętych rur** (v0.3.3 kasowała na łukach dobre
 wymiary — patrz „Przegląd 2026-09-29 po południu”). Skrót z pulpitu
 wskazuje na zainstalowaną kopię (NIE na `bin`). **v0.3.2 miała błąd
