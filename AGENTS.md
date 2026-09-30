@@ -57,9 +57,10 @@ Sekcje niżej to dziennik chronologiczny (23.09 → 29.09); ta jest skrótem
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.4 — tag na `release` (2026-09-29, PR #35, #36, #37);
-instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.4.exe`,
-release na GitHubie tworzy operator. v0.3.4 = porządki bez zmiany reguł +
+**Wydanie:** v0.3.5 (2026-09-30) = v0.3.4 + próg kąta cięcia 6,5° (PR
+#39, #40); instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.5.exe`,
+release na GitHubie tworzy operator. Wcześniej v0.3.4 — tag na `release`
+(2026-09-29, PR #35, #36, #37). v0.3.4 = porządki bez zmiany reguł +
 poprawka paska + **pomijanie giętych rur** (v0.3.3 kasowała na łukach dobre
 wymiary — patrz „Przegląd 2026-09-29 po południu”). Skrót z pulpitu
 wskazuje na zainstalowaną kopię (NIE na `bin`). **v0.3.2 miała błąd
@@ -168,7 +169,9 @@ wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
 **NA DALEJ (stan 2026-09-30):**
 1. Release v0.3.4 jest na GitHubie z instalatorem; operator ma jeszcze
    zainstalowaną v0.3.3 — do zainstalowania (łuki!).
-2. Próg 6,5° jest na `dev` po PR, niewydany — do następnego wydania.
+2. Próg 6,5° wydany w v0.3.5 (2026-09-30). Pozostałe cztery rysunki
+   szarej strefy (`[35260]`, `[35424]`, `[35572]`, `[35598]`) — tylko
+   dry-run, operator wydał bez oglądania na żywo.
 3. 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
    otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
    (Lively/mpv, ~27% GPU). Po jej zamknięciu i czystej reinstalacji
@@ -1364,7 +1367,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   v0.3.2 (2026-09-29: rozciąganie promienia do średnicy, `HasSameDimension`
   z kierunkiem, diagnostyka nie przeładowuje otwartego rysunku; **miała błąd** — patrz „BŁĄD W WYDANEJ v0.3.2”) →
   v0.3.3 (2026-09-29: rozciąganie nie rusza wymiaru całkowitej długości, styl wzorca z innego widoku) →
-  v0.3.4 (2026-09-29: gięte rury pomijane przy kasowaniu i wstawianiu, diagnostyka widoku/kąta cięcia, refaktor bez zmiany reguł — geometria tylko w `NotchPilot`, poprawka nakładania się przycisków pod paskiem „nowsza wersja”). Release na GitHubie tworzy operator
+  v0.3.4 (2026-09-29: gięte rury pomijane przy kasowaniu i wstawianiu, diagnostyka widoku/kąta cięcia, refaktor bez zmiany reguł — geometria tylko w `NotchPilot`, poprawka nakładania się przycisków pod paskiem „nowsza wersja”) →
+  v0.3.5 (2026-09-30: próg kąta cięcia 10° → 6,5°, PR #39). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
