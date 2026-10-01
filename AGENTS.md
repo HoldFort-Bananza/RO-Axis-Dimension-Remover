@@ -367,12 +367,24 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    cięcia z końcem na osi) i `10`; `210` (płaskie) przetrwało. Wstaw:
    szerokość `48` na zewnątrz końca, długość `20` (płaska, w drugim widoku),
    promień `24` → `48`.
+26. `[35100]` (2026-10-01, v0.3.9, Shift, „poza tym jest git”): `Knielauf`
+   `RO33.7*3.2`, rura 157, jedno cięcie 45°. Usuń: `17` (z głębią) i `34`
+   (długość z końcem na osi); `157` i płaskie `17` przetrwały. Wstaw:
+   długość `34`, szerokość `34`, promień `17` → `34`. **Czwarty przypadek
+   „długość w cudzej ramce”**: `34` wstawione w górę, w ramkę górnego
+   widoku; operator przeniósł je pod dolny widok i wskazał to jako lepsze.
+   Wzorzec z 4 przypadków (`[35020]`, `[35067]`, `[35288]`, `[35100]`):
+   długość dostaje zawsze `Up` = +prostopadła, a jej widok leży NIŻEJ na
+   arkuszu niż sąsiedni. Na `[35660]` (widok z długością wyżej) `Up` w
+   górę był dobry. Hipoteza do sprawdzenia danymi: zwrot `Up` długości w
+   stronę OD sąsiedniego widoku (porównanie `View.Origin`). Niezmierzone:
+   czy lokalne +Y widoku = +Y arkusza na wszystkich rysunkach.
 
 **Proponowany następny krok:** kolejne rysunki ze skanu, tym samym cyklem.
-(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]`, `[35663]` sprawdzone 01.10; rysunki `[3.5xxx]` z listy nieaktualne względem modelu — zaktualizować w Tekli przed testem.) Niesprawdzone na żywo:
+(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]`, `[35663]`, `[35100]` sprawdzone 01.10; rysunki `[3.5xxx]` z listy nieaktualne względem modelu — zaktualizować w Tekli przed testem.) Niesprawdzone na żywo:
 `[3.5028]`, `[3.5068]`, `[3.5003]`,
 `[3.5002]`, `[3.5030]`,
-`[35100]`, `[35077]`, `[35073]`. Dobierać
+`[35077]`, `[35073]`. Dobierać
 też rysunki z wymiarem, który MA przetrwać — brak takiego w testach
 przepuścił błąd v0.3.2.
 
