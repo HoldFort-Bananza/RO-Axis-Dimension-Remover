@@ -5,12 +5,14 @@ z profilem RO (rura okrągła). Dwa przyciski:
 
 1. **Usuń wymiary do osi** — w jednym widoku wskazanym kliknięciem kasuje
    wymiary, które Tekla przy skośnym cięciu zaczepiła o teoretyczną **oś**
-   rury zamiast o jej powierzchnię. Przycisk **naprawdę kasuje**
+   rury zamiast o jej powierzchnię. Kasuje tylko wymiar, którego oba końce
+   leżą w obrębie ściany cięcia, więc całkowita długość rury zostaje.
+   Widoki z giętą rurą pomija. Przycisk **naprawdę kasuje**
    (`dryRun: false`), Ctrl+Z w Tekli cofa.
-2. **Wstaw wymiar wcięcia** — dla każdej skośnej ściany cięcia (≥ 10°)
-   dorysowuje brakującą długość i szerokość wcięcia, a płaski wymiar
-   promienia przy skosie zamienia na średnicę. Nie dubluje wymiarów, które
-   już są.
+2. **Wstaw wymiar wcięcia** — dla każdej skośnej ściany cięcia (≥ 6,5°)
+   prostej rury dorysowuje brakującą długość i szerokość wcięcia, a płaski
+   wymiar promienia przy skosie zamienia na średnicę. Nie dubluje wymiarów,
+   które już są.
 
 Pełna historia reguły wykrywania, "brama bezpieczeństwa", przez którą musi
 przejść każda jej zmiana, i znane ograniczenia są w `AGENTS.md` — to on jest
