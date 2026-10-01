@@ -362,12 +362,17 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    (`21` → `42`). **`5796` przetrwało** — warunek `Up` wzdłuż osi z v0.3.3
    działa. W każdym widoku średnica i długość cięcia mają te same końce,
    różne `Up` (przy 45° obie `42`).
+25. `[35663]` (2026-10-01, v0.3.9, Shift, „opisuje wszystko co powinien”):
+   `Leiter` `RO48.3*3.6`, rura 210, jedno cięcie 22,6°. Usuń: `20` (długość
+   cięcia z końcem na osi) i `10`; `210` (płaskie) przetrwało. Wstaw:
+   szerokość `48` na zewnątrz końca, długość `20` (płaska, w drugim widoku),
+   promień `24` → `48`.
 
 **Proponowany następny krok:** kolejne rysunki ze skanu, tym samym cyklem.
-(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]` sprawdzone 01.10; `[3.5028]` nieaktualny względem modelu — zaktualizować rysunek w Tekli przed testem.) Niesprawdzone na żywo:
+(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]`, `[35663]` sprawdzone 01.10; rysunki `[3.5xxx]` z listy nieaktualne względem modelu — zaktualizować w Tekli przed testem.) Niesprawdzone na żywo:
 `[3.5028]`, `[3.5068]`, `[3.5003]`,
 `[3.5002]`, `[3.5030]`,
-`[35663]`, `[35100]`, `[35077]`, `[35073]`. Dobierać
+`[35100]`, `[35077]`, `[35073]`. Dobierać
 też rysunki z wymiarem, który MA przetrwać — brak takiego w testach
 przepuścił błąd v0.3.2.
 
