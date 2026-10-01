@@ -313,10 +313,21 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    widok 2 (z `4350`) — nic, zgodnie z `--diag-active`. Wstaw: dwie
    długości `42` w opróżnionym widoku (we własnej ramce), dwie szerokości
    `42` po przeciwnych stronach.
+17. `[35019]` ponownie (2026-10-01, Shift, „yep”): drugi test Shift. Ten sam
+   zestaw co rano przy klikaniu widoków po kolei (skasowane `15`, `42` /
+   `21`, `21`, `8`, `21`; wstawione te same 4 wymiary, te same końce).
+   Inne tylko `Distance` po insercie — prawa długość `42` z dolnego widoku
+   dotyka napisu szerokości `42` w górnym (znana słabość położenia, nie
+   Shift).
+18. `[35068]` (2026-10-01, Shift, „jest dobrze”): **pierwsza rura
+   `RO33.7*3.2`** (`Knielauf`), 587, 19,9° / 39,8°. Usuń: `17`, `17`, `14`,
+   `6` do osi, `587` przetrwało. Wstaw: długości `28` i `12` w widoku z
+   `587`, dwie szerokości `34` po przeciwnych stronach w pustym widoku —
+   wartości z geometrii tej średnicy, reguła nie zakłada 42,4.
 
 **Proponowany następny krok:** kolejne rysunki ze skanu, tym samym cyklem.
-(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]` sprawdzone 01.10.) Niesprawdzone na żywo:
-`[3.5028]`, `[35068]`, `[3.5068]`, `[3.5003]`,
+(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]` sprawdzone 01.10; `[3.5028]` nieaktualny względem modelu — zaktualizować rysunek w Tekli przed testem.) Niesprawdzone na żywo:
+`[3.5028]`, `[3.5068]`, `[3.5003]`,
 `[3.5002]`, `[35030]`, `[3.5030]`, `[35288]`, `[35099]`, `[35055]`,
 `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]`. Dobierać
 też rysunki z wymiarem, który MA przetrwać — brak takiego w testach
