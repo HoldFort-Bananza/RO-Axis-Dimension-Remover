@@ -304,10 +304,11 @@ namespace RoAxisDimensionRemover
                         continue;
                     }
                     var axis = BeamAxis(modelPart);
+                    var centre = modelPart is TSM.Beam b ? new TSG.Point((b.StartPoint.X + b.EndPoint.X) / 2, (b.StartPoint.Y + b.EndPoint.Y) / 2, (b.StartPoint.Z + b.EndPoint.Z) / 2) : null;
                     foreach (var (majorChord, minorChord) in FindQualifyingChordPairs(modelPart, axis))
                     {
-                        InsertResolvedIfMissing(views, drawing, majorChord, longest: true, label: "długości", axis, CountingLog, dryRun);
-                        InsertResolvedIfMissing(views, drawing, minorChord, longest: false, label: "szerokości", axis, CountingLog, dryRun);
+                        InsertResolvedIfMissing(views, drawing, majorChord, longest: true, label: "długości", axis, centre, CountingLog, dryRun);
+                        InsertResolvedIfMissing(views, drawing, minorChord, longest: false, label: "szerokości", axis, centre, CountingLog, dryRun);
                         StretchRadiusToDiameter(views, drawing, majorChord, axis, CountingLog, dryRun);
                     }
                 }
@@ -412,7 +413,7 @@ namespace RoAxisDimensionRemover
         // żadnym akurat na tym złączu, ale nie zakładamy tego na sztywno -
         // więcej niż jeden płaski widok = niejednoznaczne, WSTRZYMAJ się
         // zamiast zgadywać który wybrać.
-        private static void InsertResolvedIfMissing(List<View> views, Drawing drawing, (TSG.Point A, TSG.Point B) chordModel, bool longest, string label, TSG.Vector axisModel, Action<string> log, bool dryRun)
+        private static void InsertResolvedIfMissing(List<View> views, Drawing drawing, (TSG.Point A, TSG.Point B) chordModel, bool longest, string label, TSG.Vector axisModel, TSG.Point partCentre, Action<string> log, bool dryRun)
         {
             View flatView = null;
             TSG.Point start = null, end = null;
@@ -447,6 +448,17 @@ namespace RoAxisDimensionRemover
             var axisView = ToViewSpaceVector(axisModel, flatView.DisplayCoordinateSystem);
             var perpView = new TSG.Vector(-axisView.Y, axisView.X, 0);
             var side = longest ? perpView : axisView;
+            // Zmierzone 2026-10-01 na [35019]: obie szerokości (po jednej na
+            // koniec rury) z tym samym Up=oś Tekla odsunęła za TEN SAM koniec -
+            // jedna na drugiej. Istniejące wymiary Tekli przy końcach mają Up
+            // od środka rury na zewnątrz (+oś przy dalekim końcu, -oś przy
+            // bliskim), więc szerokość dostaje Up w stronę swojego końca.
+            if (!longest && partCentre != null)
+            {
+                var fromCentre = new TSG.Vector((chordModel.A.X + chordModel.B.X) / 2 - partCentre.X,
+                    (chordModel.A.Y + chordModel.B.Y) / 2 - partCentre.Y, (chordModel.A.Z + chordModel.B.Z) / 2 - partCentre.Z);
+                if (fromCentre.Dot(axisModel) < 0) side = new TSG.Vector(-side.X, -side.Y, -side.Z);
+            }
 
             if (HasSameDimension(flatView, start, end, side))
             {
@@ -477,7 +489,7 @@ namespace RoAxisDimensionRemover
 
             if (dryRun)
             {
-                log($"[dry-run] brakująca {label} wcięcia: wstawiłbym {displayedValue:F2} mm, Start=({start.X:F2};{start.Y:F2};{start.Z:F2}) End=({end.X:F2};{end.Y:F2};{end.Z:F2}) {ViewTag(flatView)}. Nic nie zmieniono.");
+                log($"[dry-run] brakująca {label} wcięcia: wstawiłbym {displayedValue:F2} mm, Start=({start.X:F2};{start.Y:F2};{start.Z:F2}) End=({end.X:F2};{end.Y:F2};{end.Z:F2}) Up=({side.X:F2};{side.Y:F2}) {ViewTag(flatView)}. Nic nie zmieniono.");
                 return;
             }
 
