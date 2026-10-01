@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Drawing;
 using System.Windows.Forms;
 using Tekla.Structures.Drawing;
@@ -42,7 +43,7 @@ namespace RoAxisDimensionRemover
 
             _runButton = new Button
             {
-                Text = "Usuń wymiary do osi na wybranym widoku (profile RO)",
+                Text = "Usuń wymiary do osi na wybranym widoku (profile RO)\nShift + klik: na wszystkich widokach rysunku",
                 Left = 15,
                 Top = 15,
                 Width = 470,
@@ -201,6 +202,11 @@ namespace RoAxisDimensionRemover
         private void RunButton_Click(object sender, EventArgs e)
         {
             if (_busy) return;
+            // Czytane od razu - Shift jest wciśnięty w chwili kliku, nie
+            // później. Opcja dla operatora (2026-10-01), domyślnie dalej
+            // jeden widok: z Shift nie da się pominąć widoku, którego nie
+            // chce się czyścić ([35020]).
+            bool allViews = (ModifierKeys & Keys.Shift) == Keys.Shift;
 
             _busy = true;
             _runButton.Enabled = false;
@@ -219,6 +225,41 @@ namespace RoAxisDimensionRemover
                     _statusLabel.Text = "Brak otwartego rysunku.";
                     return;
                 }
+                // dryRun: false - brama bezpieczeństwa dla POPRAWIONEJ
+                // reguły TouchesAxis PRZESZŁA 2026-09-23 (ten sam dzień co
+                // gate v5, druga runda tego dnia). Poprzednia reguła
+                // niepotrzebnie kasowała "21 mm" (płaski wymiar promienia
+                // rury, nie artefakt złącza) - operator zgłosił to na
+                // żywym [35021]. Naprawiona TouchesAxis (patrz komentarz
+                // przy niej w RoAxisDimensionService.cs: wymaga realnej
+                // głębi Z, nie tylko Y=0) zweryfikowana dry-runem na żywo na
+                // [35021] i NA OBU końcach [3.5013] (każdy koniec dał
+                // dokładnie 1 kandydata, "21 mm" zachowany). Operator
+                // obejrzał wynik w Tekli i wprost potwierdził na pytanie
+                // "czy rysunek nadal opisuje wszystko co musi" (tak) oraz na
+                // pytanie o realne kasowanie ("tak").
+                const bool dryRun = false;
+
+                if (allViews)
+                {
+                    BeginLog(drawing, "USUŃ WYMIARY DO OSI — WSZYSTKIE WIDOKI");
+                    // Ta sama reguła i te same guardy co dla jednego widoku -
+                    // RemoveAxisDimensions po kolei na każdym widoku arkusza,
+                    // dokładnie jak --diag-find-candidates. Każdy widok
+                    // zatwierdza się osobno, więc Ctrl+Z cofa widok po widoku
+                    // (operator: kilka Ctrl+Z jest OK).
+                    int total = 0, viewNumber = 0;
+                    foreach (var sheetView in DiagRunner.SheetViews(drawing).ToList())
+                    {
+                        viewNumber++;
+                        Log($"--- widok {viewNumber} ({sheetView.GetType().Name}) ---");
+                        total += RoAxisDimensionService.RemoveAxisDimensions(drawing, sheetView, Log, dryRun);
+                    }
+                    _statusLabel.Text = $"Gotowe. Wszystkie widoki ({viewNumber}). Usunięto {total} wymiarów. Ctrl+Z cofa widok po widoku.";
+                    if (!dryRun && total > 0) TeklaWindowFocus.BringToFront(Log);
+                    return;
+                }
+
                 BeginLog(drawing, "USUŃ WYMIARY DO OSI");
 
                 // Podejrzenie: zawieszenie zaczęło się po dodaniu
@@ -258,20 +299,6 @@ namespace RoAxisDimensionRemover
                 }
                 string viewLabel = view.GetType().Name;
 
-                // dryRun: false - brama bezpieczeństwa dla POPRAWIONEJ
-                // reguły TouchesAxis PRZESZŁA 2026-09-23 (ten sam dzień co
-                // gate v5, druga runda tego dnia). Poprzednia reguła
-                // niepotrzebnie kasowała "21 mm" (płaski wymiar promienia
-                // rury, nie artefakt złącza) - operator zgłosił to na
-                // żywym [35021]. Naprawiona TouchesAxis (patrz komentarz
-                // przy niej w RoAxisDimensionService.cs: wymaga realnej
-                // głębi Z, nie tylko Y=0) zweryfikowana dry-runem na żywo na
-                // [35021] i NA OBU końcach [3.5013] (każdy koniec dał
-                // dokładnie 1 kandydata, "21 mm" zachowany). Operator
-                // obejrzał wynik w Tekli i wprost potwierdził na pytanie
-                // "czy rysunek nadal opisuje wszystko co musi" (tak) oraz na
-                // pytanie o realne kasowanie ("tak").
-                const bool dryRun = false;
                 int removedCount = RoAxisDimensionService.RemoveAxisDimensions(drawing, view, Log, dryRun);
                 _statusLabel.Text = dryRun
                     ? $"Gotowe (dry-run). Widok: {viewLabel}. Znaleziono {removedCount} wymiarów do usunięcia - nic nie skasowano. Sprawdź log, czy wygląda poprawnie."
