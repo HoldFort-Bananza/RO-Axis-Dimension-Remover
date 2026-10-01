@@ -25,7 +25,7 @@ ograniczenia, ma zostać szczegółowy, bo to baza do diagnozy).
 2. **Sprawdź `dryRun` w `MainForm.cs` (`RunButton_Click`) WPROST W PLIKU,
    nie z tego opisu, i sprawdź go NA BRANCHU, z którego faktycznie
    korzystasz** — `dev` i `release` mogą mieć RÓŻNY stan (patrz "Branche"
-   niżej). **Stan na 2026-09-29 (v0.3.3): `dryRun: false` — przycisk
+   niżej). **Stan na 2026-10-01 (v0.3.8): `dryRun: false` — przycisk
    NAPRAWDĘ kasuje**, reguła v6 przeszła bramę 2026-09-23 (patrz niżej).
    `DiagRunner.cs` (tryb konsolowy `--diag-*`) ma `dryRun` na sztywno
    `true` NA ZAWSZE, niezależnie od tego stanu — to się nigdy nie zmienia,
@@ -51,30 +51,22 @@ ograniczenia, ma zostać szczegółowy, bo to baza do diagnozy).
    włączyć realne kasowanie/tworzenie" retorycznie — naprawdę czekaj na
    wyraźne "tak" od człowieka, konkretnie na TO pytanie.
 
-## START SESJI TUTAJ — stan na koniec 2026-09-30
+## START SESJI TUTAJ — stan na 2026-10-01
 
-Sekcje niżej to dziennik chronologiczny (23.09 → 30.09); ta jest skrótem
+Sekcje niżej to dziennik chronologiczny (23.09 → 01.10); ta jest skrótem
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.8 (2026-10-01) = v0.3.7 + szerokości wcięcia odsuwane
-na zewnątrz swojego końca rury (PR #51, koniec nakładania na `[35019]`);
-instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.8.exe`.
-Wcześniej v0.3.7 (2026-09-30) = v0.3.6 + log w oknie czyszczony
-dopiero przy innym rysunku (PR #46), reguły bez zmian; instalator
-`installer\output\RoAxisDimensionRemover-Setup-v0.3.7.exe`. Wcześniej
-v0.3.6 (2026-09-30) = v0.3.5 + ochrona całkowitej długości
-krótkich rur przy „Usuń” + rozciąganie promienia do osi na drugim końcu
-(PR #42); instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.6.exe`.
-Wcześniej v0.3.5 (2026-09-30) = v0.3.4 + próg kąta cięcia 6,5° (PR
-#39, #40),
-release na GitHubie tworzy operator. Wcześniej v0.3.4 — tag na `release`
-(2026-09-29, PR #35, #36, #37). v0.3.4 = porządki bez zmiany reguł +
-poprawka paska + **pomijanie giętych rur** (v0.3.3 kasowała na łukach dobre
-wymiary — patrz „Przegląd 2026-09-29 po południu”). Skrót z pulpitu
-wskazuje na zainstalowaną kopię (NIE na `bin`). **v0.3.2 miała błąd
-kasujący dane** (rozciąganie zamieniało wymiar całkowitej długości na `42`)
-— naprawione w v0.3.3, patrz sekcja „BŁĄD W WYDANEJ v0.3.2”.
+**Wydanie:** v0.3.9 (2026-10-01) = v0.3.8 + Shift + klik na „Usuń” czyści
+wszystkie widoki rysunku (PR #56), reguły bez zmian; instalator
+`installer\output\RoAxisDimensionRemover-Setup-v0.3.9.exe`. Wcześniej
+v0.3.8 (2026-10-01) = szerokości wcięcia odsuwane na zewnątrz swojego
+końca rury (PR #51, koniec nakładania na `[35019]`).
+Lista wszystkich wersji — sekcja „Wydania” niżej. Skrót z pulpitu wskazuje
+na zainstalowaną kopię (NIE na `bin`) — nowy build testować przez
+`bin\x64\Debug\net48\RoAxisDimensionRemover.exe`. Wersje z błędem
+kasującym dane: v0.3.2 (rozciąganie zjadało całkowitą długość), v0.3.3
+(łuki), v0.3.5 i starsze (całkowita długość krótkich rur) — opisy niżej.
 
 **Co robi program (dwa osobne przyciski):**
 1. „Usuń wymiary do osi” — jeden widok wskazany kliknięciem; guardy:
@@ -82,6 +74,12 @@ kasujący dane** (rozciąganie zamieniało wymiar całkowitej długości na `42`
    części w widoku (od v0.3.4); reguła v6
    (`TouchesAxis` z wymogiem głębi Z + filtr długości własnej 300 mm +
    od v0.3.6 oba końce wymiaru w obrębie jednej ściany cięcia, `CutZones`).
+   **Shift + klik** (od 2026-10-01, prośba operatora, opcja — nie
+   domyślne): ta sama `RemoveAxisDimensions` po kolei na każdym widoku
+   arkusza (`DiagRunner.SheetViews`, jak `--diag-find-candidates`), bez
+   pytania o widok. Każdy widok zatwierdza się osobno — Ctrl+Z cofa widok
+   po widoku (operator: OK). Nie da się nim pominąć widoku (przypadek
+   `[35020]`) — wtedy zwykły klik.
 2. „Wstaw wymiar wcięcia” — `NotchPilot.InsertMissing`, cały rysunek:
    guard `SinglePartDrawing`; gięte części pomijane (od v0.3.4); ściany
    cięcia ≥ 6,5° (od v0.3.5; wcześniej 10°); długość i szerokość
@@ -92,27 +90,33 @@ kasujący dane** (rozciąganie zamieniało wymiar całkowitej długości na `42`
    porównuje końce i `UpDirection`, więc ponowne kliknięcie nic nie dubluje.
 
 **Potwierdzone na żywo przez operatora (pytanie „czy rysunek opisuje
-wszystko”):** `[35021]`, `[3.5013]` (znów jest w modelu — wcześniejsze
-wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
-(kasowanie + wstawianie + rozciąganie, `256` przetrwało). Rysunek zespołu
-`[225.130]` i blacha `[21050]` — poprawnie odrzucone.
+wszystko”), 22 rysunki:** `[35021]`, `[3.5013]` (znów jest w modelu —
+wcześniejsze wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`,
+`[35020]`, `[35092]`, `[35260]`, `[35598]`, `[35424]`, `[35572]`,
+`[35101]`, `[35066]`, `[35016]`, `[35010]`, `[35085]`, `[35091]`,
+`[35098]`, `[35028]`, `[35052]`, `[3.5029]`, `[35027]`, `[35019]`
+(szczegóły w „NA DALEJ”). Rysunek zespołu `[225.130]` i blacha `[21050]`
+— poprawnie odrzucone.
 
 **Znane słabości (wszystkie zaakceptowane przez operatora):**
 - Położenie wstawionych wymiarów (`side` + `Distance` wzorca) bywa złe:
   przy krawędzi arkusza (`35` na `[35095]`), na rurze (`42` na `[35021]`),
   w cudzej ramce (`15` na `[35020]`). Najczęstsza poprawka ręczna.
+  Nakładanie dwóch szerokości na siebie naprawione w v0.3.8 (NA DALEJ
+  pkt 10).
 - Widok zawierający same wymiary do osi zostaje po „Usuń” pusty — operator:
   takiego widoku się nie klika. „Wstaw” i tak go uzupełni stylem z innego
   widoku.
 - Zagadka 24.09 (odrzucony koniec 45° na `[3.5013]`) nierozwiązana.
 - Picker wisi przy kliku w pustą część widoku — Esc.
-- ~~Na `[35010]` przy 45° kilka `42` w jednym widoku~~ — SPRAWDZONE
-  2026-09-29 (dry-run z widokiem w logu): to nie duplikaty. Szerokość
-  wcięcia zawsze trafia do INNEGO widoku niż rozciągnięta średnica (12
-  rysunków); dwa `42` w jednym widoku to średnica i długość cięcia, które
-  przy 45° mają tę samą wartość — jak na zaakceptowanym `[35095]`.
-- **ROZSTRZYGNIĘTE 2026-09-30: szara strefa filtra kąta 8–9° → próg
-  `MinCutAngleDegrees` 10° → 6,5°.** Skan 29.09: `[35092]` 8,7°, `[35260]`
+- Dwa `42` w jednym widoku przy 45° to NIE duplikaty (sprawdzone
+  2026-09-29 na 12 rysunkach): średnica i długość cięcia, które przy 45°
+  mają tę samą wartość. Szerokość wcięcia zawsze trafia do innego widoku.
+- „Usuń” i „Wstaw” to osobne przyciski, nie jeden przepływ. Pierwotna wizja
+  (skasuj i od razu wstaw) niezrealizowana — nie robić bez prośby operatora.
+
+**Próg kąta cięcia 10° → 6,5° (2026-09-30, v0.3.5) — szara strefa
+8–9°.** Skan 29.09: `[35092]` 8,7°, `[35260]`
   8,8°, `[35424]` 8,7°, `[35572]` 8,8°, `[35598]` 8,4° — przy 10° „Usuń”
   kasował tam wymiary do osi, a „Wstaw” nic nie dodawał. Operator na żywym
   `[35092]`: koniec 8,7° jest ścięty, `7` (długość skosu 6,52) dobre, `3`
@@ -126,7 +130,7 @@ wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
   niezależny odczyt zgodny z dry-runem → operator: „ma wszystko”.
   Pozostałe cztery rysunki — tylko dry-run, nie oglądane na żywo.
 
-**Środowisko i pułapki, które dziś kosztowały czas:**
+**Środowisko i pułapki, które kosztowały czas:**
 - Model testowy (~19 tys. części) NIE zapisuje się (limit licencji 2500) —
   zmiany na rysunku znikają po zamknięciu. Wygodne do testów.
 - Każdą nową operację zapisu weryfikować ODCZYTEM Z OSOBNEGO PROCESU
@@ -135,9 +139,20 @@ wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`, `[35020]`
 - `--diag-* "[Mark]"` nie przeładowuje już otwartego rysunku
   (`OpenUnlessActive`) — wcześniej cofało niezapisane zmiany operatora.
   Otwarcie INNEGO rysunku przez diag nadal zamyka bieżący.
-- `--diag-find-candidates` (cały model, 2298 rysunków) trwa > 10 min —
-  tylko w tle z wyjściem do pliku. Wynik 29.09: 74 rysunki z kandydatami,
-  22 z promieniem do rozciągnięcia (lista w sekcji „Test na `[35095]`”).
+- `--diag-find-candidates` (cały model, 2298 rysunków) trwa > 1 h (30.09,
+  Tekla urosła do 6 GB) — tylko w tle z wyjściem do pliku. Do porównań reguł
+  `--diag-find-candidates <plik z Mark>`: 61 rysunków z kandydatami
+  (`~/scans/marks.txt`) w 4,5 min. Pętla `--diag-notch-fill-dryrun` po tych
+  61 to ~1 min/rysunek, a rysunki nieaktualne względem modelu pomija
+  (9 z 31 na 01.10) — `--diag-find-candidates` je liczy.
+- `taskkill` przed buildem zamyka też program operatora — uprzedzić.
+- Diagnostyka otwierająca INNY rysunek zamyka ten, na którym operator
+  właśnie testuje — nie puszczać skanów w trakcie testu na żywo.
+- 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
+  otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
+  (Lively/mpv, ~27% GPU, ma autostart). Po jej zamknięciu i czystej
+  reinstalacji sterownika NVIDIA — spokój. Jeśli wróci: najpierw Lively,
+  potem `%USERPROFILE%\gpu-log.ps1` (logger karty co 2 s, wyłączony).
 - Wyjście konsoli jest w cp1250 — czytać przez `iconv -c -f cp1250 -t utf-8`.
   Bez `-c` iconv urywa wyjście na znaku spoza cp1250 (`≈` w
   `--diag-notch-raw`). Porównując dwa buildy, diffować surowe bajty.
@@ -199,9 +214,10 @@ całkowitej długości odrzuca już sam warunek `Up` wzdłuż osi. Skan 61
 rysunków: 22 → 23 rozciągnięcia, jedyne nowe to `[35101]` (`17` → `34`).
 Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
 
-**NA DALEJ (stan 2026-09-30):**
-1. Obie poprawki wyżej wydane w v0.3.6; v0.3.7 (log) wydana, operator
-   ma ją zainstalować.
+**NA DALEJ — dziennik testów na żywo (stan 2026-10-01):**
+1. Obie poprawki wyżej wydane w v0.3.6. v0.3.8 (odsunięcie szerokości)
+   zbudowana 01.10; operator miał zainstalowaną v0.3.6 — sprawdzić
+   `(Get-Item "$env:LOCALAPPDATA\Programs\RoAxisDimensionRemover\RoAxisDimensionRemover.exe").VersionInfo.ProductVersion`.
 2. Próg 6,5° wydany w v0.3.5. Cała szara strefa sprawdzona na żywo
    (2026-09-30, v0.3.6, ocena operatora „tak”): `[35092]`, `[35260]`,
    `[35598]`, `[35424]`, `[35572]`. Wzorzec za każdym razem ten sam: „Usuń”
@@ -261,21 +277,72 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    `[35662]` (pierwsze trzy oceniane wcześniej jako „opisuje” — nakładanie
    przeoczone). Brama na żywym `[35019]`: szerokości po obu stronach rury,
    niezależny odczyt zgodny z dry-runem, operator: „ma wszystko opisane”.
-11. 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
-   otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
-   (Lively/mpv, ~27% GPU). Po jej zamknięciu i czystej reinstalacji
-   sterownika NVIDIA — spokój. Jeśli wróci: `%USERPROFILE%\gpu-log.csv`
-   (logger `gpu-log.ps1`, co 2 s) pokaże stan karty przed padem.
+11. `[35660]` (2026-10-01, v0.3.8, „yep”): `Leiter` `RO48.3*3.6`, rura 93,
+   oba końce 22,6°. „Usuń” w widoku z wymiarami: `24`, `24`, `10`, `10`
+   do osi; `93` przetrwało. „Wstaw”: dwie długości `20` w tym widoku, dwie
+   szerokości `48` w pustym widoku (styl z innego widoku) — po przeciwnych
+   stronach rury, drugi przypadek poprawki v0.3.8. Obie `20` mają `Up` w
+   tę samą stronę, więc stoją jedna nad drugą (nie nakładają się); ciasno,
+   ale operator: „nie jest źle” — ładniej wymagałoby przesuwania widoków.
+12. `[35662]` (2026-10-01, v0.3.8, „opisuje wszystko”): lustro `[35660]`,
+   rura 91. Ten sam wynik: skasowane `24`, `24`, `10`, `10`; `91`
+   przetrwało; dwie `20` jedna nad drugą, dwie `48` po przeciwnych stronach
+   rury. Stare `10` miały `Up` w dół — nowe `20` i tak idą w górę (`perp`
+   z osi, nie z wzorca).
+13. `[35086]` (2026-10-01, v0.3.8, „wszystko potrzebne”): `Handlauf`
+   `RO42.4*3.2`, rura 407 (prosta mimo „Bogen”), 64,3° (do 89,65) /
+   39,6°, lustro `[35098]`. Usuń w obu widokach: `3`, `90`, `21`, `21`
+   (widok zostaje pusty) oraz `11`, `21`, `21`, `20`, `19`; `407` i
+   płaskie `35` (pełna długość cięcia 39,6°) przetrwały. Wstaw: płaskie
+   `90` w widoku z `407`, dwie `42` w pustym widoku po przeciwnych stronach
+   (trzeci przypadek v0.3.8). Adnotacje Tekli `9.04°`/`5.18°` w widoku
+   szerokości to kąty pozorne w rzucie, jak na `[35095]`.
+14. `[35067]` (2026-10-01, v0.3.8, „jest git”): `Handlauf` `RO42.4*3.2`,
+   rura 936, 19,9° / 25,1°. Usuń: `10`, `8`, cztery `21` — widok zostaje
+   pusty. Wstaw: długości `20` i `15` w tym pustym widoku (styl z widoku z
+   `936`), dwie `42` w widoku z `936` po przeciwnych stronach. **Drugi
+   przypadek (po `[35020]`) „pusty widok → wymiar w cudzej ramce”:** `20` i
+   `15` wylądowały w ramce widoku z `936` (`Distance` po insercie 421 i
+   329). Operator obniża ręcznie.
+15. `[35029]` (2026-10-01, v0.3.8, „jest dobrze”): rura 537, 44,8°/45°,
+   jak `[35028]`. Usuń: cztery `21` (widok pusty) oraz `42` i `21` do osi;
+   `537` i płaskie `23` przetrwały. Wstaw: dwie długości `42` w pustym
+   widoku — tym razem we własnej ramce — i dwie szerokości `42` po
+   przeciwnych stronach.
+16. `[35014]` (2026-10-01, build z repo, „ma wszystko”): `Gelaender`
+   `RO42.4*3.2`, rura 4350, oba końce 45°. **Pierwszy test trybu Shift**
+   („Usuń” z Shift = wszystkie widoki): widok 1 — sześć `21` do osi,
+   widok 2 (z `4350`) — nic, zgodnie z `--diag-active`. Wstaw: dwie
+   długości `42` w opróżnionym widoku (we własnej ramce), dwie szerokości
+   `42` po przeciwnych stronach.
+17. `[35019]` ponownie (2026-10-01, Shift, „yep”): drugi test Shift. Ten sam
+   zestaw co rano przy klikaniu widoków po kolei (skasowane `15`, `42` /
+   `21`, `21`, `8`, `21`; wstawione te same 4 wymiary, te same końce).
+   Inne tylko `Distance` po insercie — prawa długość `42` z dolnego widoku
+   dotyka napisu szerokości `42` w górnym (znana słabość położenia, nie
+   Shift).
+18. `[35068]` (2026-10-01, Shift, „jest dobrze”): **pierwsza rura
+   `RO33.7*3.2`** (`Knielauf`), 587, 19,9° / 39,8°. Usuń: `17`, `17`, `14`,
+   `6` do osi, `587` przetrwało. Wstaw: długości `28` i `12` w widoku z
+   `587`, dwie szerokości `34` po przeciwnych stronach w pustym widoku —
+   wartości z geometrii tej średnicy, reguła nie zakłada 42,4.
 
-- Pełny `--diag-find-candidates` 30.09 trwał ponad godzinę (Tekla urosła
-  do 6 GB) — do porównań reguł używać wersji z plikiem listy Mark (4,5 min
-  na 61 rysunków).
+**Proponowany następny krok:** kolejne rysunki ze skanu, tym samym cyklem.
+(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]` sprawdzone 01.10; `[3.5028]` nieaktualny względem modelu — zaktualizować rysunek w Tekli przed testem.) Niesprawdzone na żywo:
+`[3.5028]`, `[3.5068]`, `[3.5003]`,
+`[3.5002]`, `[35030]`, `[3.5030]`, `[35288]`, `[35099]`, `[35055]`,
+`[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]`. Dobierać
+też rysunki z wymiarem, który MA przetrwać — brak takiego w testach
+przepuścił błąd v0.3.2.
 
-**Proponowany następny krok** (operator nie zdecydował): 2–3 kolejne
-rysunki z listy skanu, tym samym cyklem (Usuń → Wstaw → odczyt z osobnego
-procesu → ocena operatora), najlepiej `[35016]`/`[35066]`/`[35092]` (7–8
-kandydatów do usunięcia) i `[35010]`. Dobierać też rysunki z wymiarem,
-który MA przetrwać — brak takiego w testach przepuścił błąd v0.3.2.
+**Cykl testu na żywo (sprawdzony, trzymać się):** operator otwiera rysunek
+→ `--diag-notch-raw`, `--diag-dimension-style`, `--diag-active`,
+`--diag-notch-fill-dryrun` → tabelka „widok / Usuń skasuje / zostaje /
+Wstaw doda”, widoki nazywane po zawartości → operator: Usuń w każdym
+widoku, Wstaw, wkleja log → odczyt `--diag-dimension-style` z osobnego
+procesu → pytanie BEZ podpowiedzi „Czy po tej operacji rysunek nadal
+opisuje wszystko, co musi opisywać?”. Wyniki kilku rysunków zbierać w
+jednej gałęzi z `AGENTS.md`, jeden PR.
 
 ## STAN NA 2026-09-23 — reguła v6 (poprawka TouchesAxis), brama przeszła DRUGI RAZ tego dnia
 
@@ -551,7 +618,7 @@ faktycznie daje wizualnie poprawny wynik, nie tylko liczbowo spójny.
 ### POTWIERDZONY NA ŻYWO nowy gap: bryła może mieć WIĘCEJ NIŻ JEDNĄ ścianę cięcia
 
 Test na drugim złączu (`--diag-mark "[3.5013]"` + `--diag-notch`,
-2026-09-23, dokładnie to, co pkt 1 "Następnych kroków" kazał zrobić przed
+2026-09-23, dokładnie to, co ówczesna lista następnych kroków kazała zrobić przed
 odblokowaniem pilota) pokazał realny przypadek: bryła tego złącza ma
 **DWIE** ściany cięcia (obie pierścienie z 2 pętlami, obie 24
 wierzchołki), nie jedną jak na `[35021]`:
@@ -582,9 +649,9 @@ WNIOSKU: to nie duplikat), ale mechanizm mógł być prostszy niż sądzono.
 złączu"** — obecny kod (i `NotchPilot.TryFindChord`, który ma tę samą
 "weź największy `LoopSpan` w całej bryle" logikę co stara wersja diagu) NIE
 ma jeszcze tej reguły. To nierozwiązane, potwierdzone na żywo, NIE
-hipoteza — patrz "Następne kroki" niżej.
+hipoteza — rozwiązane — patrz "Reguła dopasowania ściana↔wymiar" niżej.
 
-### Reguła dopasowania ściana↔wymiar — ZAPROJEKTOWANA I ZWERYFIKOWANA (2026-09-23), NIE WPIĘTA JESZCZE do `NotchPilot`
+### Reguła dopasowania ściana↔wymiar — ZAPROJEKTOWANA I ZWERYFIKOWANA (2026-09-23), wpięta do `NotchPilot` 2026-09-24
 
 Zaprojektowana na danych z `[35021]` (1 ściana) i `[3.5013]` (2 ściany) —
 bez trzeciego przykładu, na wyraźną decyzję operatora ("te co wiemy z 35021
@@ -717,9 +784,8 @@ skos jest tam widoczny/ważny), a nie tylko czy bryła ma tam drugą ścianę.
 zapisu** (nie Ctrl+Z) - rysunek z powrotem w stanie sprzed testu
 (potwierdzone `--diag-dimension-style`: 5 oryginalnych wymiarów, zero
 śladów testu). Blokada `PilotDrawingMark`/`AllowedRealInsertMarks` dla
-REALNEGO insertu NIE przeszła jeszcze pełnej bramy - patrz "Następne
-kroki" pkt 2/3, wymaga rozwiązania powyższego problemu domenowego
-najpierw.
+REALNEGO insertu NIE przeszła wtedy pełnej bramy (zdjęta 25.09 decyzją
+operatora — patrz "Zdjęcie blokady rysunku" niżej).
 
 **Próba rozwiązania problemu domenowego (2026-09-24, ODŁOŻONA - dwie
 hipotezy obalone danymi, operator zdecydował nie kopać dalej teraz):**
@@ -955,7 +1021,7 @@ kasuj), nigdy "zgaduj, że to RO".
   rysunków z kandydatami, WSZYSTKIE teraz `Geländer`/`Gitterrost`
   (poręcz/krata), `Bogen` (łuk poręczy), `Leiter` (drabina) - zero
   `Blech`/`Träger`/`Winkel`. Lista tych 96 rysunków to teraz gotowa pula
-  kandydatów do dalszych testów (np. problemu z "Następne kroki" pkt 2).
+  kandydatów do dalszych testów (np. zagadki 24.09 "ma ścianę cięcia ≠ potrzebuje wymiaru").
 
 **`DiagRunner.RunFindCandidatesDiag`** (nowa, trwała diagnostyka,
 `--diag-find-candidates`, bez argumentu - skanuje CAŁY model) woła
@@ -964,7 +1030,7 @@ PRAWDZIWĄ `RemoveAxisDimensions(dryRun: true)` zamiast duplikować
 samego guardu co produkcyjny przycisk, bez ryzyka, że ktoś naprawi jedno
 miejsce a zapomni o drugim.
 
-## Filtr kąta cięcia w `NotchPilot` (2026-09-25) - CZĘŚCIOWE rozwiązanie problemu z "Następne kroki" pkt 2
+## Filtr kąta cięcia w `NotchPilot` (2026-09-25) - CZĘŚCIOWE rozwiązanie zagadki 24.09 "ma ścianę cięcia ≠ potrzebuje wymiaru"
 
 Po znalezieniu nowego kandydata `[3.5027]` (przez `--diag-find-candidates`
 po tym, jak `[3.5013]` zniknęło z modelu) trafiono na kolejny przykład
@@ -1386,7 +1452,7 @@ Automatyzacja (w tym agent AI) nie klika w przycisk `MainForm`. `Program.cs`
 ma więc tryb konsolowy:
 
 ```
-RoAxisDimensionRemover.exe --diag-active           # aktywny rysunek w Tekli, wszystkie widoki, reguła v5
+RoAxisDimensionRemover.exe --diag-active           # aktywny rysunek w Tekli, wszystkie widoki, ta sama reguła co „Usuń”
 RoAxisDimensionRemover.exe --diag-mark "[3.5013]"  # otwiera rysunek po Mark, potem diagnostyka
 RoAxisDimensionRemover.exe --diag-notch            # tylko odczyt: geometria bryły + kandydat na wymiar wcięcia
 RoAxisDimensionRemover.exe --diag-dimension-style  # tylko odczyt: styl (Attributes/UpDirection/Distance) istniejących wymiarów
@@ -1396,7 +1462,7 @@ RoAxisDimensionRemover.exe --diag-view-objects "[3.5013]"  # tylko odczyt: typy 
 RoAxisDimensionRemover.exe --diag-notch-raw "[Mark]"       # tylko odczyt: WSZYSCY kandydaci na ścianę cięcia, obie cięciwy, bez filtra płaskości
 RoAxisDimensionRemover.exe --diag-notch-fill-dryrun "[Mark]"  # tylko odczyt: NotchPilot.InsertMissing w dry-run - reguła napędzana geometrią, nie wymiarem do osi
 RoAxisDimensionRemover.exe --diag-connection "[Mark]"      # tylko odczyt: typ/strony Connection dla każdego widoku (research "które złącze potrzebuje wymiaru")
-RoAxisDimensionRemover.exe --diag-find-candidates          # tylko odczyt, BEZ argumentu: skanuje CAŁY model, loguje rysunki z kandydatem (używa prawdziwej RemoveAxisDimensions, więc respektuje guard RO)
+RoAxisDimensionRemover.exe --diag-find-candidates [plik]   # tylko odczyt: bez argumentu CAŁY model (> 1 h), z plikiem (Mark w liniach) tylko te rysunki; prawdziwa RemoveAxisDimensions + InsertMissing w dry-run
 RoAxisDimensionRemover.exe --diag-view-bounds "[Mark]"      # tylko odczyt: rozmiar arkusza/widoku, bounding box zawartości, skala widoku (research "czy wymiar wychodzi poza arkusz" - PORZUCONE, patrz sekcja "Zgłoszony, ZBADANY i PORZUCONY")
 ```
 
@@ -1464,7 +1530,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   v0.3.5 (2026-09-30: próg kąta cięcia 10° → 6,5°, PR #39) →
   v0.3.6 (2026-09-30: „Usuń” nie kasuje całkowitej długości krótkich rur, rozciąganie promienia do osi na drugim końcu, PR #42) →
   v0.3.7 (2026-09-30: log w oknie czyszczony dopiero przy innym rysunku, PR #46, reguły bez zmian) →
-  v0.3.8 (2026-10-01: szerokość wcięcia odsuwana od środka rury w stronę swojego końca, PR #51). Release na GitHubie tworzy operator
+  v0.3.8 (2026-10-01: szerokość wcięcia odsuwana od środka rury w stronę swojego końca, PR #51) →
+  v0.3.9 (2026-10-01: Shift + klik na „Usuń” = wszystkie widoki, PR #56, reguły bez zmian). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
@@ -1480,8 +1547,12 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   bezpieczeństwa.
 - Merge pull requestów na GitHubie robi człowiek (operator), nie asystent —
   API do merge jest tu świadomie nieużywane, także przez `gh pr merge`.
-  Commity na `dev` w tej sesji poszły bezpośrednio (bez PR) za zgodą
-  operatora — to nie jest domyślny tryb, pytać, jeśli niejasne.
+  Zmiany idą przez PR do `dev`; commit wprost na `dev` tylko za wyraźną
+  zgodą operatora. Usuwanie gałęzi (lokalnie i zdalnie) też blokuje
+  klasyfikator — zostawić operatorowi.
+- Wydanie: bump `csproj` + `setup.iss` → build → ISCC → PR do `dev` → PR
+  `dev → release` → tag na `release` → operator tworzy release z
+  instalatorem.
 - **`gh` (GitHub CLI) jest zainstalowany i zalogowany** (`C:\Program Files\GitHub CLI\gh.exe`,
   konto `HoldFort-Bananza`, protokół HTTPS) — użyj `gh issue create`/`gh pr create`
   zamiast ręcznego REST API. Może nie być jeszcze na `PATH` w nowej sesji
@@ -1491,40 +1562,3 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   publiczne. Ten plik może i powinien zachować konkretne dane (to baza
   wiedzy do diagnozy), ale jeśli edytujesz `README.md`, zachowaj ten sam
   brak identyfikatorów.
-
-## Następne kroki
-
-**Aktualna lista (2026-09-30) jest w sekcji „START SESJI TUTAJ” na górze
-pliku.** Punkty niżej to stan z 25.09, zostawione jako historia decyzji.
-
-1. **Reguła "który kandydat odpowiada któremu złączu/wymiarowi" —
-   ROZWIĄZANA I POTWIERDZONA NA ŻYWO 2026-09-25** (druga runda tej samej
-   sesji, po przerwie na licencję - patrz "Poprawiona przyczyna i finalna
-   naprawa" wyżej): asymetria widoku - długość ogranicza się do widoku
-   źródłowego wymiaru do osi, szerokość szuka po całym rysunku wśród
-   płaskich kandydatów. Prawdziwa przyczyna nie była "mylenie widoków"
-   (błędna diagnoza z pierwszej rundy tej sesji), tylko fakt geometryczny:
-   w danym widoku tylko JEDNA z dwóch ścian ma płaską cięciwę danego typu
-   (długość/szerokość). Zamknięte.
-2. **Wymiar wcięcia — pilot potwierdzony WIZUALNIE na `[35021]`, na
-   `[3.5013]` i na `[3.5027]` (patrz wyżej).** Problem "ma ścianę cięcia w
-   bryle" ≠ "potrzebuje wymiaru wcięcia w rysunku" (odkryty 24.09 na
-   drugim końcu `[3.5013]`) **CZĘŚCIOWO rozwiązany 2026-09-25** - filtr
-   kąta cięcia (`MinCutAngleDegrees = 10.0`, patrz sekcja "Filtr kąta
-   cięcia" wyżej) poprawnie odsiewa ściany o kącie bliskim zeru
-   (praktycznie proste zakończenia, zweryfikowane na żywo na `[3.5027]`).
-   **Nie tłumaczy jednak oryginalnego `[3.5013]`** - tamten odrzucony
-   koniec miał TEN SAM ~45° kąt co zaakceptowany, więc filtr kąta by go
-   nie złapał, a `[3.5013]` już nie istnieje w modelu do dalszego badania.
-   Jeśli operator zgłosi błędnie wstawiony wymiar na złączu o WYRAŹNYM
-   kącie (nie bliskim zeru) - to wciąż ten sam, nierozwiązany rodzaj
-   problemu.
-3. **Główny przycisk kasowania i wstawiania wymiaru wcięcia są teraz
-   OSOBNYMI przyciskami w `MainForm.cs`, nie połączone w jeden przepływ**
-   ("skasuj i od razu wstaw wcięcie w to miejsce") - to była pierwotna
-   wizja z sekcji "Wymiar wcięcia", wciąż niezrealizowana. Do rozważenia
-   przy kolejnej sesji, jeśli operator tego zechce - nie zakładać, że to
-   oczywisty kolejny krok bez pytania.
-4. **UX wyboru widoku** — zaakceptowane 2026-09-23 jako "działa po
-   kliknięciu w geometrię partu; Esc → lista jako zapasowa ścieżka". Nie
-   próbować dalej "naprawiać" bez nowego wyraźnego zgłoszenia operatora.

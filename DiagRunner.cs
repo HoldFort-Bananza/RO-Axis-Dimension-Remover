@@ -674,7 +674,7 @@ namespace RoAxisDimensionRemover
             return null;
         }
 
-        private static IEnumerable<ViewBase> SheetViews(Drawing drawing)
+        internal static IEnumerable<ViewBase> SheetViews(Drawing drawing)
         {
             var top = drawing.GetSheet().GetAllObjects();
             while (top.MoveNext())
