@@ -148,7 +148,15 @@ wcześniejsze wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`,
   (`~/scans/marks.txt`) w 4,5 min. Pętla `--diag-notch-fill-dryrun` po tych
   61 to ~1 min/rysunek, a rysunki nieaktualne względem modelu pomija
   (9 z 31 na 01.10) — `--diag-find-candidates` je liczy.
-- `taskkill` przed buildem zamyka też program operatora — uprzedzić.
+- `taskkill` przed buildem zamyka też program operatora — uprzedzić
+  (01.10 dwa razy zapomniane). Commit/stash z `bin/*.exe` też się wywala,
+  gdy program działa.
+- Operator czasem ma w Tekli inny rysunek niż ten, który otworzyła
+  diagnostyka — sprawdzać Mark w nagłówku jego logu.
+- Zadanie w tle w Claude Code ma limit 2 h i potem jest zabijane. Pętla
+  `--diag-notch-fill-dryrun` po 61 rysunkach dla DWÓCH buildów to ~2 h —
+  01.10 urwała się na 56. rysunku. Dzielić listę albo puszczać jeden build
+  i porównywać z zapisanym wynikiem w `scans/`.
 - Diagnostyka otwierająca INNY rysunek zamyka ten, na którym operator
   właśnie testuje — nie puszczać skanów w trakcie testu na żywo.
 - 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
@@ -438,7 +446,7 @@ przepuścił błąd v0.3.2.
 → `--diag-notch-raw`, `--diag-dimension-style`, `--diag-active`,
 `--diag-notch-fill-dryrun` → tabelka „widok / Usuń skasuje / zostaje /
 Wstaw doda”, widoki nazywane po zawartości → operator: Usuń w każdym
-widoku, Wstaw, wkleja log → odczyt `--diag-dimension-style` z osobnego
+widoku (Shift + klik — operator to lubi), Wstaw, wkleja log → odczyt `--diag-dimension-style` z osobnego
 procesu → pytanie BEZ podpowiedzi „Czy po tej operacji rysunek nadal
 opisuje wszystko, co musi opisywać?”. Wyniki kilku rysunków zbierać w
 jednej gałęzi z `AGENTS.md`, jeden PR.
@@ -665,7 +673,13 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
 - Merge pull requestów na GitHubie robi człowiek (operator), nie asystent —
   API do merge jest tu świadomie nieużywane, także przez `gh pr merge`.
   Zmiany idą przez PR do `dev`; commit wprost na `dev` tylko za wyraźną
-  zgodą operatora. Usuwanie gałęzi (lokalnie i zdalnie) też blokuje
+  zgodą operatora. **Przed każdym `git commit` sprawdzić
+  `git branch --show-current`, pushować zawsze z jawną nazwą gałęzi** —
+  01.10 katalog został przełączony na `dev` (najpewniej przez drugiego
+  agenta) i 10 commitów z notatkami poszło na `origin/dev` bez PR-a
+  (operator: zostawić, nie powtarzać).
+- Drugi agent pracujący równolegle: własny `git worktree` i zakaz
+  uruchamiania Tekli, exe, buildu i `taskkill` (ten wzór działał — PR #60). Usuwanie gałęzi (lokalnie i zdalnie) też blokuje
   klasyfikator — zostawić operatorowi.
 - Wydanie: bump `csproj` + `setup.iss` → build → ISCC → PR do `dev` → PR
   `dev → release` → tag na `release` → operator tworzy release z
@@ -676,6 +690,7 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   Bash (sprawdź `which gh` najpierw, wywołaj pełną ścieżką jeśli trzeba).
 - **`README.md` celowo NIE zawiera numerów rysunków (Mark) ani nazw
   siostrzanych projektów** — świadoma decyzja operatora, bo repo jest
-  publiczne. Ten plik może i powinien zachować konkretne dane (to baza
+  publiczne. Numery rysunków w pozostałych plikach repo i w historii
+  zostają (decyzja operatora 01.10), historii nie przepisywać. Ten plik może i powinien zachować konkretne dane (to baza
   wiedzy do diagnozy), ale jeśli edytujesz `README.md`, zachowaj ten sam
   brak identyfikatorów.
