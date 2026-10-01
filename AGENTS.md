@@ -249,6 +249,15 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    jedna na drugiej** — ten sam kierunek odsunięcia (`Up`=(1,0,0)), więc
    ta sama strona rury; operator przesunął ręcznie. Znana słabość `side`/
    `Distance`, tym razem z nakładaniem.
+   **NAPRAWIONE 2026-10-01 (PR #51):** szerokość dostaje `Up` od środka
+   rury (`Beam.StartPoint`/`EndPoint`) w stronę swojego końca — tak jak
+   wymiary, które Tekla stawia sama przy końcach (`+oś` przy dalekim,
+   `-oś` przy bliskim, zmierzone na `[35019]`). Długości bez zmian. Skan
+   61 rysunków: liczby identyczne z v0.3.6. Dry-run na 31 z nich: to samo
+   nakładanie miały też `[35052]`, `[35095]`, `[35098]`, `[35660]`,
+   `[35662]` (pierwsze trzy oceniane wcześniej jako „opisuje” — nakładanie
+   przeoczone). Brama na żywym `[35019]`: szerokości po obu stronach rury,
+   niezależny odczyt zgodny z dry-runem, operator: „ma wszystko opisane”.
 11. 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
    otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
    (Lively/mpv, ~27% GPU). Po jej zamknięciu i czystej reinstalacji
