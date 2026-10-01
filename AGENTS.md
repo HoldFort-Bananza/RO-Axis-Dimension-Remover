@@ -351,12 +351,17 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    `[35099]`, rura 173, jedno cięcie 45° na bliskim końcu. Usuń: trzy `21`;
    `173` (płaskie) przetrwało. Wstaw: długość `42` nad `173`, szerokość
    `42` w pustym widoku, na zewnątrz bliskiego końca (`Up=(-1;0)`).
+23. `[35006]` (2026-10-01, v0.3.9, Shift, „rysunek ma wszystko”): rura
+   4436, jedno cięcie 45°. Usuń: trzy `21`; `4436` i istniejące płaskie
+   `42` (pełna długość cięcia) przetrwały. Wstaw: tylko szerokość `42` w
+   pustym widoku — długości nie zdublował (`HasSameDimension`). Drugie
+   kliknięcie Usuń (Shift) i Wstaw: nic do zrobienia w żadnym widoku.
 
 **Proponowany następny krok:** kolejne rysunki ze skanu, tym samym cyklem.
-(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]` sprawdzone 01.10; `[3.5028]` nieaktualny względem modelu — zaktualizować rysunek w Tekli przed testem.) Niesprawdzone na żywo:
+(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]` sprawdzone 01.10; `[3.5028]` nieaktualny względem modelu — zaktualizować rysunek w Tekli przed testem.) Niesprawdzone na żywo:
 `[3.5028]`, `[3.5068]`, `[3.5003]`,
 `[3.5002]`, `[3.5030]`,
-`[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]`. Dobierać
+`[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]`. Dobierać
 też rysunki z wymiarem, który MA przetrwać — brak takiego w testach
 przepuścił błąd v0.3.2.
 
