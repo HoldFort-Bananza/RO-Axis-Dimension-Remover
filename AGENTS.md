@@ -269,11 +269,42 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    `[35662]` (pierwsze trzy oceniane wcześniej jako „opisuje” — nakładanie
    przeoczone). Brama na żywym `[35019]`: szerokości po obu stronach rury,
    niezależny odczyt zgodny z dry-runem, operator: „ma wszystko opisane”.
+11. `[35660]` (2026-10-01, v0.3.8, „yep”): `Leiter` `RO48.3*3.6`, rura 93,
+   oba końce 22,6°. „Usuń” w widoku z wymiarami: `24`, `24`, `10`, `10`
+   do osi; `93` przetrwało. „Wstaw”: dwie długości `20` w tym widoku, dwie
+   szerokości `48` w pustym widoku (styl z innego widoku) — po przeciwnych
+   stronach rury, drugi przypadek poprawki v0.3.8. Obie `20` mają `Up` w
+   tę samą stronę, więc stoją jedna nad drugą (nie nakładają się); ciasno,
+   ale operator: „nie jest źle” — ładniej wymagałoby przesuwania widoków.
+12. `[35662]` (2026-10-01, v0.3.8, „opisuje wszystko”): lustro `[35660]`,
+   rura 91. Ten sam wynik: skasowane `24`, `24`, `10`, `10`; `91`
+   przetrwało; dwie `20` jedna nad drugą, dwie `48` po przeciwnych stronach
+   rury. Stare `10` miały `Up` w dół — nowe `20` i tak idą w górę (`perp`
+   z osi, nie z wzorca).
+13. `[35086]` (2026-10-01, v0.3.8, „wszystko potrzebne”): `Handlauf`
+   `RO42.4*3.2`, rura 407 (prosta mimo „Bogen”), 64,3° (do 89,65) /
+   39,6°, lustro `[35098]`. Usuń w obu widokach: `3`, `90`, `21`, `21`
+   (widok zostaje pusty) oraz `11`, `21`, `21`, `20`, `19`; `407` i
+   płaskie `35` (pełna długość cięcia 39,6°) przetrwały. Wstaw: płaskie
+   `90` w widoku z `407`, dwie `42` w pustym widoku po przeciwnych stronach
+   (trzeci przypadek v0.3.8). Adnotacje Tekli `9.04°`/`5.18°` w widoku
+   szerokości to kąty pozorne w rzucie, jak na `[35095]`.
+14. `[35067]` (2026-10-01, v0.3.8, „jest git”): `Handlauf` `RO42.4*3.2`,
+   rura 936, 19,9° / 25,1°. Usuń: `10`, `8`, cztery `21` — widok zostaje
+   pusty. Wstaw: długości `20` i `15` w tym pustym widoku (styl z widoku z
+   `936`), dwie `42` w widoku z `936` po przeciwnych stronach. **Drugi
+   przypadek (po `[35020]`) „pusty widok → wymiar w cudzej ramce”:** `20` i
+   `15` wylądowały w ramce widoku z `936` (`Distance` po insercie 421 i
+   329). Operator obniża ręcznie.
+15. `[35029]` (2026-10-01, v0.3.8, „jest dobrze”): rura 537, 44,8°/45°,
+   jak `[35028]`. Usuń: cztery `21` (widok pusty) oraz `42` i `21` do osi;
+   `537` i płaskie `23` przetrwały. Wstaw: dwie długości `42` w pustym
+   widoku — tym razem we własnej ramce — i dwie szerokości `42` po
+   przeciwnych stronach.
 
 **Proponowany następny krok:** kolejne rysunki ze skanu, tym samym cyklem.
-Najpierw `[35660]` i `[35662]` — miały nakładanie szerokości, więc to drugi
-test poprawki v0.3.8. Dalej niesprawdzone na żywo: `[35086]`, `[35067]`,
-`[35029]`, `[35014]`, `[3.5028]`, `[35068]`, `[3.5068]`, `[3.5003]`,
+(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]` sprawdzone 01.10.) Niesprawdzone na żywo:
+`[35014]`, `[3.5028]`, `[35068]`, `[3.5068]`, `[3.5003]`,
 `[3.5002]`, `[35030]`, `[3.5030]`, `[35288]`, `[35099]`, `[35055]`,
 `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]`. Dobierać
 też rysunki z wymiarem, który MA przetrwać — brak takiego w testach
