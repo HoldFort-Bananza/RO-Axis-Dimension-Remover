@@ -385,12 +385,23 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    promień `17` → `34`, długość `34`. **Piąty przypadek wzorca, tym razem
    PRZEWIDZIANY przed testem**: długość w dolnym widoku z `Up=(0;1)` weszła
    w ramkę górnego (zapisane `Distance=-196,50`); operator: „powinna w dół”.
+28. `[35073]` (2026-10-01, v0.3.9, Shift, „jest git”): `Knielauf`
+   `RO33.7*3.2`, rura 741, jedno cięcie 45°. **`741` ma głębię Z i dotyka
+   osi — chroni go tylko filtr 300 mm (log: „ma 741 mm własnej długości,
+   pomijam”) — przetrwało.** Usuń: `34` (długość z końcem na osi) i `17`.
+   Wstaw: szerokość `34`, promień `17` → `34`, długość `34`. Długość w
+   dolnym widoku znów z `Up=(0;1)`, ale odstęp między widokami był duży —
+   stanęła w przerwie, nie w cudzej ramce. Zwrot jest więc stały; czy
+   wymiar wejdzie w sąsiedni widok, zależy od odstępu.
 
-**Proponowany następny krok:** kolejne rysunki ze skanu, tym samym cyklem.
-(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]` sprawdzone 01.10; rysunki `[3.5xxx]` z listy nieaktualne względem modelu — zaktualizować w Tekli przed testem.) Niesprawdzone na żywo:
+**Proponowany następny krok:** zwrot `Up` długości wcięcia (pkt 20, 26–28
+— 5 przypadków „w cudzej ramce”): zebrać `View.Origin` i osie widoków na
+tych rysunkach, sprawdzić hipotezę „od sąsiedniego widoku”, dry-run na 61
+rysunkach, brama na żywo. Lista ze skanu do testów na żywo:
+(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]` sprawdzone 01.10; rysunki `[3.5xxx]` z listy nieaktualne względem modelu — zaktualizować w Tekli przed testem.) Niesprawdzone na żywo:
 `[3.5028]`, `[3.5068]`, `[3.5003]`,
 `[3.5002]`, `[3.5030]`,
-`[35073]`. Dobierać
+(lista ze skanu wyczerpana poza nieaktualnymi). Dobierać
 też rysunki z wymiarem, który MA przetrwać — brak takiego w testach
 przepuścił błąd v0.3.2.
 
