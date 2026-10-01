@@ -333,7 +333,7 @@ namespace RoAxisDimensionRemover
         /// osi). Bez blokady rysunku od 2026-09-25 (decyzja operatora) -
         /// program NIE odróżnia jeszcze złącza, które faktycznie potrzebuje wymiaru
         /// wcięcia, od takiego, które tylko geometrycznie ma ścianę cięcia
-        /// (patrz AGENTS.md, "Następne kroki") - obejrzeć wynik w Tekli.
+        /// (patrz AGENTS.md, "Znane słabości") - obejrzeć wynik w Tekli.
         /// </summary>
         private void InsertNotchButton_Click(object sender, EventArgs e)
         {

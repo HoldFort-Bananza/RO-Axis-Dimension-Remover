@@ -72,6 +72,12 @@ kasującym dane: v0.3.2 (rozciąganie zjadało całkowitą długość), v0.3.3
    części w widoku (od v0.3.4); reguła v6
    (`TouchesAxis` z wymogiem głębi Z + filtr długości własnej 300 mm +
    od v0.3.6 oba końce wymiaru w obrębie jednej ściany cięcia, `CutZones`).
+   **Shift + klik** (od 2026-10-01, prośba operatora, opcja — nie
+   domyślne): ta sama `RemoveAxisDimensions` po kolei na każdym widoku
+   arkusza (`DiagRunner.SheetViews`, jak `--diag-find-candidates`), bez
+   pytania o widok. Każdy widok zatwierdza się osobno — Ctrl+Z cofa widok
+   po widoku (operator: OK). Nie da się nim pominąć widoku (przypadek
+   `[35020]`) — wtedy zwykły klik.
 2. „Wstaw wymiar wcięcia” — `NotchPilot.InsertMissing`, cały rysunek:
    guard `SinglePartDrawing`; gięte części pomijane (od v0.3.4); ściany
    cięcia ≥ 6,5° (od v0.3.5; wcześniej 10°); długość i szerokość
@@ -301,10 +307,16 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    `537` i płaskie `23` przetrwały. Wstaw: dwie długości `42` w pustym
    widoku — tym razem we własnej ramce — i dwie szerokości `42` po
    przeciwnych stronach.
+16. `[35014]` (2026-10-01, build z repo, „ma wszystko”): `Gelaender`
+   `RO42.4*3.2`, rura 4350, oba końce 45°. **Pierwszy test trybu Shift**
+   („Usuń” z Shift = wszystkie widoki): widok 1 — sześć `21` do osi,
+   widok 2 (z `4350`) — nic, zgodnie z `--diag-active`. Wstaw: dwie
+   długości `42` w opróżnionym widoku (we własnej ramce), dwie szerokości
+   `42` po przeciwnych stronach.
 
 **Proponowany następny krok:** kolejne rysunki ze skanu, tym samym cyklem.
-(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]` sprawdzone 01.10.) Niesprawdzone na żywo:
-`[35014]`, `[3.5028]`, `[35068]`, `[3.5068]`, `[3.5003]`,
+(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]` sprawdzone 01.10.) Niesprawdzone na żywo:
+`[3.5028]`, `[35068]`, `[3.5068]`, `[3.5003]`,
 `[3.5002]`, `[35030]`, `[3.5030]`, `[35288]`, `[35099]`, `[35055]`,
 `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]`. Dobierać
 też rysunki z wymiarem, który MA przetrwać — brak takiego w testach

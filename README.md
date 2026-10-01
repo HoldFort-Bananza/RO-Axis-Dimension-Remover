@@ -8,7 +8,8 @@ z profilem RO (rura okrągła). Dwa przyciski:
    rury zamiast o jej powierzchnię. Kasuje tylko wymiar, którego oba końce
    leżą w obrębie ściany cięcia, więc całkowita długość rury zostaje.
    Widoki z giętą rurą pomija. Przycisk **naprawdę kasuje**
-   (`dryRun: false`), Ctrl+Z w Tekli cofa.
+   (`dryRun: false`), Ctrl+Z w Tekli cofa. Z wciśniętym **Shift** kasuje
+   na wszystkich widokach rysunku naraz (Ctrl+Z cofa widok po widoku).
 2. **Wstaw wymiar wcięcia** — dla każdej skośnej ściany cięcia (≥ 6,5°)
    prostej rury dorysowuje brakującą długość i szerokość wcięcia, a płaski
    wymiar promienia przy skosie zamienia na średnicę. Nie dubluje wymiarów,
