@@ -57,9 +57,11 @@ Dziennik 23.09–29.09 jest na wiki (`10-Dziennik-2026-09`), 30.09–01.10 w „
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.9 (2026-10-01) = v0.3.8 + Shift + klik na „Usuń” czyści
-wszystkie widoki rysunku (PR #56), reguły bez zmian; instalator
-`installer\output\RoAxisDimensionRemover-Setup-v0.3.9.exe`. Wcześniej
+**Wydanie:** v0.3.10 (2026-10-01) = v0.3.9 + długość wcięcia odsuwana od
+sąsiedniego widoku (PR #62, NA DALEJ pkt 29); instalator
+`installer\output\RoAxisDimensionRemover-Setup-v0.3.10.exe`. Wcześniej
+v0.3.9 (2026-10-01) = v0.3.8 + Shift + klik na „Usuń” czyści
+wszystkie widoki rysunku (PR #56), reguły bez zmian. Wcześniej
 v0.3.8 (2026-10-01) = szerokości wcięcia odsuwane na zewnątrz swojego
 końca rury (PR #51, koniec nakładania na `[35019]`).
 Lista wszystkich wersji — sekcja „Wydania” niżej. Skrót z pulpitu wskazuje
@@ -104,7 +106,7 @@ wcześniejsze wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`,
   w cudzej ramce (`15` na `[35020]`). Najczęstsza poprawka ręczna.
   Nakładanie dwóch szerokości na siebie naprawione w v0.3.8 (NA DALEJ
   pkt 10). Długość w cudzej ramce — poprawka na gałęzi
-  `length-up-direction` (NA DALEJ pkt 29), brama przeszła, niewydana.
+  `length-up-direction` (NA DALEJ pkt 29), wydane w v0.3.10.
 - Widok zawierający same wymiary do osi zostaje po „Usuń” pusty — operator:
   takiego widoku się nie klika. „Wstaw” i tak go uzupełni stylem z innego
   widoku.
@@ -396,7 +398,7 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    wymiar wejdzie w sąsiedni widok, zależy od odstępu.
 
 29. **Zwrot `Up` długości wcięcia** (2026-10-01, gałąź
-   `length-up-direction`, NIE wydane). `--diag-view-bounds`
+   `length-up-direction`, PR #62, wydane w v0.3.10). `--diag-view-bounds`
    na `[35020]`, `[35067]`, `[35288]`, `[35100]`, `[35077]`, `[35660]`,
    `[35073]`: lokalne +Y widoku = +Y arkusza (wymiary z `Up=(0;1)`
    poszerzają ramkę widoku w górę, z `(0;-1)` w dół; oś X nie odwrócona);
@@ -420,7 +422,9 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    `[35660]` — wynik identyczny z v0.3.9 (dwie `20` w górę, dwie `48` po
    przeciwnych stronach, `93` przetrwało), operator: „tak”.
 
-**Proponowany następny krok:** wydanie pkt 29 (v0.3.10).
+**Proponowany następny krok:** brak otwartego zadania — kolejna znana
+słabość położenia to `Distance` wzorca (krawędź arkusza `[35095]`, wymiar
+na rurze `[35021]`).
 
 Lista ze skanu do testów na żywo:
 (`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]` sprawdzone 01.10; rysunki `[3.5xxx]` z listy nieaktualne względem modelu — zaktualizować w Tekli przed testem.) Niesprawdzone na żywo:
@@ -643,7 +647,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   v0.3.6 (2026-09-30: „Usuń” nie kasuje całkowitej długości krótkich rur, rozciąganie promienia do osi na drugim końcu, PR #42) →
   v0.3.7 (2026-09-30: log w oknie czyszczony dopiero przy innym rysunku, PR #46, reguły bez zmian) →
   v0.3.8 (2026-10-01: szerokość wcięcia odsuwana od środka rury w stronę swojego końca, PR #51) →
-  v0.3.9 (2026-10-01: Shift + klik na „Usuń” = wszystkie widoki, PR #56, reguły bez zmian). Release na GitHubie tworzy operator
+  v0.3.9 (2026-10-01: Shift + klik na „Usuń” = wszystkie widoki, PR #56, reguły bez zmian) →
+  v0.3.10 (2026-10-01: długość wcięcia odsuwana od sąsiedniego widoku, PR #62). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
