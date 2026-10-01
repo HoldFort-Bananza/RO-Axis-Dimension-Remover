@@ -332,11 +332,21 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    przetrwały. Wstaw: tylko koniec 44,9° — szerokość `42` w widoku z
    `373`, długość `42` w opróżnionym widoku. Koniec 4,8° bez wymiarów
    cięcia, jak na `[35027]` (pkt 9).
+20. `[35288]` (2026-10-01, v0.3.9, Shift, „opisuje”): `Leiter`
+   `RO48.3*3.6`, rura 3186, jedno cięcie 22,6° (drugi koniec prosty).
+   **Łańcuch `10`+`10`+`3166` (jeden `StraightDimensionSet`, 3 elementy):
+   skasowane oba `10`, łańcuch malał 3→2→1, `3166` przetrwał** — kolejny
+   przypadek bez kaskady. Wstaw: szerokość `48` w widoku z `3186`, długość
+   `20` w widoku z `3166`. **Trzeci przypadek „wymiar w cudzej ramce”**,
+   tym razem widok NIE był pusty: długość dostaje zawsze `Up` = +prostopadła
+   do osi, a wzorzec `3166` w tym widoku miał `Up` w dół — `20` poszło w
+   stronę sąsiedniego widoku. Trop do analizy położenia: zwrot `Up` długości
+   brać ze wzorca w widoku, nie zawsze +.
 
 **Proponowany następny krok:** kolejne rysunki ze skanu, tym samym cyklem.
-(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]` sprawdzone 01.10; `[3.5028]` nieaktualny względem modelu — zaktualizować rysunek w Tekli przed testem.) Niesprawdzone na żywo:
+(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]` sprawdzone 01.10; `[3.5028]` nieaktualny względem modelu — zaktualizować rysunek w Tekli przed testem.) Niesprawdzone na żywo:
 `[3.5028]`, `[3.5068]`, `[3.5003]`,
-`[3.5002]`, `[3.5030]`, `[35288]`, `[35099]`, `[35055]`,
+`[3.5002]`, `[3.5030]`, `[35099]`, `[35055]`,
 `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]`. Dobierać
 też rysunki z wymiarem, który MA przetrwać — brak takiego w testach
 przepuścił błąd v0.3.2.
