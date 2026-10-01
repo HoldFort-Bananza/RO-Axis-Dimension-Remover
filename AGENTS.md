@@ -215,8 +215,8 @@ rysunków: 22 → 23 rozciągnięcia, jedyne nowe to `[35101]` (`17` → `34`).
 Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
 
 **NA DALEJ — dziennik testów na żywo (stan 2026-10-01):**
-1. Obie poprawki wyżej wydane w v0.3.6. v0.3.8 (odsunięcie szerokości)
-   zbudowana 01.10; operator miał zainstalowaną v0.3.6 — sprawdzić
+1. Obie poprawki wyżej wydane w v0.3.6. Operator ma zainstalowaną v0.3.9
+   (01.10). Sprawdzenie wersji:
    `(Get-Item "$env:LOCALAPPDATA\Programs\RoAxisDimensionRemover\RoAxisDimensionRemover.exe").VersionInfo.ProductVersion`.
 2. Próg 6,5° wydany w v0.3.5. Cała szara strefa sprawdzona na żywo
    (2026-09-30, v0.3.6, ocena operatora „tak”): `[35092]`, `[35260]`,
