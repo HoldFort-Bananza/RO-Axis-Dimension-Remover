@@ -356,12 +356,18 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    `42` (pełna długość cięcia) przetrwały. Wstaw: tylko szerokość `42` w
    pustym widoku — długości nie zdublował (`HasSameDimension`). Drugie
    kliknięcie Usuń (Shift) i Wstaw: nic do zrobienia w żadnym widoku.
+24. `[35013]` (2026-10-01, v0.3.9, Shift, „jest dobrze”): **rysunek z
+   błędu v0.3.2** — rura 5796, oba końce 45°. Usuń: po jednym `21` do osi w
+   każdym widoku. Wstaw: 4 wymiary wcięcia + 2 rozciągnięte promienie
+   (`21` → `42`). **`5796` przetrwało** — warunek `Up` wzdłuż osi z v0.3.3
+   działa. W każdym widoku średnica i długość cięcia mają te same końce,
+   różne `Up` (przy 45° obie `42`).
 
 **Proponowany następny krok:** kolejne rysunki ze skanu, tym samym cyklem.
-(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]` sprawdzone 01.10; `[3.5028]` nieaktualny względem modelu — zaktualizować rysunek w Tekli przed testem.) Niesprawdzone na żywo:
+(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]` sprawdzone 01.10; `[3.5028]` nieaktualny względem modelu — zaktualizować rysunek w Tekli przed testem.) Niesprawdzone na żywo:
 `[3.5028]`, `[3.5068]`, `[3.5003]`,
 `[3.5002]`, `[3.5030]`,
-`[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]`. Dobierać
+`[35663]`, `[35100]`, `[35077]`, `[35073]`. Dobierać
 też rysunki z wymiarem, który MA przetrwać — brak takiego w testach
 przepuścił błąd v0.3.2.
 
