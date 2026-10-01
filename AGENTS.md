@@ -26,13 +26,13 @@ ograniczenia, ma zostać szczegółowy, bo to baza do diagnozy).
    nie z tego opisu, i sprawdź go NA BRANCHU, z którego faktycznie
    korzystasz** — `dev` i `release` mogą mieć RÓŻNY stan (patrz "Branche"
    niżej). **Stan na 2026-10-01 (v0.3.8): `dryRun: false` — przycisk
-   NAPRAWDĘ kasuje**, reguła v6 przeszła bramę 2026-09-23 (patrz niżej).
+   NAPRAWDĘ kasuje**, reguła v6 przeszła bramę 2026-09-23 (historia: wiki `10-Dziennik-2026-09`).
    `DiagRunner.cs` (tryb konsolowy `--diag-*`) ma `dryRun` na sztywno
    `true` NA ZAWSZE, niezależnie od tego stanu — to się nigdy nie zmienia,
    to jedyna droga do bezpiecznego sprawdzenia reguły bez człowieka przy
    przycisku.
 3. **NIE WALIDUJ REGUŁY PRZEZ JEJ WŁASNY DRY-RUN.** Najważniejsza lekcja z
-   tego projektu (patrz PUŁAPKA 5 niżej) i powód, dla którego błąd przeżył
+   tego projektu (PUŁAPKA 5, wiki `10-Dziennik-2026-09`) i powód, dla którego błąd przeżył
    trzy "czyste" testy: dry-run i realne kasowanie używają tego samego
    kodu, więc zawsze się zgodzą — także gdy oba są błędne. Waliduj
    pytaniem "czy po tej operacji rysunek nadal opisuje wszystko, co musi
@@ -40,7 +40,7 @@ ograniczenia, ma zostać szczegółowy, bo to baza do diagnozy).
 4. **Nigdy nie zgaduj progu/reguły detekcji ani geometrii "na wyczucie".**
    Każda stała w `RoAxisDimensionService.cs` ma komentarz skąd się wzięła
    (zmierzona, nie zgadana). Jeśli trzeba zmienić regułę albo dodać nową
-   (np. wymiar wcięcia, patrz niżej) — najpierw zdobądź realne dane z
+   (np. wymiar wcięcia, wiki `10-Dziennik-2026-09`) — najpierw zdobądź realne dane z
    dry-run/diagnostyki (`--diag-active`, `--diag-mark "[Mark]"`,
    `--diag-notch` — wszystkie zawsze bezpieczne, nigdy nie modyfikują
    rysunku ani modelu), dopiero potem pisz kod, który cokolwiek zmienia.
@@ -53,7 +53,7 @@ ograniczenia, ma zostać szczegółowy, bo to baza do diagnozy).
 
 ## START SESJI TUTAJ — stan na 2026-10-01
 
-Sekcje niżej to dziennik chronologiczny (23.09 → 01.10); ta jest skrótem
+Dziennik 23.09–29.09 jest na wiki (`10-Dziennik-2026-09`), 30.09–01.10 w „NA DALEJ” niżej; ta sekcja jest skrótem
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
