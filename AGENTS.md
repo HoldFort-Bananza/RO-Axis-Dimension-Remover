@@ -430,9 +430,42 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    `[35660]` — wynik identyczny z v0.3.9 (dwie `20` w górę, dwie `48` po
    przeciwnych stronach, `93` przetrwało), operator: „tak”.
 
-**Proponowany następny krok:** brak otwartego zadania — kolejna znana
-słabość położenia to `Distance` wzorca (krawędź arkusza `[35095]`, wymiar
-na rurze `[35021]`).
+30. **Odstęp `Distance` wstawianych wymiarów — research, BEZ kodu**
+   (2026-10-01 wieczór; `--diag-view-bounds` + `--diag-notch-fill-dryrun`
+   na `[35095]`, `[35021]`, `[35013]`, `[35099]`, `[35014]`, wyniki w
+   `scans/dist-*.txt`, lokalne):
+   - `Distance` jest w jednostkach MODELU w układzie widoku (nie mm na
+     papierze — inaczej niż mówi ogólna uwaga w `..\AGENTS.md`) i liczy się
+     od `StartPoint` wzdłuż `Up`. Dowód: na `[35095]` dwa wymiary z
+     `Up=(1;0)`, starty X=372,37 i 394,18, `Distance` 127,63 i 105,82 —
+     oba na linii X=500; na `[35014]` 4328,81+106,40 = 4350,01+85,20 =
+     4435,21. Liczone od dalszego końca linie by się rozjechały.
+   - **Wymiary Tekli z tym samym `Up` leżą w widoku na wspólnej linii**
+     (`Start·Up + Distance` równe) na wszystkich 5 rysunkach. Położenie
+     linii zależy od rysunku: ±100 przy 1:10 (`[35095]`, `[35021]`), 50
+     (`[35014]`), ±200 przy 1:20 (`[35013]`); `[35099]` ma dwa rzędy, 100 i
+     200 (odstęp 10 mm na papierze).
+   - Nasz insert bierze `Distance` z PIERWSZEGO innego wymiaru w widoku
+     (`FindReferenceDimension`) i odmierza od własnego startu — linia
+     wypada przypadkowo. `[35095]`: długość `34,5` z `Up=(0;1)` dostaje
+     127,63 → linia Y=148,8 (na papierze ~193 z 210, krawędź arkusza),
+     a rząd Tekli w tym kierunku jest na Y=100.
+   - Propozycja reguły (NIEZATWIERDZONA): stawiać nowy wymiar na linii
+     wymiarów z tym samym `Up` w widoku. Otwarte: co, gdy na tej linii stoi
+     wymiar zachodzący zakresem (na `[35095]` całkowite `407`, 0–406,88, na
+     Y=100) — następny rząd na zewnątrz (bliżej krawędzi) czy druga strona
+     rury (rząd −100 ma tam łańcuch wymiarów do osi, które „Usuń” kasuje:
+     10 kandydatów — `21`, `21`, `11`, `11`, `19`, `22`, `13`, `18`, `21`,
+     `90`). Najpierw sprawdzić, co zostaje po Usuń, potem zdecydować z
+     operatorem.
+   - `[35021]` („`42` na rurze”): dziś szerokość `42,4` ma `Up=(-1;0)` od
+     X=7,68, `Distance` 100 → linia X=−92, poza rurą. Najpewniej naprawione
+     już przez v0.3.8 — potwierdzić na żywo.
+
+**Proponowany następny krok:** dokończyć pkt 30 — `--diag-active` +
+`--diag-dimension-style` na `[35095]` po Usuń (co zostaje w rzędach),
+decyzja z operatorem o zachodzących zakresach, potem kod, dry-run 61
+rysunków porównany z `scans/lenup-new.txt` (jeden build), brama.
 
 Lista ze skanu do testów na żywo:
 (`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]` sprawdzone 01.10; rysunki `[3.5xxx]` z listy nieaktualne względem modelu — zaktualizować w Tekli przed testem.) Niesprawdzone na żywo:
