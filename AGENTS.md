@@ -342,11 +342,16 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    do osi, a wzorzec `3166` w tym widoku miał `Up` w dół — `20` poszło w
    stronę sąsiedniego widoku. Trop do analizy położenia: zwrot `Up` długości
    brać ze wzorca w widoku, nie zawsze +.
+21. `[35099]` (2026-10-01, v0.3.9, Shift, „jest wszystko”): rura 190
+   (krótsza niż filtr 300 mm), jedno cięcie 45°. Usuń: trzy `21` do osi;
+   `190` przetrwało — płaskie (Z=0 na obu końcach), więc `TouchesAxis` go
+   nie łapie; jego łańcuch 2→1 bez kaskady. Wstaw: długość `42` nad `190`,
+   szerokość `42` w pustym widoku (styl z drugiego), na zewnątrz końca.
 
 **Proponowany następny krok:** kolejne rysunki ze skanu, tym samym cyklem.
-(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]` sprawdzone 01.10; `[3.5028]` nieaktualny względem modelu — zaktualizować rysunek w Tekli przed testem.) Niesprawdzone na żywo:
+(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]` sprawdzone 01.10; `[3.5028]` nieaktualny względem modelu — zaktualizować rysunek w Tekli przed testem.) Niesprawdzone na żywo:
 `[3.5028]`, `[3.5068]`, `[3.5003]`,
-`[3.5002]`, `[3.5030]`, `[35099]`, `[35055]`,
+`[3.5002]`, `[3.5030]`, `[35055]`,
 `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]`. Dobierać
 też rysunki z wymiarem, który MA przetrwać — brak takiego w testach
 przepuścił błąd v0.3.2.
