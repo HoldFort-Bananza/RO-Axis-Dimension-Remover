@@ -489,6 +489,32 @@ namespace RoAxisDimensionRemover
                 var dcs = view.DisplayCoordinateSystem;
                 Log($"[view-bounds]   ViewCoordinateSystem: Origin={PointStr(vcs.Origin)} |AxisX|={new TSG.Vector(vcs.AxisX).GetLength():F6} |AxisY|={new TSG.Vector(vcs.AxisY).GetLength():F6}");
                 Log($"[view-bounds]   DisplayCoordinateSystem: Origin={PointStr(dcs.Origin)} |AxisX|={new TSG.Vector(dcs.AxisX).GetLength():F6} |AxisY|={new TSG.Vector(dcs.AxisY).GetLength():F6}");
+                // 2026-10-01, zwrot Up długości wcięcia: czy lokalne +Y widoku
+                // to +Y arkusza. Wymiar nie ma bounding boxa w API, więc
+                // przez bryłę: Origin + lokalne/skala ma trafić w bounding box
+                // widoku; przy odwróconym Y wyjdzie lustrzanie poza niego.
+                double scale = view.Attributes.Scale;
+                Log($"[view-bounds]   skala 1:{scale:F2}");
+                var model = ConnectedModel();
+                if (model != null)
+                {
+                    foreach (var modelPart in ModelParts(view, model, "[view-bounds]"))
+                    {
+                        var solid = modelPart.GetSolid();
+                        TSG.Point mn = solid.MinimumPoint, mx = solid.MaximumPoint;
+                        var local = new[] { mn.X, mx.X }.SelectMany(x => new[] { mn.Y, mx.Y }.SelectMany(y => new[] { mn.Z, mx.Z }
+                            .Select(z => NotchPilot.ToViewSpace(new TSG.Point(x, y, z), dcs)))).ToList();
+                        Log($"[view-bounds]     bryła lokalnie X {local.Min(q => q.X):F1}..{local.Max(q => q.X):F1} Y {local.Min(q => q.Y):F1}..{local.Max(q => q.Y):F1}" +
+                            $" -> arkusz X {view.Origin.X + local.Min(q => q.X) / scale:F1}..{view.Origin.X + local.Max(q => q.X) / scale:F1}" +
+                            $" Y {view.Origin.Y + local.Min(q => q.Y) / scale:F1}..{view.Origin.Y + local.Max(q => q.Y) / scale:F1}");
+                    }
+                }
+                var dimensions = view.GetAllObjects(new[] { typeof(StraightDimension) });
+                while (dimensions.MoveNext())
+                {
+                    if (!(dimensions.Current is StraightDimension d)) continue;
+                    Log($"[view-bounds]   wymiar Start={PointStr(d.StartPoint)} End={PointStr(d.EndPoint)} Up=({d.UpDirection.X:F2};{d.UpDirection.Y:F2}) Distance={d.Distance:F2}");
+                }
             }
         }
 

@@ -35,3 +35,7 @@ logs/
 ## for a pull request. Names look like
 ## 2026-09-02-173917-this-session-is-being-continued-...txt
 20??-??-??-??????-*.txt
+
+## Wyniki skanow diagnostyki (--diag-*) - lokalne, z numerami rysunkow,
+## do porownan miedzy buildami bez ponownego skanowania modelu.
+scans/

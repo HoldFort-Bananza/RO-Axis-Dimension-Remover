@@ -459,6 +459,25 @@ namespace RoAxisDimensionRemover
                     (chordModel.A.Y + chordModel.B.Y) / 2 - partCentre.Y, (chordModel.A.Z + chordModel.B.Z) / 2 - partCentre.Z);
                 if (fromCentre.Dot(axisModel) < 0) side = new TSG.Vector(-side.X, -side.Y, -side.Z);
             }
+            // Zmierzone 2026-10-01 (--diag-view-bounds na [35020], [35067],
+            // [35288], [35100], [35077], [35660], [35073]): lokalne +Y widoku
+            // = +Y arkusza, a długość z Up=+prostopadła wchodziła w ramkę widoku
+            // leżącego w tę stronę (5 przypadków). Odwracamy, gdy sąsiedni
+            // widok jest tylko po tej stronie; widoki po obu stronach - bez
+            // zmian, nie ma lepszego wyboru bez geometrii ramek.
+            if (longest)
+            {
+                bool towards = false, away = false;
+                foreach (var other in views)
+                {
+                    if (ReferenceEquals(other, flatView)) continue;
+                    var d = new TSG.Vector(other.Origin.X - flatView.Origin.X, other.Origin.Y - flatView.Origin.Y, 0);
+                    double along = d.Dot(side), across = Math.Abs(d.Dot(axisView));
+                    if (along > across) towards = true;
+                    else if (-along > across) away = true;
+                }
+                if (towards && !away) side = new TSG.Vector(-side.X, -side.Y, -side.Z);
+            }
 
             if (HasSameDimension(flatView, start, end, side))
             {
