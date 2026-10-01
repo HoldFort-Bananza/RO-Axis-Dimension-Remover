@@ -66,7 +66,7 @@ Lista wszystkich wersji — sekcja „Wydania” niżej. Skrót z pulpitu wskazu
 na zainstalowaną kopię (NIE na `bin`) — nowy build testować przez
 `bin\x64\Debug\net48\RoAxisDimensionRemover.exe`. Wersje z błędem
 kasującym dane: v0.3.2 (rozciąganie zjadało całkowitą długość), v0.3.3
-(łuki), v0.3.5 i starsze (całkowita długość krótkich rur) — opisy niżej.
+(łuki), v0.3.5 i starsze (całkowita długość krótkich rur) — v0.3.2 na wiki (`10-Dziennik-2026-09`), pozostałe niżej.
 
 **Co robi program (dwa osobne przyciski):**
 1. „Usuń wymiary do osi” — jeden widok wskazany kliknięciem; guardy:
