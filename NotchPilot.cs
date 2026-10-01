@@ -14,7 +14,7 @@ namespace RoAxisDimensionRemover
     // 2026-09-25 (decyzja operatora, poinformowanego o ryzyku) - wciąż
     // nierozwiązany, osobny problem: program nie odróżnia złącza, które
     // FAKTYCZNIE potrzebuje wymiaru wcięcia, od takiego, które tylko
-    // geometrycznie ma ścianę cięcia (patrz AGENTS.md, "Następne kroki").
+    // geometrycznie ma ścianę cięcia (patrz AGENTS.md, "Znane słabości").
     internal static class NotchPilot
     {
         // Tolerancja błędu numerycznego projekcji, nie próg geometrii:

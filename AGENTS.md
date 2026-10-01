@@ -72,6 +72,12 @@ kasującym dane: v0.3.2 (rozciąganie zjadało całkowitą długość), v0.3.3
    części w widoku (od v0.3.4); reguła v6
    (`TouchesAxis` z wymogiem głębi Z + filtr długości własnej 300 mm +
    od v0.3.6 oba końce wymiaru w obrębie jednej ściany cięcia, `CutZones`).
+   **Shift + klik** (od 2026-10-01, prośba operatora, opcja — nie
+   domyślne): ta sama `RemoveAxisDimensions` po kolei na każdym widoku
+   arkusza (`DiagRunner.SheetViews`, jak `--diag-find-candidates`), bez
+   pytania o widok. Każdy widok zatwierdza się osobno — Ctrl+Z cofa widok
+   po widoku (operator: OK). Nie da się nim pominąć widoku (przypadek
+   `[35020]`) — wtedy zwykły klik.
 2. „Wstaw wymiar wcięcia” — `NotchPilot.InsertMissing`, cały rysunek:
    guard `SinglePartDrawing`; gięte części pomijane (od v0.3.4); ściany
    cięcia ≥ 6,5° (od v0.3.5; wcześniej 10°); długość i szerokość
@@ -269,11 +275,59 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    `[35662]` (pierwsze trzy oceniane wcześniej jako „opisuje” — nakładanie
    przeoczone). Brama na żywym `[35019]`: szerokości po obu stronach rury,
    niezależny odczyt zgodny z dry-runem, operator: „ma wszystko opisane”.
+11. `[35660]` (2026-10-01, v0.3.8, „yep”): `Leiter` `RO48.3*3.6`, rura 93,
+   oba końce 22,6°. „Usuń” w widoku z wymiarami: `24`, `24`, `10`, `10`
+   do osi; `93` przetrwało. „Wstaw”: dwie długości `20` w tym widoku, dwie
+   szerokości `48` w pustym widoku (styl z innego widoku) — po przeciwnych
+   stronach rury, drugi przypadek poprawki v0.3.8. Obie `20` mają `Up` w
+   tę samą stronę, więc stoją jedna nad drugą (nie nakładają się); ciasno,
+   ale operator: „nie jest źle” — ładniej wymagałoby przesuwania widoków.
+12. `[35662]` (2026-10-01, v0.3.8, „opisuje wszystko”): lustro `[35660]`,
+   rura 91. Ten sam wynik: skasowane `24`, `24`, `10`, `10`; `91`
+   przetrwało; dwie `20` jedna nad drugą, dwie `48` po przeciwnych stronach
+   rury. Stare `10` miały `Up` w dół — nowe `20` i tak idą w górę (`perp`
+   z osi, nie z wzorca).
+13. `[35086]` (2026-10-01, v0.3.8, „wszystko potrzebne”): `Handlauf`
+   `RO42.4*3.2`, rura 407 (prosta mimo „Bogen”), 64,3° (do 89,65) /
+   39,6°, lustro `[35098]`. Usuń w obu widokach: `3`, `90`, `21`, `21`
+   (widok zostaje pusty) oraz `11`, `21`, `21`, `20`, `19`; `407` i
+   płaskie `35` (pełna długość cięcia 39,6°) przetrwały. Wstaw: płaskie
+   `90` w widoku z `407`, dwie `42` w pustym widoku po przeciwnych stronach
+   (trzeci przypadek v0.3.8). Adnotacje Tekli `9.04°`/`5.18°` w widoku
+   szerokości to kąty pozorne w rzucie, jak na `[35095]`.
+14. `[35067]` (2026-10-01, v0.3.8, „jest git”): `Handlauf` `RO42.4*3.2`,
+   rura 936, 19,9° / 25,1°. Usuń: `10`, `8`, cztery `21` — widok zostaje
+   pusty. Wstaw: długości `20` i `15` w tym pustym widoku (styl z widoku z
+   `936`), dwie `42` w widoku z `936` po przeciwnych stronach. **Drugi
+   przypadek (po `[35020]`) „pusty widok → wymiar w cudzej ramce”:** `20` i
+   `15` wylądowały w ramce widoku z `936` (`Distance` po insercie 421 i
+   329). Operator obniża ręcznie.
+15. `[35029]` (2026-10-01, v0.3.8, „jest dobrze”): rura 537, 44,8°/45°,
+   jak `[35028]`. Usuń: cztery `21` (widok pusty) oraz `42` i `21` do osi;
+   `537` i płaskie `23` przetrwały. Wstaw: dwie długości `42` w pustym
+   widoku — tym razem we własnej ramce — i dwie szerokości `42` po
+   przeciwnych stronach.
+16. `[35014]` (2026-10-01, build z repo, „ma wszystko”): `Gelaender`
+   `RO42.4*3.2`, rura 4350, oba końce 45°. **Pierwszy test trybu Shift**
+   („Usuń” z Shift = wszystkie widoki): widok 1 — sześć `21` do osi,
+   widok 2 (z `4350`) — nic, zgodnie z `--diag-active`. Wstaw: dwie
+   długości `42` w opróżnionym widoku (we własnej ramce), dwie szerokości
+   `42` po przeciwnych stronach.
+17. `[35019]` ponownie (2026-10-01, Shift, „yep”): drugi test Shift. Ten sam
+   zestaw co rano przy klikaniu widoków po kolei (skasowane `15`, `42` /
+   `21`, `21`, `8`, `21`; wstawione te same 4 wymiary, te same końce).
+   Inne tylko `Distance` po insercie — prawa długość `42` z dolnego widoku
+   dotyka napisu szerokości `42` w górnym (znana słabość położenia, nie
+   Shift).
+18. `[35068]` (2026-10-01, Shift, „jest dobrze”): **pierwsza rura
+   `RO33.7*3.2`** (`Knielauf`), 587, 19,9° / 39,8°. Usuń: `17`, `17`, `14`,
+   `6` do osi, `587` przetrwało. Wstaw: długości `28` i `12` w widoku z
+   `587`, dwie szerokości `34` po przeciwnych stronach w pustym widoku —
+   wartości z geometrii tej średnicy, reguła nie zakłada 42,4.
 
 **Proponowany następny krok:** kolejne rysunki ze skanu, tym samym cyklem.
-Najpierw `[35660]` i `[35662]` — miały nakładanie szerokości, więc to drugi
-test poprawki v0.3.8. Dalej niesprawdzone na żywo: `[35086]`, `[35067]`,
-`[35029]`, `[35014]`, `[3.5028]`, `[35068]`, `[3.5068]`, `[3.5003]`,
+(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]` sprawdzone 01.10; `[3.5028]` nieaktualny względem modelu — zaktualizować rysunek w Tekli przed testem.) Niesprawdzone na żywo:
+`[3.5028]`, `[3.5068]`, `[3.5003]`,
 `[3.5002]`, `[35030]`, `[3.5030]`, `[35288]`, `[35099]`, `[35055]`,
 `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]`. Dobierać
 też rysunki z wymiarem, który MA przetrwać — brak takiego w testach
