@@ -326,11 +326,17 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    `6` do osi, `587` przetrwało. Wstaw: długości `28` i `12` w widoku z
    `587`, dwie szerokości `34` po przeciwnych stronach w pustym widoku —
    wartości z geometrii tej średnicy, reguła nie zakłada 42,4.
+19. `[35030]` (2026-10-01, v0.3.9 z instalatora, Shift, „yep”): rura 373,
+   44,9° / 4,8°, lustro `[35027]`. Usuń: `2` (koniec 4,8°) oraz `21`, `21`
+   (44,9°) i `4` (4,8°); `373` i płaskie `21` (promień przy końcu 4,8°)
+   przetrwały. Wstaw: tylko koniec 44,9° — szerokość `42` w widoku z
+   `373`, długość `42` w opróżnionym widoku. Koniec 4,8° bez wymiarów
+   cięcia, jak na `[35027]` (pkt 9).
 
 **Proponowany następny krok:** kolejne rysunki ze skanu, tym samym cyklem.
-(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]` sprawdzone 01.10; `[3.5028]` nieaktualny względem modelu — zaktualizować rysunek w Tekli przed testem.) Niesprawdzone na żywo:
+(`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]` sprawdzone 01.10; `[3.5028]` nieaktualny względem modelu — zaktualizować rysunek w Tekli przed testem.) Niesprawdzone na żywo:
 `[3.5028]`, `[3.5068]`, `[3.5003]`,
-`[3.5002]`, `[35030]`, `[3.5030]`, `[35288]`, `[35099]`, `[35055]`,
+`[3.5002]`, `[3.5030]`, `[35288]`, `[35099]`, `[35055]`,
 `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]`. Dobierać
 też rysunki z wymiarem, który MA przetrwać — brak takiego w testach
 przepuścił błąd v0.3.2.
