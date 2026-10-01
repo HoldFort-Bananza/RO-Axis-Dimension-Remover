@@ -57,9 +57,11 @@ Sekcje niżej to dziennik chronologiczny (23.09 → 01.10); ta jest skrótem
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.8 (2026-10-01) = v0.3.7 + szerokości wcięcia odsuwane
-na zewnątrz swojego końca rury (PR #51, koniec nakładania na `[35019]`);
-instalator `installer\output\RoAxisDimensionRemover-Setup-v0.3.8.exe`.
+**Wydanie:** v0.3.9 (2026-10-01) = v0.3.8 + Shift + klik na „Usuń” czyści
+wszystkie widoki rysunku (PR #56), reguły bez zmian; instalator
+`installer\output\RoAxisDimensionRemover-Setup-v0.3.9.exe`. Wcześniej
+v0.3.8 (2026-10-01) = szerokości wcięcia odsuwane na zewnątrz swojego
+końca rury (PR #51, koniec nakładania na `[35019]`).
 Lista wszystkich wersji — sekcja „Wydania” niżej. Skrót z pulpitu wskazuje
 na zainstalowaną kopię (NIE na `bin`) — nowy build testować przez
 `bin\x64\Debug\net48\RoAxisDimensionRemover.exe`. Wersje z błędem
@@ -1528,7 +1530,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   v0.3.5 (2026-09-30: próg kąta cięcia 10° → 6,5°, PR #39) →
   v0.3.6 (2026-09-30: „Usuń” nie kasuje całkowitej długości krótkich rur, rozciąganie promienia do osi na drugim końcu, PR #42) →
   v0.3.7 (2026-09-30: log w oknie czyszczony dopiero przy innym rysunku, PR #46, reguły bez zmian) →
-  v0.3.8 (2026-10-01: szerokość wcięcia odsuwana od środka rury w stronę swojego końca, PR #51). Release na GitHubie tworzy operator
+  v0.3.8 (2026-10-01: szerokość wcięcia odsuwana od środka rury w stronę swojego końca, PR #51) →
+  v0.3.9 (2026-10-01: Shift + klik na „Usuń” = wszystkie widoki, PR #56, reguły bez zmian). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
