@@ -103,7 +103,8 @@ wcześniejsze wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`,
   przy krawędzi arkusza (`35` na `[35095]`), na rurze (`42` na `[35021]`),
   w cudzej ramce (`15` na `[35020]`). Najczęstsza poprawka ręczna.
   Nakładanie dwóch szerokości na siebie naprawione w v0.3.8 (NA DALEJ
-  pkt 10).
+  pkt 10). Długość w cudzej ramce — poprawka na gałęzi
+  `length-up-direction` (NA DALEJ pkt 29), czeka na bramę.
 - Widok zawierający same wymiary do osi zostaje po „Usuń” pusty — operator:
   takiego widoku się nie klika. „Wstaw” i tak go uzupełni stylem z innego
   widoku.
@@ -394,10 +395,30 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    stanęła w przerwie, nie w cudzej ramce. Zwrot jest więc stały; czy
    wymiar wejdzie w sąsiedni widok, zależy od odstępu.
 
-**Proponowany następny krok:** zwrot `Up` długości wcięcia (pkt 20, 26–28
-— 5 przypadków „w cudzej ramce”): zebrać `View.Origin` i osie widoków na
-tych rysunkach, sprawdzić hipotezę „od sąsiedniego widoku”, dry-run na 61
-rysunkach, brama na żywo. Lista ze skanu do testów na żywo:
+29. **Zwrot `Up` długości wcięcia** (2026-10-01, gałąź
+   `length-up-direction`, NIE wydane, czeka na bramę). `--diag-view-bounds`
+   na `[35020]`, `[35067]`, `[35288]`, `[35100]`, `[35077]`, `[35660]`,
+   `[35073]`: lokalne +Y widoku = +Y arkusza (wymiary z `Up=(0;1)`
+   poszerzają ramkę widoku w górę, z `(0;-1)` w dół; oś X nie odwrócona);
+   wszystkie mają dwa widoki jeden nad drugim, ramki stykają się. Poprawka
+   w `InsertResolvedIfMissing`: długość dostaje odwrócone `Up`, gdy inny
+   widok (`View.Origin`) leży tylko po stronie `Up` — widoki po obu
+   stronach bez zmian. Dry-run 61 rysunków, v0.3.9 vs nowy build
+   (`scans/lenup-old.txt`/`lenup-new.txt`, lokalne, w `.gitignore`): 56
+   długości, 34 odwrócone z góry w dół na 27 rysunkach, 22 bez zmian (w
+   górę, np. `[35660]`), zero innych różnic (wartości, końce, widoki,
+   liczba wymiarów identyczne). Wszystkie 5 przypadków „w cudzej ramce”
+   odwrócone. Zmienia też rysunki już ocenione „opisuje”, m.in. `[35663]`,
+   `[35073]` (długość pójdzie pod dolny widok), `[35019]` (odsunie prawą
+   `42` od napisu szerokości, pkt 17). Skan trwał ~2 h (dwa buildy) — przy
+   następnej zmianie wystarczy nowy build i porównanie z `lenup-new.txt`,
+   o ile model się nie zmienił.
+
+**Proponowany następny krok:** brama na żywo dla pkt 29 na `[35100]` albo
+`[35077]` (operator chce długość POD dolnym widokiem) i kontrola na
+`[35660]` (ma zostać w górę) — buildem z `bin`, potem PR i wydanie.
+
+Lista ze skanu do testów na żywo:
 (`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]` sprawdzone 01.10; rysunki `[3.5xxx]` z listy nieaktualne względem modelu — zaktualizować w Tekli przed testem.) Niesprawdzone na żywo:
 `[3.5028]`, `[3.5068]`, `[3.5003]`,
 `[3.5002]`, `[3.5030]`,
@@ -550,7 +571,7 @@ RoAxisDimensionRemover.exe --diag-notch-raw "[Mark]"       # tylko odczyt: WSZYS
 RoAxisDimensionRemover.exe --diag-notch-fill-dryrun "[Mark]"  # tylko odczyt: NotchPilot.InsertMissing w dry-run - reguła napędzana geometrią, nie wymiarem do osi
 RoAxisDimensionRemover.exe --diag-connection "[Mark]"      # tylko odczyt: typ/strony Connection dla każdego widoku (research "które złącze potrzebuje wymiaru")
 RoAxisDimensionRemover.exe --diag-find-candidates [plik]   # tylko odczyt: bez argumentu CAŁY model (> 1 h), z plikiem (Mark w liniach) tylko te rysunki; prawdziwa RemoveAxisDimensions + InsertMissing w dry-run
-RoAxisDimensionRemover.exe --diag-view-bounds "[Mark]"      # tylko odczyt: rozmiar arkusza/widoku, bounding box zawartości, skala widoku (research "czy wymiar wychodzi poza arkusz" - PORZUCONE, patrz sekcja "Zgłoszony, ZBADANY i PORZUCONY" [na wiki](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/wiki/10-Dziennik-2026-09))
+RoAxisDimensionRemover.exe --diag-view-bounds "[Mark]"      # tylko odczyt: rozmiar arkusza/widoku, bounding box zawartości, skala widoku, bryła części przeliczona na arkusz, wymiary z Up/Distance (od 2026-10-01: dowód, że lokalne +Y widoku = +Y arkusza; pierwotnie research "czy wymiar wychodzi poza arkusz" - PORZUCONE, patrz sekcja "Zgłoszony, ZBADANY i PORZUCONY" [na wiki](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/wiki/10-Dziennik-2026-09))
 ```
 
 `dryRun` jest we wszystkich na sztywno `true` w `DiagRunner.cs` — nie da się
