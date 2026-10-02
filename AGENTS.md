@@ -140,6 +140,10 @@ wcześniejsze wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`,
 **Środowisko i pułapki, które kosztowały czas:**
 - Model testowy (~19 tys. części) NIE zapisuje się (limit licencji 2500) —
   zmiany na rysunku znikają po zamknięciu. Wygodne do testów.
+- **Model testowy jest stały** (operator, 2026-10-02): nikt nie dodaje
+  części ani rysunków. Lista rysunków z kandydatami (`scans/marks.txt`)
+  to całość — pełny skan modelu w poszukiwaniu nowych nie ma sensu
+  (2026-10-02 potwierdził: zero nowych).
 - Każdą nową operację zapisu weryfikować ODCZYTEM Z OSOBNEGO PROCESU
   (`--diag-dimension-style`), nie logiem programu — `Modify()` z nowymi
   punktami i odczyt w tym samym procesie kłamały.
