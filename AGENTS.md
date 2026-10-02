@@ -25,7 +25,7 @@ ograniczenia, ma zostać szczegółowy, bo to baza do diagnozy).
 2. **Sprawdź `dryRun` w `MainForm.cs` (`RunButton_Click`) WPROST W PLIKU,
    nie z tego opisu, i sprawdź go NA BRANCHU, z którego faktycznie
    korzystasz** — `dev` i `release` mogą mieć RÓŻNY stan (patrz "Branche"
-   niżej). **Stan na 2026-10-01 (v0.3.8): `dryRun: false` — przycisk
+   niżej). **Stan na 2026-10-02 (v0.3.13): `dryRun: false` — przycisk
    NAPRAWDĘ kasuje**, reguła v6 przeszła bramę 2026-09-23 (historia: wiki `10-Dziennik-2026-09`).
    `DiagRunner.cs` (tryb konsolowy `--diag-*`) ma `dryRun` na sztywno
    `true` NA ZAWSZE, niezależnie od tego stanu — to się nigdy nie zmienia,
@@ -51,7 +51,7 @@ ograniczenia, ma zostać szczegółowy, bo to baza do diagnozy).
    włączyć realne kasowanie/tworzenie" retorycznie — naprawdę czekaj na
    wyraźne "tak" od człowieka, konkretnie na TO pytanie.
 
-## START SESJI TUTAJ — stan na 2026-10-01
+## START SESJI TUTAJ — stan na 2026-10-02
 
 Dziennik 23.09–29.09 jest na wiki (`10-Dziennik-2026-09`), 30.09–01.10 w „NA DALEJ” niżej; ta sekcja jest skrótem
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
@@ -93,8 +93,9 @@ kasującym dane: v0.3.2 (rozciąganie zjadało całkowitą długość), v0.3.3
 2. „Wstaw wymiar wcięcia” — `NotchPilot.InsertMissing`, cały rysunek:
    guard `SinglePartDrawing`; gięte części pomijane (od v0.3.4); ściany
    cięcia ≥ 6,5° (od v0.3.5; wcześniej 10°); długość i szerokość
-   wcięcia w widoku, gdzie cięciwa jest płaska; styl z widoku docelowego,
-   a gdy pusty — z innego widoku; `StretchRadiusToDiameter` zamienia płaski
+   wcięcia w widoku, gdzie cięciwa jest płaska; wymagany jakiś wymiar
+   w widoku docelowym, a gdy pusty — w innym widoku (dawniej źródło stylu);
+   styl od v0.3.13 z pliku `#HFT_Dim_W_Standard` (pkt 31); `StretchRadiusToDiameter` zamienia płaski
    promień przy skosie (czubek cięcia → oś, mierzony w poprzek; od v0.3.6
    koniec na osi może być gdziekolwiek) na średnicę od czubka do czubka; `HasSameDimension`
    porównuje końce i `UpDirection`, więc ponowne kliknięcie nic nie dubluje.
@@ -246,9 +247,9 @@ całkowitej długości odrzuca już sam warunek `Up` wzdłuż osi. Skan 61
 rysunków: 22 → 23 rozciągnięcia, jedyne nowe to `[35101]` (`17` → `34`).
 Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
 
-**NA DALEJ — dziennik testów na żywo (stan 2026-10-01):**
-1. Obie poprawki wyżej wydane w v0.3.6. Operator ma zainstalowaną v0.3.9
-   (01.10). Sprawdzenie wersji:
+**NA DALEJ — dziennik testów na żywo (stan 2026-10-02):**
+1. Obie poprawki wyżej wydane w v0.3.6. Operator ma zainstalowaną v0.3.13
+   (02.10). Sprawdzenie wersji:
    `(Get-Item "$env:LOCALAPPDATA\Programs\RoAxisDimensionRemover\RoAxisDimensionRemover.exe").VersionInfo.ProductVersion`.
 2. Próg 6,5° wydany w v0.3.5. Cała szara strefa sprawdzona na żywo
    (2026-09-30, v0.3.6, ocena operatora „tak”): `[35092]`, `[35260]`,
@@ -530,7 +531,7 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
      działa”.
 
 31. **Czcionka wstawianych wymiarów** (2026-10-02, gałąź
-   `insert-font-height`). Operator: wstawione wymiary mają tekst 3,50 mm,
+   `insert-font-height`, PR #76, wydane w v0.3.13). Operator: wstawione wymiary mają tekst 3,50 mm,
    a firmowy domyślny (i ręczne wstawienie) 2,50. Odczyt
    `--diag-dimension-style` (od dziś wypisuje `font=` i ścieżkę modelu) na
    `[35270]`: wzorce `Arial Narrow 2,50`, min. odstęp 5; wstawione
@@ -744,7 +745,7 @@ blokuje proces, `taskkill` to jedyny sposób go zakończyć.**
 |---|---|
 | `RoAxisDimensionService.cs` | cała logika wykrywania i kasowania, zero UI (reguła v6 — kasuje wszystko w widoku, co spełnia `TouchesAxis`). Guardy na wejściu `RemoveAxisDimensions`: `SinglePartDrawing` (od 2026-09-29), `ViewHasRoProfile` (od 2026-09-25) i `ViewHasBentPart` (od v0.3.4) — przy którymkolwiek niespełnionym nic nie kasuje. Od v0.3.6 kandydat musi leżeć w obrębie ściany cięcia (`CutZones`/`InCutZone`) |
 | `MainForm.cs` | UI: główny przycisk kasowania, log do okna i do pliku (`dryRun: false` od 2026-09-23 — brama v5 przeszła). Wybór widoku: `Picker.PickPoint` (klik w Tekli), Esc → `PickViewFromList` (lista w oknie). Fokus na Teklę po operacji tylko gdy `!dryRun`. Plus jeden przycisk `_insertNotchButton` ("Wstaw wymiar wcięcia dla złączy na wybranym rysunku", handler `InsertNotchButton_Click`) — woła `NotchPilot.InsertMissing` (patrz „InsertMissing — insert napędzany geometrią" [na wiki](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/wiki/10-Dziennik-2026-09)), bez blokady marki, uzupełnia brakujące wymiary wcięcia niezależnie od tego, czy wymiar do osi jeszcze istnieje |
-| `NotchPilot.cs` | TWORZENIE wymiaru wcięcia — produkcyjne (nazwa „Pilot” historyczna). Przycisk woła `InsertMissing` (guard `SinglePartDrawing`, gięte części pomijane przez `IsStraight`) → `FindQualifyingChordPairs` (ściany ≥ 6,5°) → `InsertResolvedIfMissing` (widok z płaską cięciwą, styl z tego widoku albo z innego) + `StretchRadiusToDiameter` (promień → średnica: `Insert()` nowego, potem `Delete()` starego). `HasSameDimension` porównuje końce i `UpDirection`. `InsertWidth`/`InsertLength` zostają tylko dla `--diag-notch-insert-dryrun`. Problem „które złącze faktycznie potrzebuje wymiaru” (24.09) bez ochrony — świadoma decyzja operatora |
+| `NotchPilot.cs` | TWORZENIE wymiaru wcięcia — produkcyjne (nazwa „Pilot” historyczna). Przycisk woła `InsertMissing` (guard `SinglePartDrawing`, gięte części pomijane przez `IsStraight`) → `FindQualifyingChordPairs` (ściany ≥ 6,5°) → `InsertResolvedIfMissing` (widok z płaską cięciwą; wymaga wymiaru w tym widoku albo w innym; styl z pliku `DimensionAttributesFile` = `#HFT_Dim_W_Standard`, od v0.3.13 — styl odczytany z wymiaru Tekla ignoruje) + `StretchRadiusToDiameter` (promień → średnica: `Insert()` nowego, potem `Delete()` starego). `HasSameDimension` porównuje końce i `UpDirection`. `InsertWidth`/`InsertLength` zostają tylko dla `--diag-notch-insert-dryrun`. Problem „które złącze faktycznie potrzebuje wymiaru” (24.09) bez ochrony — świadoma decyzja operatora |
 | `Program.cs` | punkt wejścia; GUI domyślnie, przełączniki `--diag-*` (pełna lista w „Jak testować bez klikania w GUI”) dla trybu konsolowego |
 | `DiagRunner.cs` | headless runner dry-run; całą geometrię (`CutFaces`, `FindChord`, `ToViewSpace`, `BeamAxis`) bierze z `NotchPilot`, żeby diagnostyka liczyła dokładnie to samo co przycisk (do 2026-09-29 miała własne kopie) + `RunNotchDiag` (research geometrii wcięcia) + `RunDimensionStyleDiag` (styl istniejących wymiarów, źródło danych dla `NotchPilot`) + `RunNotchMatchDiag` (dopasowanie wymiar↔ściana cięcia po najbliższości w układzie widoku, patrz „Reguła dopasowania ściana↔wymiar" [na wiki](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/wiki/10-Dziennik-2026-09)) + `RunNotchInsertDryRun` (woła `NotchPilot` w dry-run dla każdego wymiaru do osi, potwierdzone na żywym [3.5013]) + `RunNotchRawDiag` (2026-09-25: zrzuca WSZYSTKICH kandydatów, obie cięciwy, bez filtra płaskości, z flagą płaska(Z≈0) — źródło danych dla poprawki asymetrii widoku, patrz „Poprawiona przyczyna i finalna naprawa" [na wiki](https://github.com/HoldFort-Bananza/RO-Axis-Dimension-Remover/wiki/10-Dziennik-2026-09)) + `RunFindCandidatesDiag` (cały model; od 2026-09-29 liczy też braki wymiaru wcięcia i promienie do rozciągnięcia) + `OpenUnlessActive` (nie przeładowuje otwartego rysunku) — **świadomie trwały element projektu**, `dryRun` na sztywno `true` na zawsze, nie do usunięcia |
 | `UpdateCheck.cs` | sprawdza w tle przy starcie, czy na GitHubie jest nowsza wersja (cisza przy braku internetu/błędzie) |
