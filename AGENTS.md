@@ -106,7 +106,8 @@ wcześniejsze wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`,
   w cudzej ramce (`15` na `[35020]`). Najczęstsza poprawka ręczna.
   Nakładanie dwóch szerokości na siebie naprawione w v0.3.8 (NA DALEJ
   pkt 10). Długość w cudzej ramce — poprawka na gałęzi
-  `length-up-direction` (NA DALEJ pkt 29), wydane w v0.3.10.
+  `length-up-direction` (NA DALEJ pkt 29), wydane w v0.3.10. Od `fixed-placing` (02.10, pkt 30) nowe wymiary stoją na
+  rzędach Tekli, przypięte `Fixed`.
 - Widok zawierający same wymiary do osi zostaje po „Usuń” pusty — operator:
   takiego widoku się nie klika. „Wstaw” i tak go uzupełni stylem z innego
   widoku.
