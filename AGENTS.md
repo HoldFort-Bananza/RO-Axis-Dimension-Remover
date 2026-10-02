@@ -510,6 +510,13 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
 **Proponowany następny krok:** brak otwartego zadania — kolejne testy na
 żywo z listy niżej albo nowa prośba operatora.
 
+**Pełny skan modelu 2026-10-02 (v0.3.11, sam model otwarty, 1 h 20 min,
+`scans/full-2026-10-02.raw`):** 2298 rysunków, 57 z kandydatami — zero
+nowych względem 61 z listy. Wypadły dokładnie `[2.5048]`, `[2.5142]`,
+`[35244]`, `[35659]` — te, z których v0.3.6 (`CutZones`) zdjęła jedynego
+fałszywego kandydata (wymiar, który MA przetrwać). Zostają na liście
+`scans/marks.txt` jako kontrola regresji.
+
 Lista ze skanu do testów na żywo:
 (`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]` sprawdzone 01.10; rysunki `[3.5xxx]` z listy nieaktualne względem modelu — zaktualizować w Tekli przed testem.) Niesprawdzone na żywo:
 `[3.5028]`, `[3.5068]`, `[3.5003]`,
@@ -756,8 +763,11 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   agenta) i 10 commitów z notatkami poszło na `origin/dev` bez PR-a
   (operator: zostawić, nie powtarzać).
 - Drugi agent pracujący równolegle: własny `git worktree` i zakaz
-  uruchamiania Tekli, exe, buildu i `taskkill` (ten wzór działał — PR #60). Usuwanie gałęzi (lokalnie i zdalnie) też blokuje
-  klasyfikator — zostawić operatorowi.
+  uruchamiania Tekli, exe, buildu i `taskkill` (ten wzór działał — PR #60).
+  Usuwanie scalonych gałęzi (`git push origin --delete`, `git branch -d`)
+  przeszło 2026-10-02 na prośbę operatora — wcześniej bywało blokowane
+  przez klasyfikator; przed usunięciem sprawdzić `git merge-base
+  --is-ancestor <gałąź> origin/dev`.
 - Wydanie: bump `csproj` + `setup.iss` → build → ISCC → PR do `dev` → PR
   `dev → release` → tag na `release` → operator tworzy release z
   instalatorem.
