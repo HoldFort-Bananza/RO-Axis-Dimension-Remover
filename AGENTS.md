@@ -57,10 +57,12 @@ Dziennik 23.09–29.09 jest na wiki (`10-Dziennik-2026-09`), 30.09–01.10 w „
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.11 (2026-10-02) = v0.3.10 + wymiary wcięcia na rzędach
+**Wydanie:** v0.3.12 (2026-10-02) = v0.3.11 + rozciągnięta średnica
+przypięta na linii starego promienia (PR #73); instalator
+`installer\output\RoAxisDimensionRemover-Setup-v0.3.12.exe`. Wcześniej
+v0.3.11 (2026-10-02) = v0.3.10 + wymiary wcięcia na rzędach
 Tekli, przypięte `Fixed` (PR #68, NA DALEJ pkt 30) i diagnostyka
-`Placing`/`linia=` (PR #67); instalator
-`installer\output\RoAxisDimensionRemover-Setup-v0.3.11.exe`. Wcześniej
+`Placing`/`linia=` (PR #67). Wcześniej
 v0.3.10 (2026-10-01) = v0.3.9 + długość wcięcia odsuwana od
 sąsiedniego widoku (PR #62, NA DALEJ pkt 29). Wcześniej
 v0.3.9 (2026-10-01) = v0.3.8 + Shift + klik na „Usuń” czyści
@@ -757,7 +759,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   v0.3.8 (2026-10-01: szerokość wcięcia odsuwana od środka rury w stronę swojego końca, PR #51) →
   v0.3.9 (2026-10-01: Shift + klik na „Usuń” = wszystkie widoki, PR #56, reguły bez zmian) →
   v0.3.10 (2026-10-01: długość wcięcia odsuwana od sąsiedniego widoku, PR #62) →
-  v0.3.11 (2026-10-02: wymiary wcięcia na rzędach Tekli, przypięte `Fixed`, PR #68). Release na GitHubie tworzy operator
+  v0.3.11 (2026-10-02: wymiary wcięcia na rzędach Tekli, przypięte `Fixed`, PR #68) →
+  v0.3.12 (2026-10-02: rozciągnięta średnica przypięta na linii promienia, PR #73). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
