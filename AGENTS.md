@@ -57,9 +57,12 @@ Dziennik 23.09–29.09 jest na wiki (`10-Dziennik-2026-09`), 30.09–01.10 w „
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.10 (2026-10-01) = v0.3.9 + długość wcięcia odsuwana od
-sąsiedniego widoku (PR #62, NA DALEJ pkt 29); instalator
-`installer\output\RoAxisDimensionRemover-Setup-v0.3.10.exe`. Wcześniej
+**Wydanie:** v0.3.11 (2026-10-02) = v0.3.10 + wymiary wcięcia na rzędach
+Tekli, przypięte `Fixed` (PR #68, NA DALEJ pkt 30) i diagnostyka
+`Placing`/`linia=` (PR #67); instalator
+`installer\output\RoAxisDimensionRemover-Setup-v0.3.11.exe`. Wcześniej
+v0.3.10 (2026-10-01) = v0.3.9 + długość wcięcia odsuwana od
+sąsiedniego widoku (PR #62, NA DALEJ pkt 29). Wcześniej
 v0.3.9 (2026-10-01) = v0.3.8 + Shift + klik na „Usuń” czyści
 wszystkie widoki rysunku (PR #56), reguły bez zmian. Wcześniej
 v0.3.8 (2026-10-01) = szerokości wcięcia odsuwane na zewnątrz swojego
@@ -106,7 +109,8 @@ wcześniejsze wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`,
   w cudzej ramce (`15` na `[35020]`). Najczęstsza poprawka ręczna.
   Nakładanie dwóch szerokości na siebie naprawione w v0.3.8 (NA DALEJ
   pkt 10). Długość w cudzej ramce — poprawka na gałęzi
-  `length-up-direction` (NA DALEJ pkt 29), wydane w v0.3.10.
+  `length-up-direction` (NA DALEJ pkt 29), wydane w v0.3.10. Od `fixed-placing` (02.10, pkt 30) nowe wymiary stoją na
+  rzędach Tekli, przypięte `Fixed`.
 - Widok zawierający same wymiary do osi zostaje po „Usuń” pusty — operator:
   takiego widoku się nie klika. „Wstaw” i tak go uzupełni stylem z innego
   widoku.
@@ -148,7 +152,15 @@ wcześniejsze wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`,
   (`~/scans/marks.txt`) w 4,5 min. Pętla `--diag-notch-fill-dryrun` po tych
   61 to ~1 min/rysunek, a rysunki nieaktualne względem modelu pomija
   (9 z 31 na 01.10) — `--diag-find-candidates` je liczy.
-- `taskkill` przed buildem zamyka też program operatora — uprzedzić.
+- `taskkill` przed buildem zamyka też program operatora — uprzedzić
+  (01.10 dwa razy zapomniane). Commit/stash z `bin/*.exe` też się wywala,
+  gdy program działa.
+- Operator czasem ma w Tekli inny rysunek niż ten, który otworzyła
+  diagnostyka — sprawdzać Mark w nagłówku jego logu.
+- Zadanie w tle w Claude Code ma limit 2 h i potem jest zabijane. Pętla
+  `--diag-notch-fill-dryrun` po 61 rysunkach dla DWÓCH buildów to ~2 h —
+  01.10 urwała się na 56. rysunku. Dzielić listę albo puszczać jeden build
+  i porównywać z zapisanym wynikiem w `scans/`.
 - Diagnostyka otwierająca INNY rysunek zamyka ten, na którym operator
   właśnie testuje — nie puszczać skanów w trakcie testu na żywo.
 - 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
@@ -422,9 +434,73 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
    `[35660]` — wynik identyczny z v0.3.9 (dwie `20` w górę, dwie `48` po
    przeciwnych stronach, `93` przetrwało), operator: „tak”.
 
-**Proponowany następny krok:** brak otwartego zadania — kolejna znana
-słabość położenia to `Distance` wzorca (krawędź arkusza `[35095]`, wymiar
-na rurze `[35021]`).
+30. **Odstęp `Distance` wstawianych wymiarów — research, BEZ kodu**
+   (2026-10-01 wieczór; `--diag-view-bounds` + `--diag-notch-fill-dryrun`
+   na `[35095]`, `[35021]`, `[35013]`, `[35099]`, `[35014]`, wyniki w
+   `scans/dist-*.txt`, lokalne):
+   - `Distance` jest w jednostkach MODELU w układzie widoku (nie mm na
+     papierze — inaczej niż mówi ogólna uwaga w `..\AGENTS.md`) i liczy się
+     od `StartPoint` wzdłuż `Up`. Dowód: na `[35095]` dwa wymiary z
+     `Up=(1;0)`, starty X=372,37 i 394,18, `Distance` 127,63 i 105,82 —
+     oba na linii X=500; na `[35014]` 4328,81+106,40 = 4350,01+85,20 =
+     4435,21. Liczone od dalszego końca linie by się rozjechały.
+   - **Wymiary Tekli z tym samym `Up` leżą w widoku na wspólnej linii**
+     (`Start·Up + Distance` równe) na wszystkich 5 rysunkach. Położenie
+     linii zależy od rysunku: ±100 przy 1:10 (`[35095]`, `[35021]`), 50
+     (`[35014]`), ±200 przy 1:20 (`[35013]`); `[35099]` ma dwa rzędy, 100 i
+     200 (odstęp 10 mm na papierze).
+   - Nasz insert bierze `Distance` z PIERWSZEGO innego wymiaru w widoku
+     (`FindReferenceDimension`) i odmierza od własnego startu — linia
+     wypada przypadkowo. `[35095]`: długość `34,5` z `Up=(0;1)` dostaje
+     127,63 → linia Y=148,8 (na papierze ~193 z 210, krawędź arkusza),
+     a rząd Tekli w tym kierunku jest na Y=100.
+   - Propozycja reguły (NIEZATWIERDZONA): stawiać nowy wymiar na linii
+     wymiarów z tym samym `Up` w widoku. Otwarte: co, gdy na tej linii stoi
+     wymiar zachodzący zakresem (na `[35095]` całkowite `407`, 0–406,88, na
+     Y=100) — następny rząd na zewnątrz (bliżej krawędzi) czy druga strona
+     rury (rząd −100 ma tam łańcuch wymiarów do osi, które „Usuń” kasuje:
+     10 kandydatów — `21`, `21`, `11`, `11`, `19`, `22`, `13`, `18`, `21`,
+     `90`). Najpierw sprawdzić, co zostaje po Usuń, potem zdecydować z
+     operatorem.
+   - `[35021]` („`42` na rurze”): dziś szerokość `42,4` ma `Up=(-1;0)` od
+     X=7,68, `Distance` 100 → linia X=−92, poza rurą. Najpewniej naprawione
+     już przez v0.3.8 — potwierdzić na żywo.
+
+   - **Wynik 2026-10-02 — Tekla sama przestawia wstawione wymiary,
+     reguła rzędów ODRZUCONA.** Operator wybrał wariant A (zajęty rząd →
+     rząd dalej o 10 mm na papierze), kod policzył dla `[35095]` po Usuń
+     linie 200/200/494/−58,5. Niezależny odczyt po Wstaw (dwa przebiegi,
+     za drugim bez ruszania czegokolwiek): Tekla postawiła 150/250/500/−50
+     — wszystko na siatce co 50 (5 mm papieru), `35` uciekł pod ramkę
+     (najpewniej przed napisem `64.69°`). `--diag-dimension-style` (od
+     02.10 wypisuje `Placing`): WSZYSTKIE wymiary na rysunku, także
+     Tekli, mają `Placing=Free` (kier. +, `SearchMargin` 1); nasze mają
+     `MinimalDistance` 8 (ze stylu wzorca), Tekli 5. `Distance` przy
+     `Free` to tylko punkt startowy. Operator: „niech program robi tak,
+     jak Tekla chce” — kod wstawiania bez zmian (jak v0.3.10), w logu
+     dry-runu `[dry-run] brakująca …` doszło `Distance`. Rysunek po teście
+     „wszystko opisuje”.
+   - **Sidequest ZAMKNIĘTY 2026-10-02 (gałąź `fixed-placing`) — da się
+     wymusić położenie.** `Placings.Fixed` w atrybutach przekazanych do
+     konstruktora Tekla ignoruje (odczyt: dalej `Free`, położenie jak przy
+     `Free`). Działa `Fixed` + `StraightDimensionSet.Distance` na zestawie
+     PO `Insert()`, potem `Modify()` i `CommitChanges()` — potwierdzone
+     odczytem z osobnego procesu. `StraightDimension.Distance` jest tylko
+     do odczytu. **Tekla zapisuje końce wymiaru we własnej kolejności**
+     (dla `35` start `(372,37;−21,20)` zamiast naszego `(406,88;21,20)`) i
+     od SWOJEGO `StartPoint` liczy `Distance` — dlatego liczymy je od
+     wymiaru odczytanego po wstawieniu (`FindSameDimension`). Reguła rzędów
+     (`RowLine`, wariant A) wróciła razem z `Fixed`. Rozciągnięty promień
+     zostaje `Free` (bez zmian).
+     Dry-run 61 rysunków (`scans/fixed-new.txt`) vs `lenup-new.txt`:
+     identyczne poza nowym `linia=` w logu. **Brama przeszła:** `[35095]` —
+     `90`/`35` na wspólnej linii 200 nad `407` (już nie pod ramką),
+     szerokości 494,2/−58,5, wszystkie `Fixed`, operator: „ma wszystko”;
+     `[35021]` — szerokość `42` na X=−92,3, poza rurą (koniec „`42` na
+     rurze”), operator: „yeop”.
+
+**Proponowany następny krok:** brak otwartego zadania — kolejne testy na
+żywo z listy niżej albo nowa prośba operatora.
 
 Lista ze skanu do testów na żywo:
 (`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]` sprawdzone 01.10; rysunki `[3.5xxx]` z listy nieaktualne względem modelu — zaktualizować w Tekli przed testem.) Niesprawdzone na żywo:
@@ -438,7 +514,7 @@ przepuścił błąd v0.3.2.
 → `--diag-notch-raw`, `--diag-dimension-style`, `--diag-active`,
 `--diag-notch-fill-dryrun` → tabelka „widok / Usuń skasuje / zostaje /
 Wstaw doda”, widoki nazywane po zawartości → operator: Usuń w każdym
-widoku, Wstaw, wkleja log → odczyt `--diag-dimension-style` z osobnego
+widoku (Shift + klik — operator to lubi), Wstaw, wkleja log → odczyt `--diag-dimension-style` z osobnego
 procesu → pytanie BEZ podpowiedzi „Czy po tej operacji rysunek nadal
 opisuje wszystko, co musi opisywać?”. Wyniki kilku rysunków zbierać w
 jednej gałęzi z `AGENTS.md`, jeden PR.
@@ -648,7 +724,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   v0.3.7 (2026-09-30: log w oknie czyszczony dopiero przy innym rysunku, PR #46, reguły bez zmian) →
   v0.3.8 (2026-10-01: szerokość wcięcia odsuwana od środka rury w stronę swojego końca, PR #51) →
   v0.3.9 (2026-10-01: Shift + klik na „Usuń” = wszystkie widoki, PR #56, reguły bez zmian) →
-  v0.3.10 (2026-10-01: długość wcięcia odsuwana od sąsiedniego widoku, PR #62). Release na GitHubie tworzy operator
+  v0.3.10 (2026-10-01: długość wcięcia odsuwana od sąsiedniego widoku, PR #62) →
+  v0.3.11 (2026-10-02: wymiary wcięcia na rzędach Tekli, przypięte `Fixed`, PR #68). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
@@ -665,7 +742,13 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
 - Merge pull requestów na GitHubie robi człowiek (operator), nie asystent —
   API do merge jest tu świadomie nieużywane, także przez `gh pr merge`.
   Zmiany idą przez PR do `dev`; commit wprost na `dev` tylko za wyraźną
-  zgodą operatora. Usuwanie gałęzi (lokalnie i zdalnie) też blokuje
+  zgodą operatora. **Przed każdym `git commit` sprawdzić
+  `git branch --show-current`, pushować zawsze z jawną nazwą gałęzi** —
+  01.10 katalog został przełączony na `dev` (najpewniej przez drugiego
+  agenta) i 10 commitów z notatkami poszło na `origin/dev` bez PR-a
+  (operator: zostawić, nie powtarzać).
+- Drugi agent pracujący równolegle: własny `git worktree` i zakaz
+  uruchamiania Tekli, exe, buildu i `taskkill` (ten wzór działał — PR #60). Usuwanie gałęzi (lokalnie i zdalnie) też blokuje
   klasyfikator — zostawić operatorowi.
 - Wydanie: bump `csproj` + `setup.iss` → build → ISCC → PR do `dev` → PR
   `dev → release` → tag na `release` → operator tworzy release z
@@ -676,6 +759,7 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   Bash (sprawdź `which gh` najpierw, wywołaj pełną ścieżką jeśli trzeba).
 - **`README.md` celowo NIE zawiera numerów rysunków (Mark) ani nazw
   siostrzanych projektów** — świadoma decyzja operatora, bo repo jest
-  publiczne. Ten plik może i powinien zachować konkretne dane (to baza
+  publiczne. Numery rysunków w pozostałych plikach repo i w historii
+  zostają (decyzja operatora 01.10), historii nie przepisywać. Ten plik może i powinien zachować konkretne dane (to baza
   wiedzy do diagnozy), ale jeśli edytujesz `README.md`, zachowaj ten sam
   brak identyfikatorów.

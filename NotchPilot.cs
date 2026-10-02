@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Tekla.Structures.Drawing;
 using Tekla.Structures.Solid;
 using TSM = Tekla.Structures.Model;
@@ -505,14 +506,16 @@ namespace RoAxisDimensionRemover
             var chordVector = new TSG.Vector(end.X - start.X, end.Y - start.Y, end.Z - start.Z);
             var measureDir = longest ? axisView : perpView;
             double displayedValue = Math.Abs(chordVector.Dot(measureDir));
+            var up = new TSG.Vector(side.X, side.Y, 0).GetNormal();
+            double line = RowLine(flatView, start, end, up);
 
             if (dryRun)
             {
-                log($"[dry-run] brakująca {label} wcięcia: wstawiłbym {displayedValue:F2} mm, Start=({start.X:F2};{start.Y:F2};{start.Z:F2}) End=({end.X:F2};{end.Y:F2};{end.Z:F2}) Up=({side.X:F2};{side.Y:F2}) {ViewTag(flatView)}. Nic nie zmieniono.");
+                log($"[dry-run] brakująca {label} wcięcia: wstawiłbym {displayedValue:F2} mm, Start=({start.X:F2};{start.Y:F2};{start.Z:F2}) End=({end.X:F2};{end.Y:F2};{end.Z:F2}) Up=({side.X:F2};{side.Y:F2}) linia={line:F2} {ViewTag(flatView)}. Nic nie zmieniono.");
                 return;
             }
 
-            var dimension = new StraightDimension(flatView, start, end, side, reference.Distance, referenceSet.Attributes);
+            var dimension = new StraightDimension(flatView, start, end, side, line - Along(start, up), referenceSet.Attributes);
             if (!dimension.Insert())
             {
                 log($"{label}: StraightDimension.Insert() zwrócił false.");
@@ -523,10 +526,26 @@ namespace RoAxisDimensionRemover
                 log($"{label}: Insert() się powiódł, ale CommitChanges() zwrócił false.");
                 return;
             }
-            if (!HasSameDimension(flatView, start, end, side))
+            var stored = FindSameDimension(flatView, start, end, side);
+            if (stored == null)
             {
                 log($"{label}: Insert()/CommitChanges() zwróciły true, ale ponowny odczyt widoku NIE znalazł wstawionego wymiaru - nic się NIE utrwaliło. Nie ufaj temu insertowi.");
                 return;
+            }
+            // Zmierzone 2026-10-02 na [35095] (odczyt z osobnego procesu):
+            // wymiar wstawiony z Placing=Free Tekla przestawia na siatkę co 5 mm
+            // papieru i omija kolizje (kazane 200 -> 150/250, 35 pod ramką);
+            // Fixed podane w konstruktorze ignoruje. Działa dopiero Fixed na
+            // zestawie po wstawieniu + Modify(). Tekla zapisuje końce we
+            // własnej kolejności i od SWOJEGO StartPoint liczy Distance, więc
+            // liczymy je od zapisanego wymiaru, nie od naszego start.
+            // Brama: operator na [35095] - "rysunek opisuje wszystko, jest dobrze".
+            if (stored.GetDimensionSet() is StraightDimensionSet storedSet)
+            {
+                storedSet.Attributes.Placing.Placing = DimensionSetBaseAttributes.Placings.Fixed;
+                storedSet.Distance = line - Along(stored.StartPoint, up);
+                if (!storedSet.Modify() || !drawing.CommitChanges("Wymiar wcięcia - położenie"))
+                    log($"{label}: wstawiony, ale nie udało się przypiąć położenia (Fixed) - Tekla może go przesunąć.");
             }
             log($"Wstawiono brakującą {label} wcięcia {displayedValue:F2} mm, potwierdzone ponownym odczytem widoku.");
         }
@@ -666,18 +685,59 @@ namespace RoAxisDimensionRemover
         // (średnica, Up wzdłuż osi) i długość wcięcia (Up prostopadle) mają
         // na [35095] DOKŁADNIE te same końce - bez porównania kierunku jeden
         // udawałby drugi i brakujący wymiar nigdy by się nie wstawił.
-        private static bool HasSameDimension(View view, TSG.Point start, TSG.Point end, TSG.Vector up = null)
+        private static bool HasSameDimension(View view, TSG.Point start, TSG.Point end, TSG.Vector up = null) =>
+            FindSameDimension(view, start, end, up) != null;
+
+        private static StraightDimension FindSameDimension(View view, TSG.Point start, TSG.Point end, TSG.Vector up = null)
         {
             var objects = view.GetAllObjects(new[] { typeof(StraightDimension) });
             while (objects.MoveNext())
             {
                 if (!(objects.Current is StraightDimension dimension) || !SameEnds(dimension, start, end)) continue;
-                if (up == null) return true;
+                if (up == null) return dimension;
                 var dimUp = new TSG.Vector(dimension.UpDirection).GetNormal();
-                if (Math.Abs(dimUp.Dot(new TSG.Vector(up).GetNormal())) > 0.99) return true;
+                if (Math.Abs(dimUp.Dot(new TSG.Vector(up).GetNormal())) > 0.99) return dimension;
             }
-            return false;
+            return null;
         }
+
+        // Odstęp między rzędami wymiarów: 10 mm na papierze, czyli 100 mm
+        // modelu przy 1:10. Zmierzone 2026-10-01: [35099] ma rzędy na 100 i
+        // 200 (1:10), [35013] na 200 (1:20), [35095]/[35021] na ±100 (1:10).
+        private const double RowStepPaperMm = 10;
+
+        // Wymiary Tekli z tym samym Up stoją na wspólnych liniach (Start·Up +
+        // Distance, Distance od StartPoint wzdłuż Up - zmierzone 2026-10-01).
+        // Nowy wymiar: najbliższa linia za własnymi końcami, na której nic nie
+        // zachodzi zakresem; zajęta = rząd dalej (wariant A operatora,
+        // 2026-10-02; wariant B - druga strona rury - odłożony). Brak linii w
+        // tę stronę = rząd od własnego końca. Zwraca położenie linii wzdłuż up.
+        private static double RowLine(View view, TSG.Point start, TSG.Point end, TSG.Vector up)
+        {
+            var t = new TSG.Vector(-up.Y, up.X, 0);
+            double lo = Math.Min(Along(start, t), Along(end, t)), hi = Math.Max(Along(start, t), Along(end, t));
+            double own = Math.Max(Along(start, up), Along(end, up));
+            double step = RowStepPaperMm * view.Attributes.Scale;
+
+            var rows = new List<(double Line, bool Blocked)>();
+            var objects = view.GetAllObjects(new[] { typeof(StraightDimension) });
+            while (objects.MoveNext())
+            {
+                if (!(objects.Current is StraightDimension d)) continue;
+                var dUp = new TSG.Vector(d.UpDirection.X, d.UpDirection.Y, 0).GetNormal();
+                if (dUp.Dot(up) < 0.99) continue;
+                double dLo = Math.Min(Along(d.StartPoint, t), Along(d.EndPoint, t)), dHi = Math.Max(Along(d.StartPoint, t), Along(d.EndPoint, t));
+                rows.Add((Along(d.StartPoint, dUp) + d.Distance, Math.Min(hi, dHi) - Math.Max(lo, dLo) > SamePointToleranceMm));
+            }
+
+            var lines = rows.Where(r => r.Line > own).Select(r => r.Line).OrderBy(l => l).ToList();
+            if (lines.Count == 0) return own + step;
+            foreach (var line in lines)
+                if (!rows.Any(r => Math.Abs(r.Line - line) < SamePointToleranceMm && r.Blocked)) return line;
+            return lines.Last() + step;
+        }
+
+        private static double Along(TSG.Point p, TSG.Vector v) => p.X * v.X + p.Y * v.Y;
 
         private static StraightDimension FindReferenceDimension(View view, TSG.Point start, TSG.Point end)
         {
