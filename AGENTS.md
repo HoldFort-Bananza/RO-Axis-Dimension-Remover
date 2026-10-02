@@ -57,10 +57,12 @@ Dziennik 23.09–29.09 jest na wiki (`10-Dziennik-2026-09`), 30.09–01.10 w „
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.11 (2026-10-02) = v0.3.10 + wymiary wcięcia na rzędach
+**Wydanie:** v0.3.12 (2026-10-02) = v0.3.11 + rozciągnięta średnica
+przypięta na linii starego promienia (PR #73); instalator
+`installer\output\RoAxisDimensionRemover-Setup-v0.3.12.exe`. Wcześniej
+v0.3.11 (2026-10-02) = v0.3.10 + wymiary wcięcia na rzędach
 Tekli, przypięte `Fixed` (PR #68, NA DALEJ pkt 30) i diagnostyka
-`Placing`/`linia=` (PR #67); instalator
-`installer\output\RoAxisDimensionRemover-Setup-v0.3.11.exe`. Wcześniej
+`Placing`/`linia=` (PR #67). Wcześniej
 v0.3.10 (2026-10-01) = v0.3.9 + długość wcięcia odsuwana od
 sąsiedniego widoku (PR #62, NA DALEJ pkt 29). Wcześniej
 v0.3.9 (2026-10-01) = v0.3.8 + Shift + klik na „Usuń” czyści
@@ -140,6 +142,10 @@ wcześniejsze wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`,
 **Środowisko i pułapki, które kosztowały czas:**
 - Model testowy (~19 tys. części) NIE zapisuje się (limit licencji 2500) —
   zmiany na rysunku znikają po zamknięciu. Wygodne do testów.
+- **Model testowy jest stały** (operator, 2026-10-02): nikt nie dodaje
+  części ani rysunków. Lista rysunków z kandydatami (`scans/marks.txt`)
+  to całość — pełny skan modelu w poszukiwaniu nowych nie ma sensu
+  (2026-10-02 potwierdził: zero nowych).
 - Każdą nową operację zapisu weryfikować ODCZYTEM Z OSOBNEGO PROCESU
   (`--diag-dimension-style`), nie logiem programu — `Modify()` z nowymi
   punktami i odczyt w tym samym procesie kłamały.
@@ -163,6 +169,14 @@ wcześniejsze wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`,
   i porównywać z zapisanym wynikiem w `scans/`.
 - Diagnostyka otwierająca INNY rysunek zamyka ten, na którym operator
   właśnie testuje — nie puszczać skanów w trakcie testu na żywo.
+- **Pełny skan (`--diag-find-candidates` bez pliku) przy otwartym rysunku
+  rusza go na ekranie** (2026-10-02, `[35021]`, nagranie operatora):
+  uchwyty zaznaczonego wymiaru skakały między widokiem a lewą krawędzią
+  arkusza, choć skan niczego nie otwiera ani nie zaznacza. Odczyt
+  `--diag-dimension-style` w trakcie: wymiary bez zmian co do znaku. Po
+  zabiciu procesu skanu ruch ustał. Pełny skan puszczać przy zamkniętym
+  rysunku (sam model). Uwaga: `TaskStop` zadania w tle zabija powłokę, ale
+  nie `RoAxisDimensionRemover.exe` — trzeba go zatrzymać osobno.
 - 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
   otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
   (Lively/mpv, ~27% GPU, ma autostart). Po jej zamknięciu i czystej
@@ -499,8 +513,28 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
      `[35021]` — szerokość `42` na X=−92,3, poza rurą (koniec „`42` na
      rurze”), operator: „yeop”.
 
+   - **Rozciągnięty promień też przypięty (2026-10-02, gałąź
+     `pin-stretched-diameter`).** Do v0.3.11 średnica dostawała `Distance`
+     starego promienia i `Placing=Free` — na `[35021]` Tekla przestawiła ją
+     z X=−50 (linia promienia) na −100. Teraz linia = `Start·Up + Distance`
+     starego promienia, po wstawieniu `PinToLine` (wspólne z wymiarami
+     wcięcia). Dry-run: 16 z 61 rysunków porównane z `fixed-new.txt` —
+     identyczne poza `linia=` (przerwane na prośbę operatora, „tyle
+     starczy”). **Brama przeszła na losowym `[35101]`** (`Knielauf`
+     `RO33.7*3.2`, 115): Usuń `17` z głębią; Wstaw szerokość `34` (X=197,9),
+     długość `34` (Y=−116,9), średnica `34` na X=−50 = linia starego `17`,
+     wszystkie `Fixed`, `115` przetrwało; operator: „jest git, program
+     działa”.
+
 **Proponowany następny krok:** brak otwartego zadania — kolejne testy na
 żywo z listy niżej albo nowa prośba operatora.
+
+**Pełny skan modelu 2026-10-02 (v0.3.11, sam model otwarty, 1 h 20 min,
+`scans/full-2026-10-02.raw`):** 2298 rysunków, 57 z kandydatami — zero
+nowych względem 61 z listy. Wypadły dokładnie `[2.5048]`, `[2.5142]`,
+`[35244]`, `[35659]` — te, z których v0.3.6 (`CutZones`) zdjęła jedynego
+fałszywego kandydata (wymiar, który MA przetrwać). Zostają na liście
+`scans/marks.txt` jako kontrola regresji.
 
 Lista ze skanu do testów na żywo:
 (`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]` sprawdzone 01.10; rysunki `[3.5xxx]` z listy nieaktualne względem modelu — zaktualizować w Tekli przed testem.) Niesprawdzone na żywo:
@@ -725,7 +759,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   v0.3.8 (2026-10-01: szerokość wcięcia odsuwana od środka rury w stronę swojego końca, PR #51) →
   v0.3.9 (2026-10-01: Shift + klik na „Usuń” = wszystkie widoki, PR #56, reguły bez zmian) →
   v0.3.10 (2026-10-01: długość wcięcia odsuwana od sąsiedniego widoku, PR #62) →
-  v0.3.11 (2026-10-02: wymiary wcięcia na rzędach Tekli, przypięte `Fixed`, PR #68). Release na GitHubie tworzy operator
+  v0.3.11 (2026-10-02: wymiary wcięcia na rzędach Tekli, przypięte `Fixed`, PR #68) →
+  v0.3.12 (2026-10-02: rozciągnięta średnica przypięta na linii promienia, PR #73). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
@@ -748,8 +783,11 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   agenta) i 10 commitów z notatkami poszło na `origin/dev` bez PR-a
   (operator: zostawić, nie powtarzać).
 - Drugi agent pracujący równolegle: własny `git worktree` i zakaz
-  uruchamiania Tekli, exe, buildu i `taskkill` (ten wzór działał — PR #60). Usuwanie gałęzi (lokalnie i zdalnie) też blokuje
-  klasyfikator — zostawić operatorowi.
+  uruchamiania Tekli, exe, buildu i `taskkill` (ten wzór działał — PR #60).
+  Usuwanie scalonych gałęzi (`git push origin --delete`, `git branch -d`)
+  przeszło 2026-10-02 na prośbę operatora — wcześniej bywało blokowane
+  przez klasyfikator; przed usunięciem sprawdzić `git merge-base
+  --is-ancestor <gałąź> origin/dev`.
 - Wydanie: bump `csproj` + `setup.iss` → build → ISCC → PR do `dev` → PR
   `dev → release` → tag na `release` → operator tworzy release z
   instalatorem.

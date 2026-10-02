@@ -540,14 +540,17 @@ namespace RoAxisDimensionRemover
             // własnej kolejności i od SWOJEGO StartPoint liczy Distance, więc
             // liczymy je od zapisanego wymiaru, nie od naszego start.
             // Brama: operator na [35095] - "rysunek opisuje wszystko, jest dobrze".
-            if (stored.GetDimensionSet() is StraightDimensionSet storedSet)
-            {
-                storedSet.Attributes.Placing.Placing = DimensionSetBaseAttributes.Placings.Fixed;
-                storedSet.Distance = line - Along(stored.StartPoint, up);
-                if (!storedSet.Modify() || !drawing.CommitChanges("Wymiar wcięcia - położenie"))
-                    log($"{label}: wstawiony, ale nie udało się przypiąć położenia (Fixed) - Tekla może go przesunąć.");
-            }
+            if (!PinToLine(drawing, stored, line, up))
+                log($"{label}: wstawiony, ale nie udało się przypiąć położenia (Fixed) - Tekla może go przesunąć.");
             log($"Wstawiono brakującą {label} wcięcia {displayedValue:F2} mm, potwierdzone ponownym odczytem widoku.");
+        }
+
+        private static bool PinToLine(Drawing drawing, StraightDimension stored, double line, TSG.Vector up)
+        {
+            if (!(stored.GetDimensionSet() is StraightDimensionSet set)) return false;
+            set.Attributes.Placing.Placing = DimensionSetBaseAttributes.Placings.Fixed;
+            set.Distance = line - Along(stored.StartPoint, up);
+            return set.Modify() && drawing.CommitChanges("Wymiar wcięcia - położenie");
         }
 
         // Tolerancja "ten sam punkt" dla końca istniejącego wymiaru vs końca
@@ -618,9 +621,12 @@ namespace RoAxisDimensionRemover
                     var up = new TSG.Vector(dimension.UpDirection).GetNormal();
                     if (Math.Abs(up.Dot(axisView.GetNormal())) < 0.99) continue;
 
+                    // Linia starego promienia - średnica ma stanąć dokładnie tam.
+                    double line = Along(start, up) + dimension.Distance;
+
                     if (dryRun)
                     {
-                        log($"[dry-run] rozciągnąłbym wymiar promienia {offset:F2} mm do średnicy {diameter:F2} mm: koniec ({other.X:F2};{other.Y:F2}) -> ({oppositeTip.X:F2};{oppositeTip.Y:F2}) {ViewTag(view)}. Nic nie zmieniono.");
+                        log($"[dry-run] rozciągnąłbym wymiar promienia {offset:F2} mm do średnicy {diameter:F2} mm: koniec ({other.X:F2};{other.Y:F2}) -> ({oppositeTip.X:F2};{oppositeTip.Y:F2}) linia={line:F2} {ViewTag(view)}. Nic nie zmieniono.");
                         continue;
                     }
 
@@ -657,11 +663,18 @@ namespace RoAxisDimensionRemover
                         log("Rozciąganie promienia: CommitChanges() zwrócił false.");
                         continue;
                     }
-                    if (!HasSameDimension(view, tip, oppositeTip, axisView))
+                    var stored = FindSameDimension(view, tip, oppositeTip, axisView);
+                    if (stored == null)
                     {
                         log("Rozciąganie promienia: ponowny odczyt widoku NIE znalazł średnicy - nic się NIE utrwaliło.");
                         continue;
                     }
+                    // Zmierzone 2026-10-02 na [35021]: średnica z Distance starego
+                    // promienia i Placing=Free stanęła na X=-100 zamiast -50
+                    // (linia promienia) - Tekla ją przestawiła, jak wstawione
+                    // wymiary wcięcia przed v0.3.11. Przypinamy na linii promienia.
+                    if (!PinToLine(drawing, stored, line, up))
+                        log("Rozciąganie promienia: średnica wstawiona, ale nie udało się przypiąć położenia (Fixed) - Tekla może ją przesunąć.");
                     log($"Rozciągnięto wymiar promienia {offset:F2} mm do średnicy {diameter:F2} mm (nowy wymiar w miejsce starego), potwierdzone ponownym odczytem widoku.");
                 }
             }
