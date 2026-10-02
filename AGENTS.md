@@ -526,6 +526,24 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
      wszystkie `Fixed`, `115` przetrwało; operator: „jest git, program
      działa”.
 
+31. **Czcionka wstawianych wymiarów** (2026-10-02, gałąź
+   `insert-font-height`). Operator: wstawione wymiary mają tekst 3,50 mm,
+   a firmowy domyślny (i ręczne wstawienie) 2,50. Odczyt
+   `--diag-dimension-style` (od dziś wypisuje `font=` i ścieżkę modelu) na
+   `[35270]`: wzorce `Arial Narrow 2,50`, min. odstęp 5; wstawione
+   `Arial 3,50`, min. 8. Atrybuty odczytane z istniejącego wymiaru Tekla
+   ignoruje — w konstruktorze i przy `Modify()` (font nowym obiektem,
+   osobnym `Modify()`, nawet z nazwą `Arial` — dalej 3,50; `Fixed` w tym
+   samym `Modify()` się przyjmuje). Działa
+   `new StraightDimensionSetAttributes("#HFT_Dim_W_Standard")` — plik z
+   `attributes` modelu, którego używają firmowe `W_View_Dim_*` (rysunki
+   pojedynczej części, m.in. `W_View_Dim_Railing`); `A_View_Dim_*`
+   (zespoły) mają `#HFT_Dim_Standard` 3,50, Tekli `standard.dim` to Arial
+   3,50. Oba wstawienia (wymiar wcięcia i średnica) biorą styl z pliku;
+   wzorzec w widoku nadal jest wymagany (bez zmiany zachowania). **Brama:**
+   `[35270]` — szerokość `48` i średnica `48`: `Arial Narrow 2,50`, min. 5,
+   `Fixed`, niezależny odczyt; operator: „nice”.
+
 **Proponowany następny krok:** brak otwartego zadania — kolejne testy na
 żywo z listy niżej albo nowa prośba operatora.
 
@@ -665,6 +683,12 @@ profilu RO i geometrii bryły, nie ogólne dla Tekla Open API).
   zmienia, choć zwraca `true`** (zmierzone 2026-09-29) — a odczyt w tym
   samym procesie kłamie, że zmienił. Zmiana punktów = nowy `Insert()` +
   `Delete()` starego.
+- **Styl (czcionka, min. odstęp) odczytany z istniejącego wymiaru NIE
+  przenosi się na nowy** — ani w konstruktorze `StraightDimension`, ani
+  przez `Modify()` zestawu (zmierzone 2026-10-02, NA DALEJ pkt 31). Tekla
+  daje wtedy Arial 3,50. Przenosi się styl z pliku:
+  `new StraightDimensionSet.StraightDimensionSetAttributes("<plik .dim>")`.
+  `Placing`/`Distance` przez `Modify()` działają.
 - **`SetActiveDrawing` na już otwartym rysunku go przeładowuje** i gubi
   niezapisane zmiany (zmierzone 2026-09-29). Patrz `OpenUnlessActive`.
 - **`CoordinateSystem` (Origin/AxisX/AxisY) nie ma gotowej metody
