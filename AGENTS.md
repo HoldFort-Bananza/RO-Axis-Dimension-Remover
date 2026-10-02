@@ -106,7 +106,8 @@ wcześniejsze wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`,
   w cudzej ramce (`15` na `[35020]`). Najczęstsza poprawka ręczna.
   Nakładanie dwóch szerokości na siebie naprawione w v0.3.8 (NA DALEJ
   pkt 10). Długość w cudzej ramce — poprawka na gałęzi
-  `length-up-direction` (NA DALEJ pkt 29), wydane w v0.3.10.
+  `length-up-direction` (NA DALEJ pkt 29), wydane w v0.3.10. Od `fixed-placing` (02.10, pkt 30) nowe wymiary stoją na
+  rzędach Tekli, przypięte `Fixed`.
 - Widok zawierający same wymiary do osi zostaje po „Usuń” pusty — operator:
   takiego widoku się nie klika. „Wstaw” i tak go uzupełni stylem z innego
   widoku.
@@ -476,16 +477,27 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
      jak Tekla chce” — kod wstawiania bez zmian (jak v0.3.10), w logu
      dry-runu `[dry-run] brakująca …` doszło `Distance`. Rysunek po teście
      „wszystko opisuje”.
-   - **Sidequest (otwarty):** czy przez API da się wymusić położenie —
-     `DimensionSetBaseAttributes.Placing` = `DimensionPlacingAttributes`
-     (`Placings.Fixed`/`Free`, `PlacingDirectionAttributes`
-     `Positive`/`Negative`, `PlacingDistanceAttributes`
-     `MinimalDistance`/`MaximalDistance`/`SearchMargin`). Nie sprawdzone:
-     czy insert z `Fixed` trzyma `Distance` i jak wygląda rysunek. To
-     zmiana zapisu — eksperyment tylko za zgodą operatora, z bramą.
+   - **Sidequest ZAMKNIĘTY 2026-10-02 (gałąź `fixed-placing`) — da się
+     wymusić położenie.** `Placings.Fixed` w atrybutach przekazanych do
+     konstruktora Tekla ignoruje (odczyt: dalej `Free`, położenie jak przy
+     `Free`). Działa `Fixed` + `StraightDimensionSet.Distance` na zestawie
+     PO `Insert()`, potem `Modify()` i `CommitChanges()` — potwierdzone
+     odczytem z osobnego procesu. `StraightDimension.Distance` jest tylko
+     do odczytu. **Tekla zapisuje końce wymiaru we własnej kolejności**
+     (dla `35` start `(372,37;−21,20)` zamiast naszego `(406,88;21,20)`) i
+     od SWOJEGO `StartPoint` liczy `Distance` — dlatego liczymy je od
+     wymiaru odczytanego po wstawieniu (`FindSameDimension`). Reguła rzędów
+     (`RowLine`, wariant A) wróciła razem z `Fixed`. Rozciągnięty promień
+     zostaje `Free` (bez zmian).
+     Dry-run 61 rysunków (`scans/fixed-new.txt`) vs `lenup-new.txt`:
+     identyczne poza nowym `linia=` w logu. **Brama przeszła:** `[35095]` —
+     `90`/`35` na wspólnej linii 200 nad `407` (już nie pod ramką),
+     szerokości 494,2/−58,5, wszystkie `Fixed`, operator: „ma wszystko”;
+     `[35021]` — szerokość `42` na X=−92,3, poza rurą (koniec „`42` na
+     rurze”), operator: „yeop”.
 
-**Proponowany następny krok:** sidequest z pkt 30 — eksperyment z
-`Placings.Fixed` przy insercie na `[35095]` (za zgodą operatora).
+**Proponowany następny krok:** wydanie v0.3.11 z `fixed-placing` (PR do
+`dev`, potem `dev → release`), wiki zaktualizowane.
 
 Lista ze skanu do testów na żywo:
 (`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]` sprawdzone 01.10; rysunki `[3.5xxx]` z listy nieaktualne względem modelu — zaktualizować w Tekli przed testem.) Niesprawdzone na żywo:
