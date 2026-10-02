@@ -508,7 +508,7 @@ namespace RoAxisDimensionRemover
 
             if (dryRun)
             {
-                log($"[dry-run] brakująca {label} wcięcia: wstawiłbym {displayedValue:F2} mm, Start=({start.X:F2};{start.Y:F2};{start.Z:F2}) End=({end.X:F2};{end.Y:F2};{end.Z:F2}) Up=({side.X:F2};{side.Y:F2}) {ViewTag(flatView)}. Nic nie zmieniono.");
+                log($"[dry-run] brakująca {label} wcięcia: wstawiłbym {displayedValue:F2} mm, Start=({start.X:F2};{start.Y:F2};{start.Z:F2}) End=({end.X:F2};{end.Y:F2};{end.Z:F2}) Up=({side.X:F2};{side.Y:F2}) Distance={reference.Distance:F2} {ViewTag(flatView)}. Nic nie zmieniono.");
                 return;
             }
 

@@ -462,10 +462,30 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
      X=7,68, `Distance` 100 → linia X=−92, poza rurą. Najpewniej naprawione
      już przez v0.3.8 — potwierdzić na żywo.
 
-**Proponowany następny krok:** dokończyć pkt 30 — `--diag-active` +
-`--diag-dimension-style` na `[35095]` po Usuń (co zostaje w rzędach),
-decyzja z operatorem o zachodzących zakresach, potem kod, dry-run 61
-rysunków porównany z `scans/lenup-new.txt` (jeden build), brama.
+   - **Wynik 2026-10-02 — Tekla sama przestawia wstawione wymiary,
+     reguła rzędów ODRZUCONA.** Operator wybrał wariant A (zajęty rząd →
+     rząd dalej o 10 mm na papierze), kod policzył dla `[35095]` po Usuń
+     linie 200/200/494/−58,5. Niezależny odczyt po Wstaw (dwa przebiegi,
+     za drugim bez ruszania czegokolwiek): Tekla postawiła 150/250/500/−50
+     — wszystko na siatce co 50 (5 mm papieru), `35` uciekł pod ramkę
+     (najpewniej przed napisem `64.69°`). `--diag-dimension-style` (od
+     02.10 wypisuje `Placing`): WSZYSTKIE wymiary na rysunku, także
+     Tekli, mają `Placing=Free` (kier. +, `SearchMargin` 1); nasze mają
+     `MinimalDistance` 8 (ze stylu wzorca), Tekli 5. `Distance` przy
+     `Free` to tylko punkt startowy. Operator: „niech program robi tak,
+     jak Tekla chce” — kod wstawiania bez zmian (jak v0.3.10), w logu
+     dry-runu `[dry-run] brakująca …` doszło `Distance`. Rysunek po teście
+     „wszystko opisuje”.
+   - **Sidequest (otwarty):** czy przez API da się wymusić położenie —
+     `DimensionSetBaseAttributes.Placing` = `DimensionPlacingAttributes`
+     (`Placings.Fixed`/`Free`, `PlacingDirectionAttributes`
+     `Positive`/`Negative`, `PlacingDistanceAttributes`
+     `MinimalDistance`/`MaximalDistance`/`SearchMargin`). Nie sprawdzone:
+     czy insert z `Fixed` trzyma `Distance` i jak wygląda rysunek. To
+     zmiana zapisu — eksperyment tylko za zgodą operatora, z bramą.
+
+**Proponowany następny krok:** sidequest z pkt 30 — eksperyment z
+`Placings.Fixed` przy insercie na `[35095]` (za zgodą operatora).
 
 Lista ze skanu do testów na żywo:
 (`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]` sprawdzone 01.10; rysunki `[3.5xxx]` z listy nieaktualne względem modelu — zaktualizować w Tekli przed testem.) Niesprawdzone na żywo:

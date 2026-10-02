@@ -295,10 +295,18 @@ namespace RoAxisDimensionRemover
                         $"Wartość={(value.HasValue ? value.Value.ToString("F2") : "?")} " +
                         $"Start={PointStr(dimension.StartPoint)} End={PointStr(dimension.EndPoint)} " +
                         $"Up=({dimension.UpDirection.X:F2};{dimension.UpDirection.Y:F2};{dimension.UpDirection.Z:F2}) " +
-                        $"Distance={dimension.Distance:F2} Attributes={attributes}");
+                        $"Distance={dimension.Distance:F2} Placing={PlacingStr(attributes?.Placing)}");
                 }
             }
         }
+
+        // Research 2026-10-02: Tekla przestawia wstawione wymiary na [35095]
+        // (kazane 200 -> 150/250, siatka co 50) - czy to rozmieszczenie
+        // swobodne (Free) ze stylu wzorca?
+        private static string PlacingStr(DimensionSetBaseAttributes.DimensionPlacingAttributes p) =>
+            p == null ? "?" :
+            $"{p.Placing} kier(+{p.Direction?.Positive}/-{p.Direction?.Negative}) " +
+            $"min={p.Distance?.MinimalDistance:F2} max={p.Distance?.MaximalDistance:F2} margines={p.Distance?.SearchMargin:F2}";
 
         /// <summary>
         /// Tylko odczyt: dopasowuje każdy wymiar "do osi" do najbliższej
