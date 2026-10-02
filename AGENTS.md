@@ -163,6 +163,14 @@ wcześniejsze wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`,
   i porównywać z zapisanym wynikiem w `scans/`.
 - Diagnostyka otwierająca INNY rysunek zamyka ten, na którym operator
   właśnie testuje — nie puszczać skanów w trakcie testu na żywo.
+- **Pełny skan (`--diag-find-candidates` bez pliku) przy otwartym rysunku
+  rusza go na ekranie** (2026-10-02, `[35021]`, nagranie operatora):
+  uchwyty zaznaczonego wymiaru skakały między widokiem a lewą krawędzią
+  arkusza, choć skan niczego nie otwiera ani nie zaznacza. Odczyt
+  `--diag-dimension-style` w trakcie: wymiary bez zmian co do znaku. Po
+  zabiciu procesu skanu ruch ustał. Pełny skan puszczać przy zamkniętym
+  rysunku (sam model). Uwaga: `TaskStop` zadania w tle zabija powłokę, ale
+  nie `RoAxisDimensionRemover.exe` — trzeba go zatrzymać osobno.
 - 30.09 komputer dwa razy padł (bugcheck `0x133`, błąd `nvlddmkm`) przy
   otwieraniu rysunku przez diagnostykę; w tle działała animowana tapeta
   (Lively/mpv, ~27% GPU, ma autostart). Po jej zamknięciu i czystej
