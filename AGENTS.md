@@ -57,9 +57,12 @@ Dziennik 23.09–29.09 jest na wiki (`10-Dziennik-2026-09`), 30.09–01.10 w „
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.10 (2026-10-01) = v0.3.9 + długość wcięcia odsuwana od
-sąsiedniego widoku (PR #62, NA DALEJ pkt 29); instalator
-`installer\output\RoAxisDimensionRemover-Setup-v0.3.10.exe`. Wcześniej
+**Wydanie:** v0.3.11 (2026-10-02) = v0.3.10 + wymiary wcięcia na rzędach
+Tekli, przypięte `Fixed` (PR #68, NA DALEJ pkt 30) i diagnostyka
+`Placing`/`linia=` (PR #67); instalator
+`installer\output\RoAxisDimensionRemover-Setup-v0.3.11.exe`. Wcześniej
+v0.3.10 (2026-10-01) = v0.3.9 + długość wcięcia odsuwana od
+sąsiedniego widoku (PR #62, NA DALEJ pkt 29). Wcześniej
 v0.3.9 (2026-10-01) = v0.3.8 + Shift + klik na „Usuń” czyści
 wszystkie widoki rysunku (PR #56), reguły bez zmian. Wcześniej
 v0.3.8 (2026-10-01) = szerokości wcięcia odsuwane na zewnątrz swojego
@@ -496,8 +499,8 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
      `[35021]` — szerokość `42` na X=−92,3, poza rurą (koniec „`42` na
      rurze”), operator: „yeop”.
 
-**Proponowany następny krok:** wydanie v0.3.11 z `fixed-placing` (PR do
-`dev`, potem `dev → release`), wiki zaktualizowane.
+**Proponowany następny krok:** brak otwartego zadania — kolejne testy na
+żywo z listy niżej albo nowa prośba operatora.
 
 Lista ze skanu do testów na żywo:
 (`[35660]`, `[35662]`, `[35086]`, `[35067]`, `[35029]`, `[35014]`, `[35068]`, `[35030]`, `[35288]`, `[35099]`, `[35055]`, `[35006]`, `[35013]`, `[35663]`, `[35100]`, `[35077]`, `[35073]` sprawdzone 01.10; rysunki `[3.5xxx]` z listy nieaktualne względem modelu — zaktualizować w Tekli przed testem.) Niesprawdzone na żywo:
@@ -721,7 +724,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   v0.3.7 (2026-09-30: log w oknie czyszczony dopiero przy innym rysunku, PR #46, reguły bez zmian) →
   v0.3.8 (2026-10-01: szerokość wcięcia odsuwana od środka rury w stronę swojego końca, PR #51) →
   v0.3.9 (2026-10-01: Shift + klik na „Usuń” = wszystkie widoki, PR #56, reguły bez zmian) →
-  v0.3.10 (2026-10-01: długość wcięcia odsuwana od sąsiedniego widoku, PR #62). Release na GitHubie tworzy operator
+  v0.3.10 (2026-10-01: długość wcięcia odsuwana od sąsiedniego widoku, PR #62) →
+  v0.3.11 (2026-10-02: wymiary wcięcia na rzędach Tekli, przypięte `Fixed`, PR #68). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
