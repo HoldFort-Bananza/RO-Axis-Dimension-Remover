@@ -57,9 +57,12 @@ Dziennik 23.09–29.09 jest na wiki (`10-Dziennik-2026-09`), 30.09–01.10 w „
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.12 (2026-10-02) = v0.3.11 + rozciągnięta średnica
-przypięta na linii starego promienia (PR #73); instalator
-`installer\output\RoAxisDimensionRemover-Setup-v0.3.12.exe`. Wcześniej
+**Wydanie:** v0.3.13 (2026-10-02) = v0.3.12 + styl wstawianych wymiarów
+z pliku `#HFT_Dim_W_Standard` — Arial Narrow 2,50 zamiast Arial 3,50
+(PR #76, NA DALEJ pkt 31); instalator
+`installer\output\RoAxisDimensionRemover-Setup-v0.3.13.exe`. Wcześniej
+v0.3.12 (2026-10-02) = v0.3.11 + rozciągnięta średnica
+przypięta na linii starego promienia (PR #73). Wcześniej
 v0.3.11 (2026-10-02) = v0.3.10 + wymiary wcięcia na rzędach
 Tekli, przypięte `Fixed` (PR #68, NA DALEJ pkt 30) i diagnostyka
 `Placing`/`linia=` (PR #67). Wcześniej
@@ -784,7 +787,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   v0.3.9 (2026-10-01: Shift + klik na „Usuń” = wszystkie widoki, PR #56, reguły bez zmian) →
   v0.3.10 (2026-10-01: długość wcięcia odsuwana od sąsiedniego widoku, PR #62) →
   v0.3.11 (2026-10-02: wymiary wcięcia na rzędach Tekli, przypięte `Fixed`, PR #68) →
-  v0.3.12 (2026-10-02: rozciągnięta średnica przypięta na linii promienia, PR #73). Release na GitHubie tworzy operator
+  v0.3.12 (2026-10-02: rozciągnięta średnica przypięta na linii promienia, PR #73) →
+  v0.3.13 (2026-10-02: styl wstawianych wymiarów z pliku atrybutów, Arial Narrow 2,50, PR #76). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.
