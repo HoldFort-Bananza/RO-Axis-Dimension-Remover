@@ -511,6 +511,19 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
      `[35021]` — szerokość `42` na X=−92,3, poza rurą (koniec „`42` na
      rurze”), operator: „yeop”.
 
+   - **Rozciągnięty promień też przypięty (2026-10-02, gałąź
+     `pin-stretched-diameter`).** Do v0.3.11 średnica dostawała `Distance`
+     starego promienia i `Placing=Free` — na `[35021]` Tekla przestawiła ją
+     z X=−50 (linia promienia) na −100. Teraz linia = `Start·Up + Distance`
+     starego promienia, po wstawieniu `PinToLine` (wspólne z wymiarami
+     wcięcia). Dry-run: 16 z 61 rysunków porównane z `fixed-new.txt` —
+     identyczne poza `linia=` (przerwane na prośbę operatora, „tyle
+     starczy”). **Brama przeszła na losowym `[35101]`** (`Knielauf`
+     `RO33.7*3.2`, 115): Usuń `17` z głębią; Wstaw szerokość `34` (X=197,9),
+     długość `34` (Y=−116,9), średnica `34` na X=−50 = linia starego `17`,
+     wszystkie `Fixed`, `115` przetrwało; operator: „jest git, program
+     działa”.
+
 **Proponowany następny krok:** brak otwartego zadania — kolejne testy na
 żywo z listy niżej albo nowa prośba operatora.
 
