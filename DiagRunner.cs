@@ -278,7 +278,7 @@ namespace RoAxisDimensionRemover
             var drawing = ActiveDrawing();
             if (drawing == null) return;
 
-            Log($"[dim-style] Aktywny rysunek: {drawing.Mark} / {drawing.Name}");
+            Log($"[dim-style] Aktywny rysunek: {drawing.Mark} / {drawing.Name}, model: {new TSM.Model().GetInfo().ModelPath}");
             int viewIndex = 0;
             foreach (var view in SheetViews(drawing).OfType<View>())
             {
@@ -295,7 +295,8 @@ namespace RoAxisDimensionRemover
                         $"Wartość={(value.HasValue ? value.Value.ToString("F2") : "?")} " +
                         $"Start={PointStr(dimension.StartPoint)} End={PointStr(dimension.EndPoint)} " +
                         $"Up=({dimension.UpDirection.X:F2};{dimension.UpDirection.Y:F2};{dimension.UpDirection.Z:F2}) " +
-                        $"Distance={dimension.Distance:F2} Placing={PlacingStr(attributes?.Placing)}");
+                        $"Distance={dimension.Distance:F2} Placing={PlacingStr(attributes?.Placing)} " +
+                        $"font={attributes?.Text?.Font?.Name} {attributes?.Text?.Font?.Height:F2}");
                 }
             }
         }

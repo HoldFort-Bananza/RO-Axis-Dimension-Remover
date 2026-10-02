@@ -10,7 +10,7 @@
 ; (ten sam katalog nadrzedny).
 
 #define MyAppName "RO Axis Dimension Remover"
-#define MyAppVersion "0.3.12"
+#define MyAppVersion "0.3.13"
 #define MyAppPublisher "HoldFort-Bananza"
 #define MyAppExeName "RoAxisDimensionRemover.exe"
 

@@ -57,9 +57,12 @@ Dziennik 23.09–29.09 jest na wiki (`10-Dziennik-2026-09`), 30.09–01.10 w „
 aktualnego stanu. Przy sprzeczności wygrywa KOD, potem ta sekcja, potem
 starsze wpisy dziennika.
 
-**Wydanie:** v0.3.12 (2026-10-02) = v0.3.11 + rozciągnięta średnica
-przypięta na linii starego promienia (PR #73); instalator
-`installer\output\RoAxisDimensionRemover-Setup-v0.3.12.exe`. Wcześniej
+**Wydanie:** v0.3.13 (2026-10-02) = v0.3.12 + styl wstawianych wymiarów
+z pliku `#HFT_Dim_W_Standard` — Arial Narrow 2,50 zamiast Arial 3,50
+(PR #76, NA DALEJ pkt 31); instalator
+`installer\output\RoAxisDimensionRemover-Setup-v0.3.13.exe`. Wcześniej
+v0.3.12 (2026-10-02) = v0.3.11 + rozciągnięta średnica
+przypięta na linii starego promienia (PR #73). Wcześniej
 v0.3.11 (2026-10-02) = v0.3.10 + wymiary wcięcia na rzędach
 Tekli, przypięte `Fixed` (PR #68, NA DALEJ pkt 30) i diagnostyka
 `Placing`/`linia=` (PR #67). Wcześniej
@@ -526,6 +529,24 @@ Brama przeszła na `[35101]`: „tak jest dobrze na tym rysunku”.
      wszystkie `Fixed`, `115` przetrwało; operator: „jest git, program
      działa”.
 
+31. **Czcionka wstawianych wymiarów** (2026-10-02, gałąź
+   `insert-font-height`). Operator: wstawione wymiary mają tekst 3,50 mm,
+   a firmowy domyślny (i ręczne wstawienie) 2,50. Odczyt
+   `--diag-dimension-style` (od dziś wypisuje `font=` i ścieżkę modelu) na
+   `[35270]`: wzorce `Arial Narrow 2,50`, min. odstęp 5; wstawione
+   `Arial 3,50`, min. 8. Atrybuty odczytane z istniejącego wymiaru Tekla
+   ignoruje — w konstruktorze i przy `Modify()` (font nowym obiektem,
+   osobnym `Modify()`, nawet z nazwą `Arial` — dalej 3,50; `Fixed` w tym
+   samym `Modify()` się przyjmuje). Działa
+   `new StraightDimensionSetAttributes("#HFT_Dim_W_Standard")` — plik z
+   `attributes` modelu, którego używają firmowe `W_View_Dim_*` (rysunki
+   pojedynczej części, m.in. `W_View_Dim_Railing`); `A_View_Dim_*`
+   (zespoły) mają `#HFT_Dim_Standard` 3,50, Tekli `standard.dim` to Arial
+   3,50. Oba wstawienia (wymiar wcięcia i średnica) biorą styl z pliku;
+   wzorzec w widoku nadal jest wymagany (bez zmiany zachowania). **Brama:**
+   `[35270]` — szerokość `48` i średnica `48`: `Arial Narrow 2,50`, min. 5,
+   `Fixed`, niezależny odczyt; operator: „nice”.
+
 **Proponowany następny krok:** brak otwartego zadania — kolejne testy na
 żywo z listy niżej albo nowa prośba operatora.
 
@@ -665,6 +686,12 @@ profilu RO i geometrii bryły, nie ogólne dla Tekla Open API).
   zmienia, choć zwraca `true`** (zmierzone 2026-09-29) — a odczyt w tym
   samym procesie kłamie, że zmienił. Zmiana punktów = nowy `Insert()` +
   `Delete()` starego.
+- **Styl (czcionka, min. odstęp) odczytany z istniejącego wymiaru NIE
+  przenosi się na nowy** — ani w konstruktorze `StraightDimension`, ani
+  przez `Modify()` zestawu (zmierzone 2026-10-02, NA DALEJ pkt 31). Tekla
+  daje wtedy Arial 3,50. Przenosi się styl z pliku:
+  `new StraightDimensionSet.StraightDimensionSetAttributes("<plik .dim>")`.
+  `Placing`/`Distance` przez `Modify()` działają.
 - **`SetActiveDrawing` na już otwartym rysunku go przeładowuje** i gubi
   niezapisane zmiany (zmierzone 2026-09-29). Patrz `OpenUnlessActive`.
 - **`CoordinateSystem` (Origin/AxisX/AxisY) nie ma gotowej metody
@@ -760,7 +787,8 @@ trzeba znaleźć kolejnego kandydata na innym modelu.
   v0.3.9 (2026-10-01: Shift + klik na „Usuń” = wszystkie widoki, PR #56, reguły bez zmian) →
   v0.3.10 (2026-10-01: długość wcięcia odsuwana od sąsiedniego widoku, PR #62) →
   v0.3.11 (2026-10-02: wymiary wcięcia na rzędach Tekli, przypięte `Fixed`, PR #68) →
-  v0.3.12 (2026-10-02: rozciągnięta średnica przypięta na linii promienia, PR #73). Release na GitHubie tworzy operator
+  v0.3.12 (2026-10-02: rozciągnięta średnica przypięta na linii promienia, PR #73) →
+  v0.3.13 (2026-10-02: styl wstawianych wymiarów z pliku atrybutów, Arial Narrow 2,50, PR #76). Release na GitHubie tworzy operator
   ręcznie — `gh release create` blokuje klasyfikator auto mode. Sama flaga pre-release
   na GitHubie nigdy nie była wiarygodnym sygnałem bezpieczeństwa w tym
   repo — nie ufać jej, sprawdzać kod.

@@ -515,7 +515,7 @@ namespace RoAxisDimensionRemover
                 return;
             }
 
-            var dimension = new StraightDimension(flatView, start, end, side, line - Along(start, up), referenceSet.Attributes);
+            var dimension = new StraightDimension(flatView, start, end, side, line - Along(start, up), InsertAttributes());
             if (!dimension.Insert())
             {
                 log($"{label}: StraightDimension.Insert() zwrócił false.");
@@ -552,6 +552,23 @@ namespace RoAxisDimensionRemover
             set.Distance = line - Along(stored.StartPoint, up);
             return set.Modify() && drawing.CommitChanges("Wymiar wcięcia - położenie");
         }
+
+        // Styl wstawianych wymiarów - plik atrybutów wymiaru z modelu, nie styl
+        // odczytany z istniejącego wymiaru. Zmierzone 2026-10-02 na [35270]
+        // (odczyt z osobnego procesu): z atrybutami odczytanymi ze wzorca
+        // (Arial Narrow 2,50) Tekla wstawiała Arial 3,50 i min. odstęp 8,
+        // a czcionkę ustawioną potem przez Modify() pomijała (Fixed w tym
+        // samym Modify() się przyjmował). Z atrybutami z pliku: Arial Narrow
+        // 2,50, min. odstęp 5 - jak wymiary Tekli. Plik: tego używają firmowe
+        // ustawienia wymiarowania rysunków pojedynczej części (W_View_Dim_*,
+        // m.in. W_View_Dim_Railing); A_View_Dim_* (zespoły) mają
+        // #HFT_Dim_Standard z 3,50.
+        // ponytail: nazwa na sztywno; na innym środowisku bez tego pliku Tekla
+        // da po cichu domyślny styl - wtedy pole w oknie programu.
+        private const string DimensionAttributesFile = "#HFT_Dim_W_Standard";
+
+        private static StraightDimensionSet.StraightDimensionSetAttributes InsertAttributes() =>
+            new StraightDimensionSet.StraightDimensionSetAttributes(DimensionAttributesFile);
 
         // Tolerancja "ten sam punkt" dla końca istniejącego wymiaru vs końca
         // cięciwy z bryły, mm modelu w układzie widoku. Zmierzone 2026-09-29
@@ -648,7 +665,7 @@ namespace RoAxisDimensionRemover
                         log("Rozciąganie promienia: WSTRZYMANO - nie da się odczytać stylu istniejącego wymiaru.");
                         continue;
                     }
-                    var diameterDimension = new StraightDimension(view, tip, oppositeTip, dimension.UpDirection, dimension.Distance, set.Attributes);
+                    var diameterDimension = new StraightDimension(view, tip, oppositeTip, dimension.UpDirection, dimension.Distance, InsertAttributes());
                     if (!diameterDimension.Insert())
                     {
                         log("Rozciąganie promienia: StraightDimension.Insert() zwrócił false, promień zostaje bez zmian.");
