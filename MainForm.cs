@@ -7,7 +7,7 @@ using Tekla.Structures.Drawing;
 namespace RoAxisDimensionRemover
 {
     /// <summary>
-    /// UI: dwa przyciski (usuń wymiary do osi, wstaw wymiar wcięcia), podpis
+    /// UI: jeden przycisk (usuń wymiary do osi + wstaw wymiar wcięcia), podpis
     /// stanu, log. Logika w RoAxisDimensionService i NotchPilot. Bez nasłuchu
     /// zdarzeń Tekli - stan odświeża się przy fokusie okna.
     /// </summary>
@@ -16,13 +16,12 @@ namespace RoAxisDimensionRemover
         private bool _busy;
 
         // Operator (2026-09-30): log ma zostać przez wszystkie operacje na
-        // jednym rysunku (Usuń w kilku widokach, potem Wstaw), a czyścić się
+        // jednym rysunku (kilka kliknięć z rzędu), a czyścić się
         // dopiero przy przejściu na inny. Tekla nie daje zdarzenia zamknięcia
         // rysunku, więc porównujemy Mark aktywnego rysunku przy każdym kliku.
         private string _logDrawingMark;
 
-        private Button _runButton;
-        private Button _insertNotchButton;
+        private Button _cleanupButton;
         private TextBox _logBox;
         private Label _statusLabel;
 
@@ -41,25 +40,15 @@ namespace RoAxisDimensionRemover
             Height = 455;
             StartPosition = FormStartPosition.CenterScreen;
 
-            _runButton = new Button
+            _cleanupButton = new Button
             {
-                Text = "Usuń wymiary do osi na wybranym widoku (profile RO)\nShift + klik: na wszystkich widokach rysunku",
+                Text = "Posprzątaj wymiary na aktywnym rysunku (profile RO)\nusuwa wymiary do osi, wstawia wymiary wcięcia",
                 Left = 15,
                 Top = 15,
                 Width = 470,
-                Height = 40
+                Height = 75
             };
-            _runButton.Click += RunButton_Click;
-
-            _insertNotchButton = new Button
-            {
-                Text = "Wstaw wymiar wcięcia dla złączy na wybranym rysunku",
-                Left = 15,
-                Top = 60,
-                Width = 470,
-                Height = 30
-            };
-            _insertNotchButton.Click += InsertNotchButton_Click;
+            _cleanupButton.Click += CleanupButton_Click;
 
             _statusLabel = new Label
             {
@@ -108,8 +97,7 @@ namespace RoAxisDimensionRemover
             };
 
             Controls.Add(_updateBanner);
-            Controls.Add(_runButton);
-            Controls.Add(_insertNotchButton);
+            Controls.Add(_cleanupButton);
             Controls.Add(_statusLabel);
             Controls.Add(_logBox);
 
@@ -140,8 +128,7 @@ namespace RoAxisDimensionRemover
             _updateBanner.Text = "Dostępna nowsza wersja " + version + " - kliknij, aby pobrać";
             _updateBanner.Visible = true;
 
-            _runButton.Top += UpdateBannerHeight;
-            _insertNotchButton.Top += UpdateBannerHeight;
+            _cleanupButton.Top += UpdateBannerHeight;
             _statusLabel.Top += UpdateBannerHeight;
             _logBox.Top += UpdateBannerHeight;
             Height += UpdateBannerHeight;
@@ -199,17 +186,20 @@ namespace RoAxisDimensionRemover
             }
         }
 
-        private void RunButton_Click(object sender, EventArgs e)
+        /// <summary>
+        /// Jeden przycisk (operator, 2026-10-05): „Usuń” na wszystkich widokach
+        /// arkusza, potem „Wstaw” na całym rysunku. Dawniej dwa osobne
+        /// przyciski i wybór widoku kliknięciem; Shift + klik (wszystkie widoki)
+        /// stał się domyślny, bo operator i tak go używał. Reguły bez zmian -
+        /// to ten sam cykl, który przechodził bramę na żywo (Usuń z Shift →
+        /// Wstaw). Wybór pojedynczego widoku (przypadek [35020]) zniknął razem
+        /// z pickerem - na takim rysunku Ctrl+Z cofa widok po widoku.
+        /// </summary>
+        private void CleanupButton_Click(object sender, EventArgs e)
         {
             if (_busy) return;
-            // Czytane od razu - Shift jest wciśnięty w chwili kliku, nie
-            // później. Opcja dla operatora (2026-10-01), domyślnie dalej
-            // jeden widok: z Shift nie da się pominąć widoku, którego nie
-            // chce się czyścić ([35020]).
-            bool allViews = (ModifierKeys & Keys.Shift) == Keys.Shift;
-
             _busy = true;
-            _runButton.Enabled = false;
+            _cleanupButton.Enabled = false;
 
             try
             {
@@ -225,93 +215,28 @@ namespace RoAxisDimensionRemover
                     _statusLabel.Text = "Brak otwartego rysunku.";
                     return;
                 }
-                // dryRun: false - brama bezpieczeństwa dla POPRAWIONEJ
-                // reguły TouchesAxis PRZESZŁA 2026-09-23 (ten sam dzień co
-                // gate v5, druga runda tego dnia). Poprzednia reguła
-                // niepotrzebnie kasowała "21 mm" (płaski wymiar promienia
-                // rury, nie artefakt złącza) - operator zgłosił to na
-                // żywym [35021]. Naprawiona TouchesAxis (patrz komentarz
-                // przy niej w RoAxisDimensionService.cs: wymaga realnej
-                // głębi Z, nie tylko Y=0) zweryfikowana dry-runem na żywo na
-                // [35021] i NA OBU końcach [3.5013] (każdy koniec dał
-                // dokładnie 1 kandydata, "21 mm" zachowany). Operator
-                // obejrzał wynik w Tekli i wprost potwierdził na pytanie
-                // "czy rysunek nadal opisuje wszystko co musi" (tak) oraz na
-                // pytanie o realne kasowanie ("tak").
+                // dryRun: false - brama bezpieczeństwa reguły v6 przeszła
+                // 2026-09-23 (operator na żywym [35021] i [3.5013]: „rysunek
+                // opisuje wszystko” i „tak” na realne kasowanie). Historia:
+                // AGENTS.md i wiki 10-Dziennik-2026-09.
                 const bool dryRun = false;
 
-                if (allViews)
+                BeginLog(drawing, "PORZĄDKOWANIE WYMIARÓW");
+                // Każdy widok zatwierdza się osobno, więc Ctrl+Z cofa widok po
+                // widoku, a wstawienie to kolejne kroki cofania.
+                int removed = 0, viewNumber = 0;
+                foreach (var sheetView in DiagRunner.SheetViews(drawing).ToList())
                 {
-                    BeginLog(drawing, "USUŃ WYMIARY DO OSI — WSZYSTKIE WIDOKI");
-                    // Ta sama reguła i te same guardy co dla jednego widoku -
-                    // RemoveAxisDimensions po kolei na każdym widoku arkusza,
-                    // dokładnie jak --diag-find-candidates. Każdy widok
-                    // zatwierdza się osobno, więc Ctrl+Z cofa widok po widoku
-                    // (operator: kilka Ctrl+Z jest OK).
-                    int total = 0, viewNumber = 0;
-                    foreach (var sheetView in DiagRunner.SheetViews(drawing).ToList())
-                    {
-                        viewNumber++;
-                        Log($"--- widok {viewNumber} ({sheetView.GetType().Name}) ---");
-                        total += RoAxisDimensionService.RemoveAxisDimensions(drawing, sheetView, Log, dryRun);
-                    }
-                    _statusLabel.Text = $"Gotowe. Wszystkie widoki ({viewNumber}). Usunięto {total} wymiarów. Ctrl+Z cofa widok po widoku.";
-                    if (!dryRun && total > 0) TeklaWindowFocus.BringToFront(Log);
-                    return;
+                    viewNumber++;
+                    Log($"--- widok {viewNumber} ({sheetView.GetType().Name}) ---");
+                    removed += RoAxisDimensionService.RemoveAxisDimensions(drawing, sheetView, Log, dryRun);
                 }
 
-                BeginLog(drawing, "USUŃ WYMIARY DO OSI");
+                Log("--- wymiary wcięcia ---");
+                int inserted = NotchPilot.InsertMissing(drawing, Log);
 
-                // Podejrzenie: zawieszenie zaczęło się po dodaniu
-                // TeklaWindowFocus.BringToFront() TUŻ PRZED startem pickera -
-                // wcześniejsze testy (bez tego wywołania) kończyły się
-                // poprawnie. Wymuszanie fokusu w trakcie uzbrajania pickera
-                // mogło zakłócić stan Tekli. Cofamy to - Hide() zostaje (żeby
-                // to okno nie zasłaniało kliku), ale bez SetForegroundWindow
-                // przed PickPoint.
-                Hide();
-                ViewBase view;
-                try
-                {
-                    var picker = dh.GetPicker();
-                    picker.PickPoint("Kliknij widok (Esc = wybierz z listy)", out _, out view);
-                }
-                catch (PickerInterruptedException)
-                {
-                    view = null;
-                }
-                finally
-                {
-                    Show();
-                    BringToFront();
-                    Activate();
-                }
-
-                if (view == null)
-                {
-                    view = PickViewFromList(drawing);
-                }
-
-                if (view == null)
-                {
-                    _statusLabel.Text = "Nie wybrano widoku.";
-                    return;
-                }
-                string viewLabel = view.GetType().Name;
-
-                int removedCount = RoAxisDimensionService.RemoveAxisDimensions(drawing, view, Log, dryRun);
-                _statusLabel.Text = dryRun
-                    ? $"Gotowe (dry-run). Widok: {viewLabel}. Znaleziono {removedCount} wymiarów do usunięcia - nic nie skasowano. Sprawdź log, czy wygląda poprawnie."
-                    : $"Gotowe. Widok: {viewLabel}. Usunięto {removedCount} wymiarów. Sprawdź wizualnie w Tekli (Ctrl+Z cofa, jeśli coś jest nie tak).";
-
-                // Fokus na Teklę (do Ctrl+Z) ma sens TYLKO gdy coś realnie
-                // skasowano - w dry-run nie ma czego cofać, a przenoszenie
-                // fokusu na Teklę zabierało operatorowi z oczu wynik, który
-                // właśnie się pojawił w tym oknie.
-                if (!dryRun)
-                {
-                    TeklaWindowFocus.BringToFront(Log);
-                }
+                _statusLabel.Text = $"Gotowe. Usunięto {removed}, wstawiono {inserted}. Sprawdź w Tekli (Ctrl+Z cofa).";
+                if (removed + inserted > 0) TeklaWindowFocus.BringToFront(Log);
             }
             catch (Exception ex)
             {
@@ -322,129 +247,7 @@ namespace RoAxisDimensionRemover
             finally
             {
                 _busy = false;
-                _runButton.Enabled = true;
-            }
-        }
-
-        /// <summary>
-        /// Uzupełnia brakujące wymiary wcięcia (szerokość + długość) dla
-        /// każdej kwalifikującej się ściany cięcia na aktywnym rysunku
-        /// (NotchPilot.InsertMissing - napędzane geometrią, nie wymiarami do
-        /// osi). Bez blokady rysunku od 2026-09-25 (decyzja operatora) -
-        /// program NIE odróżnia jeszcze złącza, które faktycznie potrzebuje wymiaru
-        /// wcięcia, od takiego, które tylko geometrycznie ma ścianę cięcia
-        /// (patrz AGENTS.md, "Znane słabości") - obejrzeć wynik w Tekli.
-        /// </summary>
-        private void InsertNotchButton_Click(object sender, EventArgs e)
-        {
-            if (_busy) return;
-            if (MessageBox.Show(this,
-                "Wstawić brakujące wymiary wcięcia (szerokość + długość) dla wszystkich kwalifikujących się złączy na aktywnym rysunku?\n\nCtrl+Z w Tekli cofa.",
-                "Wymiar wcięcia", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
-            {
-                return;
-            }
-
-            _busy = true;
-            try
-            {
-                var handler = new DrawingHandler();
-                if (!handler.GetConnectionStatus())
-                {
-                    _statusLabel.Text = "Brak połączenia z Teklą.";
-                    return;
-                }
-                var drawing = handler.GetActiveDrawing();
-                if (drawing == null)
-                {
-                    _statusLabel.Text = "Brak otwartego rysunku.";
-                    return;
-                }
-                BeginLog(drawing, "WSTAWIANIE WYMIARU WCIĘCIA");
-
-                int insertedCount = NotchPilot.InsertMissing(drawing, Log);
-                bool anyInserted = insertedCount > 0;
-                _statusLabel.Text = anyInserted
-                    ? "Uzupełniono wymiary wcięcia. Sprawdź je w Tekli (Ctrl+Z cofa)."
-                    : "Nie wstawiono nowego wymiaru — zobacz log.";
-                if (anyInserted) TeklaWindowFocus.BringToFront(Log);
-            }
-            catch (Exception ex)
-            {
-                _statusLabel.Text = "Błąd — zobacz log.";
-                Log("BŁĄD: " + ex.Message);
-                Log(ex.StackTrace);
-            }
-            finally
-            {
-                _busy = false;
-            }
-        }
-
-        /// <summary>
-        /// Zapasowa ścieżka wyboru widoku, gdy operator naciśnie Esc w
-        /// Tekli zamiast klikać (PickPoint potrafi zawiesić się bez końca
-        /// na kliku w pustkę - patrz komentarz w RunButton_Click). Etykieta
-        /// to typ widoku + rozmiar w mm na papierze
-        /// (GetAxisAlignedBoundingBox - PUŁAPKA jednostek z AGENTS.md: to
-        /// mm na papierze, nie jednostki modelu).
-        /// </summary>
-        private ViewBase PickViewFromList(Drawing drawing)
-        {
-            var views = new System.Collections.Generic.List<ViewBase>();
-            var top = drawing.GetSheet().GetAllObjects();
-            while (top.MoveNext())
-            {
-                if (top.Current is ViewBase vb)
-                {
-                    views.Add(vb);
-                }
-            }
-
-            if (views.Count == 0)
-            {
-                MessageBox.Show(this, "Na arkuszu nie znaleziono żadnego widoku.", "Brak widoków");
-                return null;
-            }
-
-            using (var dialog = new Form
-            {
-                Text = "Wybierz widok",
-                Width = 420,
-                Height = 320,
-                StartPosition = FormStartPosition.CenterScreen,
-                MinimizeBox = false,
-                MaximizeBox = false
-            })
-            {
-                var list = new ListBox { Left = 10, Top = 10, Width = 384, Height = 220 };
-                for (int i = 0; i < views.Count; i++)
-                {
-                    string size;
-                    try
-                    {
-                        var box = views[i].GetAxisAlignedBoundingBox();
-                        size = $"{box.MaxPoint.X - box.MinPoint.X:F0}×{box.MaxPoint.Y - box.MinPoint.Y:F0} mm";
-                    }
-                    catch (Exception ex)
-                    {
-                        size = "rozmiar nieznany (" + ex.GetType().Name + ")";
-                    }
-                    list.Items.Add($"{i + 1}. {views[i].GetType().Name} - {size}");
-                }
-                list.SelectedIndex = 0;
-
-                var okButton = new Button { Text = "OK", Left = 220, Top = 240, Width = 80, DialogResult = DialogResult.OK };
-                var cancelButton = new Button { Text = "Anuluj", Left = 310, Top = 240, Width = 80, DialogResult = DialogResult.Cancel };
-                dialog.Controls.Add(list);
-                dialog.Controls.Add(okButton);
-                dialog.Controls.Add(cancelButton);
-                dialog.AcceptButton = okButton;
-                dialog.CancelButton = cancelButton;
-
-                return dialog.ShowDialog(this) == DialogResult.OK && list.SelectedIndex >= 0
-                    ? views[list.SelectedIndex]
-                    : null;
+                _cleanupButton.Enabled = true;
             }
         }
 

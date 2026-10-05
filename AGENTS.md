@@ -78,7 +78,11 @@ na zainstalowaną kopię (NIE na `bin`) — nowy build testować przez
 kasującym dane: v0.3.2 (rozciąganie zjadało całkowitą długość), v0.3.3
 (łuki), v0.3.5 i starsze (całkowita długość krótkich rur) — v0.3.2 na wiki (`10-Dziennik-2026-09`), pozostałe niżej.
 
-**Co robi program (dwa osobne przyciski):**
+**Co robi program:** od 2026-10-05 (gałąź `one-button-cleanup`, prośba
+operatora) JEDEN przycisk „Posprzątaj wymiary” = pkt 1 z Shift (wszystkie
+widoki) + pkt 2, bez pytania; wybór pojedynczego widoku (picker) usunięty.
+Reguły bez zmian. Operator sprawdził na żywym `[35095]`: „działa”. Opis
+niżej to dwie części tego przepływu:
 1. „Usuń wymiary do osi” — jeden widok wskazany kliknięciem; guardy:
    `SinglePartDrawing` + część o profilu `RO…` w widoku + brak giętej
    części w widoku (od v0.3.4); reguła v6
@@ -125,8 +129,8 @@ wcześniejsze wpisy mówią, że usunięty; wrócił), `[3.5027]`, `[35095]`,
 - Dwa `42` w jednym widoku przy 45° to NIE duplikaty (sprawdzone
   2026-09-29 na 12 rysunkach): średnica i długość cięcia, które przy 45°
   mają tę samą wartość. Szerokość wcięcia zawsze trafia do innego widoku.
-- „Usuń” i „Wstaw” to osobne przyciski, nie jeden przepływ. Pierwotna wizja
-  (skasuj i od razu wstaw) niezrealizowana — nie robić bez prośby operatora.
+- Pierwotna wizja (skasuj i od razu wstaw) zrealizowana 2026-10-05 jednym
+  przyciskiem. Nie da się już pominąć widoku (`[35020]`) — Ctrl+Z.
 
 **Próg kąta cięcia 10° → 6,5° (2026-09-30, v0.3.5) — szara strefa
 8–9°.** Skan 29.09: `[35092]` 8,7°, `[35260]`
